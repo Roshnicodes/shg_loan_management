@@ -1,0 +1,5 @@
+class AddMonthlyIncomeToShgMembers < ActiveRecord::Migration[8.0]
+  def change
+    add_column :shg_members, :monthly_income, :decimal, precision: 12, scale: 2
+  end
+end

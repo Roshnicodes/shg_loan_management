@@ -1,0 +1,90 @@
+<% content_for :page_title, "Dashboard" %>
+
+<section class="panel dashboard-panel">
+  <div class="panel-header compact">
+    <div>
+      <p class="eyebrow">Overview</p>
+      <h2>Dashboard Summary</h2>
+    </div>
+  </div>
+  <div class="metrics-grid summary-grid">
+    <% @summary_counts.each do |label, value| %>
+      <div class="metric">
+        <span><%= label %></span>
+        <strong><%= value %></strong>
+      </div>
+    <% end %>
+  </div>
+</section>
+
+<section class="dashboard-approval-grid">
+  <div class="panel dashboard-panel">
+    <div class="panel-header compact">
+      <div>
+        <p class="eyebrow">SHG Approval</p>
+        <h2>SHG Status</h2>
+      </div>
+      <%= link_to "Open SHG", shgs_path, class: "secondary-link" %>
+    </div>
+    <div class="approval-metrics">
+      <% @shg_approval_counts.each do |label, value| %>
+        <div class="approval-metric">
+          <span><%= label %></span>
+          <strong><%= value %></strong>
+        </div>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="panel dashboard-panel">
+    <div class="panel-header compact">
+      <div>
+        <p class="eyebrow">Visit Approval</p>
+        <h2>Visit Status</h2>
+      </div>
+      <%= link_to "Open Visits", visit_records_path, class: "secondary-link" %>
+    </div>
+    <div class="approval-metrics visit-metrics">
+      <% @visit_approval_counts.each do |label, value| %>
+        <div class="approval-metric">
+          <span><%= label %></span>
+          <strong><%= value %></strong>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Latest entries</p>
+      <h2>Recent SHG Loans</h2>
+    </div>
+    <%= link_to "New Loan", new_shg_loan_path, class: "primary-link" %>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>SHG</th>
+          <th>Member</th>
+          <th>Status</th>
+          <th>Principal</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @recent_loans.each do |loan| %>
+          <tr>
+            <td><%= link_to loan.shg.name, loan %></td>
+            <td><%= loan.shg_member.name %></td>
+            <td><span class="status"><%= loan.loan_status.name %></span></td>
+            <td><%= number_to_currency(loan.principal_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(loan.total_payable, unit: "₹") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>

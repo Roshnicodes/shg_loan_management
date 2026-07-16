@@ -1,0 +1,17 @@
+<%= render "shared/errors", record: @shg %>
+<% district_options = District.order(:name).map { |district| [district.name, district.id, { data: { state_id: district.state_id } }] } %>
+<% block_options = Block.order(:name).map { |block| [block.name, block.id, { data: { district_id: block.district_id } }] } %>
+<% village_options = Village.order(:name).map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
+
+<%= form_with model: @shg, class: "form-grid", data: { controller: "location-select" } do |form| %>
+  <label><span>State</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+  <label><span>District</span><%= form.select :district_id, options_for_select(district_options, @shg.district_id), { prompt: "Select district" }, required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+  <label><span>Block</span><%= form.select :block_id, options_for_select(block_options, @shg.block_id), { prompt: "Select block" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
+  <label><span>Village</span><%= form.select :village_id, options_for_select(village_options, @shg.village_id), { prompt: "Select village" }, required: true, data: { location_select_target: "village" } %></label>
+  <label><span>SHG Name</span><%= form.text_field :name, required: true %></label>
+  <label><span>Linkage Date</span><%= form.date_field :linkage_date %></label>
+  <label><span>Meeting Register</span><%= form.file_field :meeting_register, accept: ".pdf,image/png,image/jpeg,image/webp" %></label>
+  <label><span>Meeting Photo</span><%= form.file_field :meeting_photo, accept: ".pdf,image/png,image/jpeg,image/webp" %></label>
+  <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
+  <div class="form-actions"><%= link_to "Cancel", shgs_path, class: "secondary-link" %><%= form.submit "Save SHG", class: "primary-button" %></div>
+<% end %>

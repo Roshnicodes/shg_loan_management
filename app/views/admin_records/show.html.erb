@@ -1,0 +1,19 @@
+<% content_for :page_title, controller.record_title %>
+
+<section class="panel narrow">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Details</p>
+      <h2><%= controller.record_title %></h2>
+    </div>
+    <% if can_manage_records? %>
+      <%= link_to "Edit", polymorphic_path([:edit, @record]), class: "primary-link" %>
+    <% end %>
+  </div>
+  <dl class="detail-list">
+    <% controller.record_fields.each do |field| %>
+      <dt><%= field[:label] %></dt>
+      <dd><%= record_field_value(@record, field) %></dd>
+    <% end %>
+  </dl>
+</section>

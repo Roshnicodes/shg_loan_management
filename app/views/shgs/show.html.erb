@@ -1,0 +1,65 @@
+<% content_for :page_title, @shg.name %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">SHG Details</p>
+      <h2><%= @shg.name %></h2>
+    </div>
+    <div class="action-row">
+      <%= link_to "Back", shgs_path, class: "secondary-link" %>
+      <% if can_manage_shg?(@shg) %>
+        <%= link_to "Edit", edit_shg_path(@shg), class: "primary-link" %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="record-hero">
+    <div class="record-card">
+      <h3><%= @shg.name %></h3>
+      <p><%= [@shg.state.name, @shg.district.name, @shg.block.name, @shg.village.name].join(" / ") %></p>
+    </div>
+    <div class="record-card">
+      <h3>Status</h3>
+      <p><span class="status <%= @shg.approval_status %>"><%= @shg.approval_label %></span></p>
+    </div>
+  </div>
+
+  <div class="record-metrics">
+    <div><small>Members</small><strong><%= @shg.shg_members.count %></strong></div>
+    <div><small>Loans</small><strong><%= @shg.shg_loans.count %></strong></div>
+    <div><small>Linkage Date</small><strong><%= @shg.linkage_date || "-" %></strong></div>
+  </div>
+
+  <h3 class="detail-section-title">Approval & Documents</h3>
+  <dl class="detail-list">
+    <dt>Created By</dt>
+    <dd><%= @shg.created_by&.display_name || "-" %></dd>
+    <dt>DC Approval</dt>
+    <dd><%= @shg.dc_approved_by&.display_name || "-" %><% if @shg.dc_approved_at.present? %><br><small><%= l(@shg.dc_approved_at, format: :short) %></small><% end %></dd>
+    <dt>Assistant Approval</dt>
+    <dd><%= @shg.assistant_approved_by&.display_name || "-" %><% if @shg.assistant_approved_at.present? %><br><small><%= l(@shg.assistant_approved_at, format: :short) %></small><% end %></dd>
+    <dt>Remarks</dt>
+    <dd><%= @shg.approval_remarks.presence || "-" %></dd>
+    <dt>Meeting Register</dt>
+    <dd>
+      <% if @shg.meeting_register.attached? %>
+        <%= link_to @shg.meeting_register.filename.to_s, rails_blob_path(@shg.meeting_register, disposition: "attachment") %>
+      <% else %>
+        -
+      <% end %>
+    </dd>
+    <dt>Meeting Photo</dt>
+    <dd>
+      <% if @shg.meeting_photo.attached? %>
+        <% if @shg.meeting_photo.image? %>
+          <%= link_to image_tag(@shg.meeting_photo, class: "attachment-preview", alt: "Meeting photo"), rails_blob_path(@shg.meeting_photo, disposition: "attachment") %>
+        <% else %>
+          <%= link_to @shg.meeting_photo.filename.to_s, rails_blob_path(@shg.meeting_photo, disposition: "attachment") %>
+        <% end %>
+      <% else %>
+        -
+      <% end %>
+    </dd>
+  </dl>
+</section>

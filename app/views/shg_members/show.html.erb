@@ -1,0 +1,43 @@
+<% content_for :page_title, @member.name %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Member Details</p>
+      <h2><%= @member.name %></h2>
+    </div>
+    <div class="action-row">
+      <%= link_to "Back", shg_members_path, class: "secondary-link" %>
+      <% if can_manage_shg_member?(@member) %>
+        <%= link_to "Edit", edit_shg_member_path(@member), class: "primary-link" %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="record-hero">
+    <div class="record-card">
+      <h3><%= @member.name %></h3>
+      <p><%= @member.shg.display_name %></p>
+    </div>
+    <div class="record-card">
+      <h3>Contact</h3>
+      <p><%= @member.mobile.presence || "-" %></p>
+    </div>
+  </div>
+
+  <div class="record-metrics">
+    <div><small>Loan No</small><strong><%= @member.loan_no.presence || "-" %></strong></div>
+    <div><small>Aadhaar</small><strong><%= @member.aadhaar_no.presence || "-" %></strong></div>
+    <div><small>Monthly HH Income</small><strong><%= @member.monthly_income.present? ? number_to_currency(@member.monthly_income, unit: "₹") : "-" %></strong></div>
+  </div>
+
+  <h3 class="detail-section-title">Profile</h3>
+  <dl class="detail-list">
+    <dt>Gender</dt>
+    <dd><%= @member.gender.presence || "-" %></dd>
+    <dt>Date of Birth</dt>
+    <dd><%= @member.dob || "-" %></dd>
+    <dt>Address</dt>
+    <dd><%= simple_format(@member.address.presence || "-") %></dd>
+  </dl>
+</section>

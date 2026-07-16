@@ -1,0 +1,142 @@
+<% content_for :page_title, "Loan Passbook" %>
+
+<div class="passbook-actions">
+  <%= link_to "Back to Loan", shg_loan_path(@loan), class: "secondary-link" %>
+  <button type="button" class="primary-button" onclick="window.print()">Print / Save PDF</button>
+</div>
+
+<section class="passbook-page">
+  <div class="passbook-cover">
+    <div class="passbook-brand">
+      <div class="passbook-logo">SHG</div>
+      <div>
+        <p>SHG Loan Management System</p>
+        <h1>PASSBOOK</h1>
+        <span>Loan Passbook</span>
+      </div>
+    </div>
+
+    <div class="passbook-illustration">
+      <%= image_tag "shg-passbook-women.png", alt: "SHG women group", class: "passbook-women-image" %>
+      <strong>Bachat Se Samriddhi, Samuh Se Shakti</strong>
+    </div>
+
+    <div class="passbook-card">
+      <h2>SHG Details</h2>
+      <dl>
+        <dt>SHG Name</dt><dd><%= @loan.shg.name %></dd>
+        <dt>Village</dt><dd><%= @loan.shg.village.name %></dd>
+        <dt>Block</dt><dd><%= @loan.shg.block.name %></dd>
+        <dt>CRP Name</dt><dd><%= @loan.created_by.name %></dd>
+      </dl>
+    </div>
+
+    <div class="passbook-issued">
+      <span>Passbook Issued On</span>
+      <strong><%= Date.current.strftime("%d/%m/%Y") %></strong>
+      <small>Authorised Signatory</small>
+    </div>
+  </div>
+
+  <div class="passbook-details">
+    <div class="passbook-card highlight">
+      <h2>Loan Account Details</h2>
+      <dl>
+        <dt>Member Name</dt><dd><%= @loan.shg_member.name %></dd>
+        <dt>Member ID</dt><dd><%= @loan.shg_member.loan_no.presence || "MEM#{@loan.shg_member.id.to_s.rjust(4, '0')}" %></dd>
+        <dt>Product</dt><dd><%= @loan.product.name %></dd>
+        <dt>Loan Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
+        <dt>Interest Rate</dt><dd><%= @loan.interest_percent.present? ? "#{@loan.interest_percent}% per #{@loan.loan_term_type.downcase} reducing" : "-" %></dd>
+        <dt>Loan Term</dt><dd><%= @loan.loan_term %> <%= @loan.loan_term_type %></dd>
+        <dt>Disbursement Date</dt><dd><%= @loan.distribution_date.strftime("%d/%m/%Y") %></dd>
+      </dl>
+    </div>
+
+    <div class="passbook-card">
+      <h2>Loan Summary</h2>
+      <dl>
+        <dt>Principal Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
+        <dt>Total Interest</dt><dd><%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
+        <dt>Total Payable</dt><dd><%= number_to_currency(@loan.total_payable, unit: "₹") %></dd>
+        <dt>Paid Amount</dt><dd><%= number_to_currency(@loan.total_paid, unit: "₹") %></dd>
+        <dt>Remaining</dt><dd><%= number_to_currency(@loan.remaining_amount, unit: "₹") %></dd>
+      </dl>
+    </div>
+
+    <div class="passbook-note">Niyamit Bachat, Samay Par Bhugtan, Ujjwal Bhavishya Ki Pehchan.</div>
+  </div>
+</section>
+
+<section class="passbook-page transactions">
+  <div class="passbook-table-header">
+    <span>Member Name: <strong><%= @loan.shg_member.name %></strong></span>
+    <h2>Loan Account Transactions</h2>
+    <span>Member ID: <strong><%= @loan.shg_member.loan_no.presence || "-" %></strong></span>
+  </div>
+
+  <div class="table-wrap passbook-table-wrap">
+    <table class="passbook-table">
+      <thead>
+        <tr>
+          <th>S.No.</th>
+          <th>Date</th>
+          <th>Particulars</th>
+          <th>Receipt</th>
+          <th>Payment</th>
+          <th>Principal</th>
+          <th>Interest</th>
+          <th>Balance</th>
+          <th>Remark</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td><%= @loan.distribution_date.strftime("%d/%m/%Y") %></td>
+          <td>Loan Disbursement</td>
+          <td><%= number_to_currency(@loan.principal_amount, unit: "₹") %></td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+          <td><%= number_to_currency(@loan.principal_amount, unit: "₹") %></td>
+          <td>Disbursed</td>
+        </tr>
+        <% balance = @loan.principal_amount.to_d %>
+        <% @emis.each_with_index do |emi, index| %>
+          <% balance = [balance - emi.principal_amount.to_d, 0.to_d].max %>
+          <tr>
+            <td><%= index + 2 %></td>
+            <td><%= emi.due_date.strftime("%d/%m/%Y") %></td>
+            <td>EMI - Month <%= emi.installment_no %><%= " (Final)" if emi.installment_no == @loan.loan_term.to_i %></td>
+            <td>-</td>
+            <td><%= number_to_currency(emi.due_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(emi.principal_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(emi.interest_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(balance, unit: "₹") %></td>
+            <td><%= balance.zero? ? "Loan Closed" : "" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="3">Total</th>
+          <th><%= number_to_currency(@loan.principal_amount, unit: "₹") %></th>
+          <th><%= number_to_currency(@loan.total_payable, unit: "₹") %></th>
+          <th><%= number_to_currency(@emis.sum(:principal_amount), unit: "₹") %></th>
+          <th><%= number_to_currency(@emis.sum(:interest_amount), unit: "₹") %></th>
+          <th><%= number_to_currency(0, unit: "₹") %></th>
+          <th>-</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="passbook-footer">
+    <div>
+      <strong>Important Instructions</strong>
+      <p>Pay EMI on or before due date. Keep this passbook safe.</p>
+    </div>
+    <span>Member Signature</span>
+    <span>Authorised Signatory</span>
+  </div>
+</section>

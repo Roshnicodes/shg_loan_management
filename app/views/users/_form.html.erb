@@ -1,0 +1,21 @@
+<%= render "shared/errors", record: @user %>
+<% district_options = District.order(:name).map { |district| [district.name, district.id, { data: { state_id: district.state_id } }] } %>
+<% block_options = Block.order(:name).map { |block| [block.name, block.id, { data: { district_id: block.district_id } }] } %>
+<% village_options = Village.order(:name).map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
+
+<%= form_with model: @user, class: "form-grid", data: { controller: "location-select" } do |form| %>
+  <label><span>User Name</span><%= form.text_field :name, required: true %></label>
+  <label><span>Login ID</span><%= form.text_field :login_id, required: true, pattern: "[A-Za-z0-9_.-]+", title: "Only letters, numbers, dot, dash and underscore" %></label>
+  <label><span>Email</span><%= form.email_field :email, required: true %></label>
+  <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
+  <label><span>Designation</span><%= form.text_field :designation %></label>
+  <label><span>User Type</span><%= form.collection_select :user_type_id, UserType.order(:name), :id, :display_name, { prompt: "Select role" }, required: true %></label>
+  <label><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { include_blank: "No state mapping" }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+  <label><span>District Office</span><%= form.select :district_id, options_for_select(district_options, @user.district_id), { include_blank: "No district mapping" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+  <label><span>Block Office</span><%= form.select :block_id, options_for_select(block_options, @user.block_id), { include_blank: "No block mapping" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
+  <label><span>Village Office</span><%= form.select :village_id, options_for_select(village_options, @user.village_id), { include_blank: "No village mapping" }, data: { location_select_target: "village" } %></label>
+  <label><span>Password</span><%= form.password_field :password, required: !@user.persisted?, autocomplete: "new-password" %></label>
+  <label><span>Confirm Password</span><%= form.password_field :password_confirmation, required: !@user.persisted?, autocomplete: "new-password" %></label>
+  <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
+  <div class="form-actions"><%= link_to "Cancel", users_path, class: "secondary-link" %><%= form.submit "Save User", class: "primary-button" %></div>
+<% end %>

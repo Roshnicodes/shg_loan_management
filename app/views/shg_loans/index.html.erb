@@ -1,0 +1,114 @@
+<% content_for :page_title, "SHG Loans" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div><p class="eyebrow">Loans</p><h2>SHG Loan Forms</h2></div>
+    <div class="action-row">
+      <%= link_to "Export CSV", export_shg_loans_path(request.query_parameters), class: "secondary-link" %>
+      <% if can_bulk_delete_records? %>
+        <%= form_with url: bulk_destroy_shg_loans_path(request.query_parameters), method: :delete, id: "bulk-delete-loans" do |form| %>
+          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected loans?" } %>
+        <% end %>
+      <% end %>
+      <% if can_manage_records? %><%= link_to "Add Loan", new_shg_loan_path, class: "primary-link" %><% end %>
+    </div>
+  </div>
+
+  <% if can_manage_records? %>
+    <div class="inline-import-panel">
+      <%= form_with url: import_shg_loans_path, multipart: true, class: "inline-import-form" do |form| %>
+        <label>
+          <span>Import Loan Excel/CSV</span>
+          <%= form.file_field :file, accept: ".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", required: true %>
+        </label>
+        <%= form.submit "Upload Loan Data", class: "primary-button" %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid" do |form| %>
+    <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
+    <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
+    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
+    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
+    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
+    <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+    <div class="filter-actions">
+      <%= link_to "Clear", shg_loans_path, class: "secondary-link" %>
+      <%= form.submit "Apply", class: "primary-button" %>
+    </div>
+  <% end %>
+
+  <div class="form-help full">
+    Download will follow the selected date, location and CRP filters.
+  </div>
+
+  <div class="table-wrap">
+    <table class="loan-import-table">
+      <thead>
+        <tr>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_loans", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-loans" }, aria: { label: "Select all loans on this page" } %></th><% end %>
+          <th>SHG</th>
+          <th>Member</th>
+          <th>State</th>
+          <th>District</th>
+          <th>Block</th>
+          <th>Village</th>
+          <th>CRP ID</th>
+          <th>CRPName</th>
+          <th>Product</th>
+          <th>Disbursement Date</th>
+          <th>Loan Status</th>
+          <th>Term Type</th>
+          <th>Loan term</th>
+          <th>Principal</th>
+          <th>Annual Interest Percent</th>
+          <th>Interest Amount</th>
+          <th>Total Payable</th>
+          <th>Principal Collected</th>
+          <th>Interest collected</th>
+          <th>Paid</th>
+          <th>Remaining</th>
+          <th>Mobile</th>
+          <th>Aadhaar</th>
+          <th>Monthly hh income</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @loans.each do |loan| %>
+          <tr>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", loan.id, false, form: "bulk-delete-loans" %></td><% end %>
+            <td><%= loan.shg.name %></td>
+            <td><%= link_to loan.shg_member.name, loan %></td>
+            <td><%= loan.shg.state.name %></td>
+            <td><%= loan.shg.district.name %></td>
+            <td><%= loan.shg.block.name %></td>
+            <td><%= loan.shg.village.name %></td>
+            <td><%= loan_crp_identifier(loan).presence || "-" %></td>
+            <td><%= loan_crp_name(loan).presence || "-" %></td>
+            <td><%= loan.product.name %></td>
+            <td><%= formatted_import_date(loan.distribution_date) %></td>
+            <td><span class="status"><%= loan_status_label(loan) %></span></td>
+            <td><%= loan.loan_term_type %></td>
+            <td><%= loan.loan_term %></td>
+            <td><%= number_to_currency(loan.principal_amount, unit: "₹") %></td>
+            <td><%= loan.interest_percent.present? ? loan.interest_percent : "-" %></td>
+            <td><%= number_to_currency(loan_interest_amount(loan), unit: "₹") %></td>
+            <td><%= number_to_currency(loan_total_payable(loan), unit: "₹") %></td>
+            <td><%= number_to_currency(loan_principal_collect(loan), unit: "₹") %></td>
+            <td><%= number_to_currency(loan_interest_collect(loan), unit: "₹") %></td>
+            <td><%= number_to_currency(loan_paid_amount(loan), unit: "₹") %></td>
+            <td><%= number_to_currency(loan_remaining_amount(loan), unit: "₹") %></td>
+            <td><%= loan.shg_member.mobile.presence || "-" %></td>
+            <td><%= loan.shg_member.aadhaar_no.presence || "-" %></td>
+            <td><%= loan.shg_member.monthly_income.present? ? number_to_currency(loan.shg_member.monthly_income, unit: "₹") : "-" %></td>
+            <td><div class="action-row"><%= link_to "Details", loan %><%= link_to "Passbook", passbook_shg_loan_path(loan) %><% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(loan) %><%= button_to "Delete", loan, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this loan?" } } %><% end %></div></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= pagination_controls("loans") %>
+</section>

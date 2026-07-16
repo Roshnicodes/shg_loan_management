@@ -1,0 +1,188 @@
+<% content_for :page_title, "Visit Work" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div><p class="eyebrow">Field Visits</p><h2>Visit Work</h2></div>
+    <div class="action-row">
+      <%= link_to "Download CSV", export_visit_records_path(request.query_parameters), class: "secondary-link" %>
+      <% if can_bulk_delete_records? %>
+        <%= form_with url: bulk_destroy_visit_records_path(request.query_parameters), method: :delete, id: "bulk-delete-visits" do |form| %>
+          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected visits?" } %>
+        <% end %>
+      <% end %>
+      <% if can_manage_records? %><%= link_to "Add Visit", new_visit_record_path, class: "primary-link" %><% end %>
+    </div>
+  </div>
+
+  <%= form_with url: visit_records_path, method: :get, class: "filter-grid visit-filter-grid" do |form| %>
+    <% if current_user&.crp? %>
+      <label><span>Month</span><%= form.month_field :month, value: params[:month].presence || Date.current.strftime("%Y-%m") %></label>
+    <% else %>
+      <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
+      <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+      <% if current_user&.admin? %>
+        <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
+      <% end %>
+      <% if current_user&.assistant_admin? || current_user&.admin? %>
+        <label><span>District Coordinator</span><%= form.collection_select :dc_id, @district_coordinators, :id, :name, { prompt: "All DC", selected: params[:dc_id] } %></label>
+      <% end %>
+      <% if current_user&.district_coordinator? || current_user&.assistant_admin? || current_user&.admin? %>
+        <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+      <% end %>
+    <% end %>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
+    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
+    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
+    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
+    <div class="filter-actions">
+      <%= link_to "Clear", visit_records_path, class: "secondary-link" %>
+      <%= form.submit "Apply", class: "primary-button" %>
+    </div>
+  <% end %>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_visits", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-visits" }, aria: { label: "Select all visits on this page" } %></th><% end %>
+          <th>Visit Date</th>
+          <th>Village / SHG / Member</th>
+          <th>Product</th>
+          <th>Photo</th>
+          <th>Approval</th>
+          <th>DC Approval</th>
+          <th>Assistant Approval</th>
+          <th>Created By</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @visit_records.each do |visit| %>
+          <tr>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", visit.id, false, form: "bulk-delete-visits" %></td><% end %>
+            <td><%= visit.visit_date %></td>
+            <td>
+              <strong><%= visit.village.name %></strong><br>
+              <%= link_to visit.shg.name, visit.shg %><br>
+              <small><%= visit.shg_member.name %></small>
+            </td>
+            <td><%= visit.product&.name || "-" %></td>
+            <td>
+              <% if visit.photo.attached? %>
+                <% if visit.photo.image? %>
+                  <%= image_tag visit.photo, class: "table-photo", alt: "Visit photo" %>
+                <% end %>
+                <%= link_to "Open", url_for(visit.photo), target: "_blank", rel: "noopener" %>
+                <%= link_to "Download", rails_blob_path(visit.photo, disposition: "attachment") %>
+              <% else %>
+                <span class="muted-text">No photo</span>
+              <% end %>
+            </td>
+            <td><span class="status <%= visit.approval_status %>"><%= visit.approval_label %></span></td>
+            <td><%= visit.dc_approved_by&.name || "-" %><% if visit.dc_approved_at.present? %><br><small><%= l(visit.dc_approved_at, format: :short) %></small><% end %></td>
+            <td><%= visit.assistant_approved_by&.name || "-" %><% if visit.assistant_approved_at.present? %><br><small><%= l(visit.assistant_approved_at, format: :short) %></small><% end %></td>
+            <td><%= visit.created_by&.name || "-" %></td>
+            <td>
+              <div class="action-row" data-controller="visit-review">
+                <button type="button" class="secondary-link compact-button" data-action="visit-review#open">Review</button>
+                <% if can_manage_visit?(visit) %>
+                  <%= link_to "Edit", edit_visit_record_path(visit) %>
+                  <%= button_to "Delete", visit, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this visit?" } } %>
+                <% end %>
+
+                <dialog class="visit-dialog" data-visit-review-target="dialog">
+                  <div class="visit-dialog-shell">
+                    <div class="visit-dialog-header">
+                      <div>
+                        <p class="eyebrow">Visit Review</p>
+                        <h3><%= visit.shg_member.name %></h3>
+                        <span class="status <%= visit.approval_status %>"><%= visit.approval_label %></span>
+                      </div>
+                      <button type="button" class="dialog-close" data-action="visit-review#close" aria-label="Close">X</button>
+                    </div>
+
+                    <div class="visit-review-grid">
+                      <div class="visit-review-media">
+                        <% if visit.photo.attached? %>
+                          <% if visit.photo.image? %>
+                            <%= image_tag visit.photo, class: "visit-review-photo", alt: "Visit photo" %>
+                          <% else %>
+                            <div class="document-preview">
+                              <strong><%= visit.photo.filename.to_s %></strong>
+                              <%= link_to "Open Document", url_for(visit.photo), target: "_blank", rel: "noopener", class: "secondary-link" %>
+                              <%= link_to "Download", rails_blob_path(visit.photo, disposition: "attachment"), class: "secondary-link" %>
+                            </div>
+                          <% end %>
+                        <% else %>
+                          <div class="document-preview">
+                            <strong>No photo/document uploaded</strong>
+                          </div>
+                        <% end %>
+                      </div>
+
+                      <div class="visit-review-content">
+                        <div class="review-section">
+                          <h4>Location</h4>
+                          <dl class="compact-detail-list">
+                            <dt>Visit Date</dt><dd><%= visit.visit_date %></dd>
+                            <dt>Product</dt><dd><%= visit.product&.name || "-" %></dd>
+                            <dt>Village</dt><dd><%= visit.village.name %></dd>
+                            <dt>SHG</dt><dd><%= visit.shg.name %></dd>
+                            <dt>Created By</dt><dd><%= visit.created_by&.display_name || "-" %></dd>
+                          </dl>
+                        </div>
+
+                        <div class="review-section">
+                          <h4>Member</h4>
+                          <dl class="compact-detail-list">
+                            <dt>Name</dt><dd><%= visit.shg_member.name %></dd>
+                            <dt>Loan No</dt><dd><%= visit.shg_member.loan_no.presence || "-" %></dd>
+                            <dt>Aadhaar</dt><dd><%= visit.shg_member.aadhaar_no.presence || "-" %></dd>
+                            <dt>Mobile</dt><dd><%= visit.shg_member.mobile.presence || "-" %></dd>
+                            <dt>Address</dt><dd><%= visit.shg_member.address.presence || "-" %></dd>
+                          </dl>
+                        </div>
+
+                        <div class="review-section">
+                          <h4>Visit Notes</h4>
+                          <dl class="compact-detail-list">
+                            <dt>Purpose</dt><dd><%= simple_format(visit.purpose.presence || "-") %></dd>
+                            <dt>Observations</dt><dd><%= simple_format(visit.observations.presence || "-") %></dd>
+                            <dt>Remarks</dt><dd><%= simple_format(visit.approval_remarks.presence || "-") %></dd>
+                          </dl>
+                        </div>
+
+                        <div class="review-section">
+                          <h4>Approval Trail</h4>
+                          <dl class="compact-detail-list">
+                            <dt>DC Approval</dt><dd><%= visit.dc_approved_by&.display_name || "-" %><% if visit.dc_approved_at.present? %><br><small><%= l(visit.dc_approved_at, format: :short) %></small><% end %></dd>
+                            <dt>Assistant Approval</dt><dd><%= visit.assistant_approved_by&.display_name || "-" %><% if visit.assistant_approved_at.present? %><br><small><%= l(visit.assistant_approved_at, format: :short) %></small><% end %></dd>
+                          </dl>
+                        </div>
+                      </div>
+                    </div>
+
+                    <% if can_approve_visit?(visit) %>
+                      <div class="modal-approval-bar">
+                        <%= button_to "Approve", approve_visit_record_path(visit), method: :patch, class: "success-link" %>
+                        <%= form_with url: return_for_correction_visit_record_path(visit), method: :patch, class: "modal-approval-form" do |form| %>
+                          <%= form.text_field :approval_remarks, placeholder: "Return remarks" %>
+                          <%= form.submit "Return", class: "warning-link" %>
+                        <% end %>
+                        <%= form_with url: reject_visit_record_path(visit), method: :patch, class: "modal-approval-form" do |form| %>
+                          <%= form.text_field :approval_remarks, placeholder: "Reject remarks" %>
+                          <%= form.submit "Reject", class: "danger-link" %>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </dialog>
+              </div>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= pagination_controls("visits") %>
+</section>

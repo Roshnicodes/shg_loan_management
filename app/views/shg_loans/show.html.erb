@@ -1,0 +1,77 @@
+<% content_for :page_title, "Loan Details" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div><p class="eyebrow">Loan Details</p><h2><%= @loan.shg.name %></h2></div>
+    <div class="action-row">
+      <%= link_to "Back", shg_loans_path, class: "secondary-link" %>
+      <%= link_to "Passbook", passbook_shg_loan_path(@loan), class: "secondary-link" %>
+      <% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(@loan), class: "primary-link" %><% end %>
+    </div>
+  </div>
+
+  <div class="record-hero">
+    <div class="record-card">
+      <h3><%= @loan.shg_member.name %></h3>
+      <p><%= @loan.product.name %></p>
+    </div>
+    <div class="record-card">
+      <h3>Loan Status</h3>
+      <p><span class="status <%= @loan.closed? ? "paid" : "pending" %>"><%= @loan.loan_status.name %></span></p>
+    </div>
+  </div>
+
+  <div class="record-metrics">
+    <div><small>Principal</small><strong><%= number_to_currency(@loan.principal_amount, unit: "₹") %></strong></div>
+    <div><small>Total Payable</small><strong><%= number_to_currency(@loan.total_payable, unit: "₹") %></strong></div>
+    <div><small>Remaining</small><strong><%= number_to_currency(@loan.remaining_amount, unit: "₹") %></strong></div>
+  </div>
+
+  <h3 class="detail-section-title">Loan Summary</h3>
+  <dl class="detail-list">
+    <dt>Disbursement Date</dt><dd><%= formatted_import_date(@loan.distribution_date) %></dd>
+    <dt>Term</dt><dd><%= @loan.loan_term %> - <%= @loan.loan_term_type %></dd>
+    <dt>Reducing Interest</dt><dd><%= @loan.interest_percent.present? ? "#{@loan.interest_percent}% per installment" : "-" %> = <%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
+    <dt>Paid</dt><dd><%= number_to_currency(@loan.total_paid, unit: "₹") %></dd>
+    <dt>CRP</dt><dd><%= loan_crp_identifier(@loan) %> / <%= loan_crp_name(@loan) %></dd>
+  </dl>
+</section>
+
+<section class="panel">
+  <div class="panel-header">
+    <div><p class="eyebrow">EMI Schedule</p><h2>Installments</h2></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>No.</th><th>Due Date</th><th>Opening</th><th>Interest</th><th>Principal</th><th>Due</th><th>Paid</th><th>Closing</th><th>Status</th><th>Payment</th></tr></thead>
+      <tbody>
+        <% opening_balance = @loan.principal_amount.to_d %>
+        <% @loan.shg_loan_emis.order(:installment_no).each do |emi| %>
+          <% closing_balance = [opening_balance - emi.principal_amount.to_d, 0.to_d].max %>
+          <tr>
+            <td><%= emi.installment_no %></td>
+            <td><%= formatted_import_date(emi.due_date) %></td>
+            <td><%= number_to_currency(opening_balance, unit: "₹") %></td>
+            <td><%= number_to_currency(emi.interest_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(emi.principal_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(emi.due_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(emi.paid_amount, unit: "₹") %></td>
+            <td><%= number_to_currency(closing_balance, unit: "₹") %></td>
+            <td><span class="status <%= emi.overdue? ? "overdue" : emi.status %>"><%= (emi.overdue? ? "overdue" : emi.status).titleize %></span></td>
+            <td>
+              <% if can_manage_records? && emi.remaining_amount.positive? %>
+                <%= form_with url: pay_shg_loan_shg_loan_emi_path(@loan, emi), method: :patch, class: "inline-pay-form" do |form| %>
+                  <%= form.number_field :paid_amount, step: "0.01", min: 1, max: emi.remaining_amount, value: emi.remaining_amount %>
+                  <%= form.submit "Pay", class: "success-link" %>
+                <% end %>
+              <% else %>
+                -
+              <% end %>
+            </td>
+          </tr>
+          <% opening_balance = closing_balance %>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>

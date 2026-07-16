@@ -1,0 +1,28 @@
+<%= render "shared/errors", record: @visit_record %>
+<% shg_options = Shg.order(:name).map { |shg| [shg.name, shg.id, { data: { village_id: shg.village_id } }] } %>
+<% member_options = ShgMember.order(:name).map { |member| [member.name, member.id, { data: { shg_id: member.shg_id } }] } %>
+
+<%= form_with model: @visit_record, class: "form-grid", data: { controller: "visit-select" } do |form| %>
+  <label>
+    <span>Village Name</span>
+    <%= form.collection_select :village_id, Village.order(:name), :id, :name, { prompt: "Select village" }, required: true, data: { visit_select_target: "village", action: "visit-select#villageChanged" } %>
+  </label>
+  <label>
+    <span>SHG Name</span>
+    <%= form.select :shg_id, options_for_select(shg_options, @visit_record.shg_id), { prompt: "Select SHG" }, required: true, data: { visit_select_target: "shg", action: "visit-select#shgChanged" } %>
+  </label>
+  <label>
+    <span>SHG Member</span>
+    <%= form.select :shg_member_id, options_for_select(member_options, @visit_record.shg_member_id), { prompt: "Select member" }, required: true, data: { visit_select_target: "member" } %>
+  </label>
+  <label><span>Product</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true %></label>
+  <label><span>Visit Date</span><%= form.date_field :visit_date, required: true %></label>
+  <label><span>Photo / Document</span><%= form.file_field :photo, accept: ".pdf,image/png,image/jpeg,image/webp" %><small>Max 5 MB</small></label>
+  <label class="full"><span>Purpose</span><%= form.text_area :purpose, rows: 2 %></label>
+  <label class="full"><span>Observations</span><%= form.text_area :observations, rows: 3 %></label>
+
+  <div class="form-actions">
+    <%= link_to "Cancel", visit_records_path, class: "secondary-link" %>
+    <%= form.submit "Save Visit", class: "primary-button" %>
+  </div>
+<% end %>

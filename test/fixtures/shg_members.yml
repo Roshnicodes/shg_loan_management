@@ -1,0 +1,25 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  shg: one
+  member_type: one
+  occupation: one
+  name: MyString
+  guardian_name: MyString
+  gender: MyString
+  dob: 2026-07-12
+  mobile: MyString
+  address: MyText
+  active: false
+
+two:
+  shg: two
+  member_type: two
+  occupation: two
+  name: MyString
+  guardian_name: MyString
+  gender: MyString
+  dob: 2026-07-12
+  mobile: MyString
+  address: MyText
+  active: false

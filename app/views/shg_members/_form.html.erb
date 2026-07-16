@@ -1,0 +1,14 @@
+<%= render "shared/errors", record: @member %>
+<%= form_with model: @member, class: "form-grid" do |form| %>
+  <label><span>SHG Name</span><%= form.collection_select :shg_id, visible_shgs.order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true %></label>
+  <label><span>Member Name</span><%= form.text_field :name, required: true %></label>
+  <label><span>Gender</span><%= form.select :gender, [ "Female", "Male", "Other" ], { prompt: "Select gender" } %></label>
+  <label><span>Date of Birth</span><%= form.date_field :dob %></label>
+  <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
+  <label><span>Aadhaar No</span><%= form.text_field :aadhaar_no, maxlength: 12, pattern: "\\d{12}", inputmode: "numeric", placeholder: "12 digit Aadhaar number" %></label>
+  <label><span>Loan No</span><%= form.text_field :loan_no, placeholder: "Member loan number" %></label>
+  <label><span>Monthly HH Income</span><%= form.number_field :monthly_income, min: 0, step: "0.01", placeholder: "Monthly HH income" %></label>
+  <label class="full"><span>Address</span><%= form.text_area :address, rows: 3 %></label>
+  <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
+  <div class="form-actions"><%= link_to "Cancel", shg_members_path, class: "secondary-link" %><%= form.submit "Save Member", class: "primary-button" %></div>
+<% end %>

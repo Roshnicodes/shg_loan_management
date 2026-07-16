@@ -1,0 +1,47 @@
+<% content_for :page_title, @user == current_user ? "My Profile" : @user.name %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">User Profile</p>
+      <h2><%= @user.name %></h2>
+    </div>
+    <div class="action-row">
+      <% if can_manage_users? %>
+        <%= link_to "Users", users_path, class: "secondary-link" %>
+        <%= link_to "Edit", edit_user_path(@user), class: "primary-link" %>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="record-hero">
+    <div class="record-card">
+      <h3><%= @user.name %></h3>
+      <p><%= @user.designation.presence || @user.user_type.name %></p>
+    </div>
+    <div class="record-card">
+      <h3>Login ID</h3>
+      <p><%= @user.login_id %></p>
+    </div>
+  </div>
+
+  <div class="record-metrics">
+    <div><small>Role</small><strong><%= @user.user_type.name %></strong></div>
+    <div><small>Mobile</small><strong><%= @user.mobile.presence || "-" %></strong></div>
+    <div><small>Status</small><strong><%= @user.active? ? "Active" : "Inactive" %></strong></div>
+  </div>
+
+  <h3 class="detail-section-title">Office Mapping</h3>
+  <dl class="detail-list">
+    <dt>Email</dt>
+    <dd><%= @user.email %></dd>
+    <dt>State</dt>
+    <dd><%= @user.state&.name || "-" %></dd>
+    <dt>District</dt>
+    <dd><%= @user.district&.name || "-" %></dd>
+    <dt>Block</dt>
+    <dd><%= @user.block&.name || "-" %></dd>
+    <dt>Village</dt>
+    <dd><%= @user.village&.name || "-" %></dd>
+  </dl>
+</section>

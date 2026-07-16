@@ -1,0 +1,46 @@
+<% content_for :page_title, "Import Location Master" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Village Master</p>
+      <h2>Location Import / Export</h2>
+    </div>
+    <%= link_to "Download Location CSV", location_export_path, class: "secondary-link" %>
+  </div>
+
+  <div class="tool-grid two">
+    <div class="tool-box">
+      <div class="panel-header compact">
+        <div>
+          <p class="eyebrow">Upload</p>
+          <h3>Import State / District / Block / Village</h3>
+        </div>
+      </div>
+      <div class="form-help full">
+        CSV columns: state, district, block, village.
+      </div>
+      <%= form_with url: location_import_path, multipart: true, class: "form-grid" do |form| %>
+        <label class="full">
+          <span>CSV File</span>
+          <%= form.file_field :file, accept: ".csv,text/csv", required: true %>
+        </label>
+        <div class="form-actions">
+          <%= link_to "Cancel", villages_path, class: "secondary-link" %>
+          <%= form.submit "Upload", class: "primary-button" %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tool-box">
+      <div class="panel-header compact">
+        <div>
+          <p class="eyebrow">Format</p>
+          <h3>CSV Sample</h3>
+        </div>
+      </div>
+      <pre class="sample-code">state,district,block,village
+Madhya Pradesh,Bhopal,Phanda,Khajuri</pre>
+    </div>
+  </div>
+</section>

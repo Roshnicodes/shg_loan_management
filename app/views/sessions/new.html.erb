@@ -1,0 +1,53 @@
+<% content_for :title, "Login - SHG Loan Management" %>
+
+<section class="login-page">
+  <div class="login-card">
+    <div class="login-story">
+      <div class="brand login-brand">
+        <div class="brand-mark">SHG</div>
+        <div>
+          <strong>SHG Loan</strong>
+          <span>Management System</span>
+        </div>
+      </div>
+      <h1>Empowering Women, Building Stronger Communities</h1>
+      <div class="login-accent-line"></div>
+      <p>A digital solution for Self Help Groups to manage members, loans, repayments and field office mapping with confidence.</p>
+      <div class="hero-photo">
+        <%= image_tag "shg-women-hero.png", alt: "Self Help Group women meeting in a rural village" %>
+      </div>
+    </div>
+
+    <div class="login-panel">
+      <div class="login-panel-inner">
+        <div class="login-logo">SHG</div>
+        <h2>Welcome Back!</h2>
+        <div class="login-divider"><span></span><i></i><span></span></div>
+        <p>Please sign in to your account</p>
+        <%= form_with url: login_path, class: "login-form" do |form| %>
+          <label>
+            <span>Login ID</span>
+            <%= form.text_field :login_id, value: @remembered_login_id, placeholder: "Enter your login ID", required: true, autofocus: true, autocomplete: "username" %>
+          </label>
+          <label>
+            <span>Password</span>
+            <%= form.password_field :password, placeholder: "Enter your password", required: true, autocomplete: "current-password" %>
+          </label>
+          <label class="checkbox-field"><span>Keep me logged in</span><%= form.check_box :keep_login %></label>
+          <%= form.submit "Sign In", class: "primary-button login-submit" %>
+        <% end %>
+        <div class="login-security-note">
+          <strong>Authorized access only</strong>
+          <span>Use the official account credentials assigned by the SHG admin team.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-benefits">
+      <span><b>Strong Communities</b><small>Building a better tomorrow</small></span>
+      <span><b>Financial Inclusion</b><small>Access to finance for everyone</small></span>
+      <span><b>Better Growth</b><small>Empowering lives, inspiring growth</small></span>
+      <span><b>Secure & Reliable</b><small>Your data is safe with us</small></span>
+    </div>
+  </div>
+</section>

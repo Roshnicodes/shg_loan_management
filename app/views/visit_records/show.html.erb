@@ -1,0 +1,59 @@
+<% content_for :page_title, "Visit Details" %>
+
+<section class="panel narrow">
+  <div class="panel-header">
+    <div><p class="eyebrow">Visit Work</p><h2>Visit Details</h2></div>
+    <div class="action-row">
+      <%= link_to "Back to Visits", visit_records_path, class: "secondary-link" %>
+      <% if can_manage_visit?(@visit_record) %><%= link_to "Edit", edit_visit_record_path(@visit_record), class: "primary-link" %><% end %>
+    </div>
+  </div>
+
+  <dl class="detail-list">
+    <dt>Visit Date</dt>
+    <dd><%= @visit_record.visit_date %></dd>
+    <dt>Product</dt>
+    <dd><%= @visit_record.product&.name || "-" %></dd>
+    <dt>Village</dt>
+    <dd><%= @visit_record.village.name %></dd>
+    <dt>SHG</dt>
+    <dd><%= @visit_record.shg.name %></dd>
+    <dt>Member</dt>
+    <dd><%= @visit_record.shg_member.name %></dd>
+    <dt>Member Loan No</dt>
+    <dd><%= @visit_record.shg_member.loan_no.presence || "-" %></dd>
+    <dt>Aadhaar No</dt>
+    <dd><%= @visit_record.shg_member.aadhaar_no.presence || "-" %></dd>
+    <dt>Mobile</dt>
+    <dd><%= @visit_record.shg_member.mobile.presence || "-" %></dd>
+    <dt>Member Address</dt>
+    <dd><%= simple_format(@visit_record.shg_member.address.presence || "-") %></dd>
+    <dt>Approval</dt>
+    <dd><span class="status <%= @visit_record.approval_status %>"><%= @visit_record.approval_label %></span></dd>
+    <dt>Created By</dt>
+    <dd><%= @visit_record.created_by&.display_name || "-" %></dd>
+    <dt>DC Approval</dt>
+    <dd><%= @visit_record.dc_approved_by&.display_name || "-" %><% if @visit_record.dc_approved_at.present? %><br><small><%= l(@visit_record.dc_approved_at, format: :short) %></small><% end %></dd>
+    <dt>Assistant Approval</dt>
+    <dd><%= @visit_record.assistant_approved_by&.display_name || "-" %><% if @visit_record.assistant_approved_at.present? %><br><small><%= l(@visit_record.assistant_approved_at, format: :short) %></small><% end %></dd>
+    <dt>Purpose</dt>
+    <dd><%= simple_format(@visit_record.purpose.presence || "-") %></dd>
+    <dt>Observations</dt>
+    <dd><%= simple_format(@visit_record.observations.presence || "-") %></dd>
+    <dt>Approval Remarks</dt>
+    <dd><%= simple_format(@visit_record.approval_remarks.presence || "-") %></dd>
+    <dt>Photo / Document</dt>
+    <dd>
+      <% if @visit_record.photo.attached? %>
+        <% if @visit_record.photo.image? %>
+          <%= image_tag @visit_record.photo, class: "attachment-preview", alt: "Visit photo" %>
+        <% end %>
+        <%= link_to @visit_record.photo.filename.to_s, url_for(@visit_record.photo), target: "_blank", rel: "noopener" %>
+        <%= link_to "Download", rails_blob_path(@visit_record.photo, disposition: "attachment"), class: "secondary-link" %>
+      <% else %>
+        -
+      <% end %>
+    </dd>
+  </dl>
+
+</section>

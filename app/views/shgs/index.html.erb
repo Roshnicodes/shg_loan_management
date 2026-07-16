@@ -1,0 +1,118 @@
+<% content_for :page_title, "SHG Master" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Groups</p>
+      <h2>SHG Master</h2>
+    </div>
+    <div class="action-row">
+      <%= link_to "Download CSV", export_shgs_path(request.query_parameters), class: "secondary-link" %>
+      <% if can_bulk_delete_records? %>
+        <%= form_with url: bulk_destroy_shgs_path(request.query_parameters), method: :delete, id: "bulk-delete-shgs" do |form| %>
+          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected SHGs?" } %>
+        <% end %>
+      <% end %>
+      <% if can_manage_records? %>
+        <%= link_to "Add SHG", new_shg_path, class: "primary-link" %>
+      <% end %>
+    </div>
+  </div>
+
+  <%= form_with url: shgs_path, method: :get, class: "filter-grid" do |form| %>
+    <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
+    <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
+    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
+    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
+    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
+    <label><span>Approval</span><%= form.select :approval_status, Shg::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, { prompt: "All status", selected: params[:approval_status] } %></label>
+    <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+    <% if current_user&.assistant_admin? || current_user&.admin? %>
+      <label><span>DC</span><%= form.collection_select :dc_id, @district_coordinators, :id, :name, { prompt: "All DC", selected: params[:dc_id] } %></label>
+    <% end %>
+    <% if current_user&.admin? %>
+      <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
+    <% end %>
+    <div class="filter-actions">
+      <%= link_to "Clear", shgs_path, class: "secondary-link" %>
+      <%= form.submit "Apply", class: "primary-button" %>
+    </div>
+  <% end %>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_shgs", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-shgs" }, aria: { label: "Select all SHGs on this page" } %></th><% end %>
+          <th>Name</th>
+          <th>Location</th>
+          <th>Linkage Date</th>
+          <th>Approval</th>
+          <th>Meeting</th>
+          <th>DC Approval</th>
+          <th>Assistant Approval</th>
+          <th>Created By</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @shgs.each do |shg| %>
+          <tr>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", shg.id, false, form: "bulk-delete-shgs" %></td><% end %>
+            <td><%= link_to shg.name, shg %></td>
+            <td><%= [shg.state.name, shg.district.name, shg.block.name, shg.village.name].join(" / ") %></td>
+            <td><%= shg.linkage_date %></td>
+            <td><span class="status <%= shg.approval_status %>"><%= shg.approval_label %></span></td>
+            <td>
+              <div class="attachment-list">
+                <div class="attachment-item">
+                  <span>Photo</span>
+                  <% if shg.meeting_photo.attached? %>
+                    <% if shg.meeting_photo.image? %>
+                      <%= link_to image_tag(shg.meeting_photo, class: "table-photo", alt: "Meeting photo"), rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
+                    <% else %>
+                      <%= link_to "Download", rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
+                    <% end %>
+                  <% else %>
+                    <small>No photo</small>
+                  <% end %>
+                </div>
+                <div class="attachment-item">
+                  <span>Register</span>
+                  <% if shg.meeting_register.attached? %>
+                    <% if shg.meeting_register.image? %>
+                      <%= link_to image_tag(shg.meeting_register, class: "table-photo", alt: "Meeting register"), rails_blob_path(shg.meeting_register, disposition: "attachment") %>
+                    <% else %>
+                      <%= link_to "Download", rails_blob_path(shg.meeting_register, disposition: "attachment") %>
+                    <% end %>
+                  <% else %>
+                    <small>No register</small>
+                  <% end %>
+                </div>
+              </div>
+            </td>
+            <td><%= shg.dc_approved_by&.name || "-" %><% if shg.dc_approved_at.present? %><br><small><%= l(shg.dc_approved_at, format: :short) %></small><% end %></td>
+            <td><%= shg.assistant_approved_by&.name || "-" %><% if shg.assistant_approved_at.present? %><br><small><%= l(shg.assistant_approved_at, format: :short) %></small><% end %></td>
+            <td><%= shg.created_by&.name || "-" %></td>
+            <td>
+              <div class="action-row">
+                <%= link_to "Details", shg %>
+                <% if can_manage_shg?(shg) %>
+                  <%= link_to "Edit", edit_shg_path(shg) %>
+                  <%= button_to "Delete", shg, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this SHG?" } } %>
+                <% end %>
+                <% if can_approve_shg?(shg) %>
+                  <%= button_to "Approve", approve_shg_path(shg), method: :patch, class: "success-link" %>
+                  <%= button_to "Return", return_for_correction_shg_path(shg), method: :patch, class: "warning-link" %>
+                  <%= button_to "Reject", reject_shg_path(shg), method: :patch, class: "danger-link" %>
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= pagination_controls("SHGs") %>
+</section>

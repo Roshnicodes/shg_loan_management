@@ -1,0 +1,52 @@
+<% content_for :page_title, "SHG Members" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div><p class="eyebrow">Members</p><h2>SHG Members</h2></div>
+    <div class="action-row">
+      <%= link_to "Download CSV", export_shg_members_path(request.query_parameters), class: "secondary-link" %>
+      <% if can_bulk_delete_records? %>
+        <%= form_with url: bulk_destroy_shg_members_path(request.query_parameters), method: :delete, id: "bulk-delete-members" do |form| %>
+          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected members?" } %>
+        <% end %>
+      <% end %>
+      <% if can_manage_records? && manageable_shgs.exists? %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
+    </div>
+  </div>
+
+  <%= form_with url: shg_members_path, method: :get, class: "filter-grid" do |form| %>
+    <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
+    <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
+    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
+    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
+    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
+    <label><span>SHG</span><%= form.collection_select :shg_id, @shgs, :id, :name, { prompt: "All SHG", selected: params[:shg_id] } %></label>
+    <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+    <div class="filter-actions">
+      <%= link_to "Clear", shg_members_path, class: "secondary-link" %>
+      <%= form.submit "Apply", class: "primary-button" %>
+    </div>
+  <% end %>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_members", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-members" }, aria: { label: "Select all members on this page" } %></th><% end %><th>Name</th><th>SHG</th><th>Loan No</th><th>Aadhaar</th><th>Monthly HH Income</th><th>Mobile</th><th>Action</th></tr></thead>
+      <tbody>
+        <% @members.each do |member| %>
+          <tr>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", member.id, false, form: "bulk-delete-members" %></td><% end %>
+            <td><%= link_to member.name, member %></td>
+            <td><%= member.shg.name %></td>
+            <td><%= member.loan_no.presence || "-" %></td>
+            <td><%= member.aadhaar_no.presence || "-" %></td>
+            <td><%= member.monthly_income.present? ? number_to_currency(member.monthly_income, unit: "₹") : "-" %></td>
+            <td><%= member.mobile %></td>
+            <td><div class="action-row"><%= link_to "Details", member %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member) %><%= button_to "Delete", member, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this member?" } } %><% end %></div></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= pagination_controls("members") %>
+</section>

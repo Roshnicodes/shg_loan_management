@@ -1,0 +1,59 @@
+<%= render "shared/errors", record: @loan %>
+<% member_options = visible_shg_members.includes(:shg).order(:name).map do |member|
+  [
+    member.name,
+    member.id,
+    {
+      data: {
+        shg_id: member.shg_id,
+        group: member.shg.name,
+        gender: member.gender,
+        dob: member.dob,
+        address: member.address
+      }
+    }
+  ]
+end %>
+
+<% paid_amount = @loan.persisted? ? @loan.total_paid : 0 %>
+
+<%= form_with model: @loan, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f } do |form| %>
+  <label><span>SHG / Group Name</span><%= form.collection_select :shg_id, visible_shgs.order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true, data: { loan_member_details_target: "shg", action: "loan-member-details#shgChanged" } %></label>
+  <label><span>SHG Member Name</span><%= form.select :shg_member_id, options_for_select(member_options, @loan.shg_member_id), { prompt: "Select member" }, required: true, data: { loan_member_details_target: "member", action: "loan-member-details#update" } %></label>
+  <div class="form-help full member-summary">
+    <label><span>Group Name</span><input type="text" readonly data-loan-member-details-target="group"></label>
+    <label><span>Gender</span><input type="text" readonly data-loan-member-details-target="gender"></label>
+    <label><span>Date of Birth</span><input type="text" readonly data-loan-member-details-target="dob"></label>
+    <label class="full"><span>Address</span><textarea rows="2" readonly data-loan-member-details-target="address"></textarea></label>
+  </div>
+  <label><span>Product Type</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true %></label>
+  <label><span>Loan Status</span><%= form.collection_select :loan_status_id, LoanStatus.order(:name), :id, :name, { prompt: "Default Active" } %></label>
+  <label><span>Type of Geography</span><%= form.select :geography_type, ShgLoan::GEOGRAPHY_TYPES, { prompt: "Rural / Urban" }, required: true %></label>
+  <label><span>Disbursement Date</span><%= form.date_field :distribution_date, required: true, data: { loan_member_details_target: "distributionDate", action: "loan-member-details#calculate" } %></label>
+  <label><span>Loan Term Type</span><%= form.select :loan_term_type, ShgLoan::TERM_TYPES, { prompt: "Select term type" }, required: true, data: { loan_member_details_target: "termType", action: "loan-member-details#calculate" } %></label>
+  <label><span>Loan Term</span><%= form.number_field :loan_term, min: 1, placeholder: "Example: 7", data: { loan_member_details_target: "term", action: "input->loan-member-details#calculate" } %></label>
+  <label><span>Principal Amount</span><%= form.number_field :principal_amount, step: "0.01", min: 1, required: true, data: { loan_member_details_target: "principal", action: "input->loan-member-details#calculate" } %></label>
+  <label><span>Interest Percent Per Installment</span><%= form.number_field :interest_percent, step: "0.01", min: 0, required: true, data: { loan_member_details_target: "interestPercent", action: "input->loan-member-details#calculate" } %></label>
+
+  <div class="loan-calculation full">
+    <div class="loan-calculation-header">
+      <div>
+        <p class="eyebrow">Live Calculation</p>
+        <h3>Payment Details</h3>
+      </div>
+      <span data-loan-member-details-target="scheduleLabel">Monthly EMI</span>
+    </div>
+    <div class="loan-summary-grid">
+      <div><small>Principal Amount</small><strong data-loan-member-details-target="principalOut">₹0.00</strong></div>
+      <div><small>Reducing Interest Amount</small><strong data-loan-member-details-target="interestOut">₹0.00</strong></div>
+      <div><small>Total Payable</small><strong data-loan-member-details-target="totalOut">₹0.00</strong></div>
+      <div><small>Paid Amount</small><strong data-loan-member-details-target="paidOut">₹0.00</strong></div>
+      <div><small>Remaining Amount</small><strong data-loan-member-details-target="remainingOut">₹0.00</strong></div>
+      <div><small>First EMI / Principal EMI</small><strong data-loan-member-details-target="emiOut">₹0.00</strong></div>
+    </div>
+    <div class="loan-schedule-note" data-loan-member-details-target="scheduleOut">
+      Enter principal amount, interest percent and loan term to see EMI details.
+    </div>
+  </div>
+  <div class="form-actions"><%= link_to "Cancel", shg_loans_path, class: "secondary-link" %><%= form.submit "Save Loan", class: "primary-button" %></div>
+<% end %>

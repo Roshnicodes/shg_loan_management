@@ -1,0 +1,43 @@
+<% content_for :page_title, "User Register" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div><p class="eyebrow">Access</p><h2>Registered Users</h2></div>
+    <div class="action-row">
+      <% if can_bulk_delete_records? %>
+        <%= form_with url: bulk_destroy_users_path, method: :delete, id: "bulk-delete-users" do |form| %>
+          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected users?" } %>
+        <% end %>
+      <% end %>
+      <% if can_manage_records? %><%= link_to "Add User", new_user_path, class: "primary-link" %><% end %>
+    </div>
+  </div>
+  <div class="table-wrap"><table><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>Name</th><th>Login ID</th><th>Email</th><th>Role</th><th>Office Mapping</th><th>Active</th><th></th></tr></thead><tbody>
+    <% @users.each do |user| %>
+      <tr>
+        <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: "bulk-delete-users", disabled: user == current_user %></td><% end %>
+        <td><%= link_to user.name, user %></td>
+        <td><%= user.login_id %></td>
+        <td><%= user.email %></td>
+        <td><%= user.user_type.name %></td>
+        <td><%= [user.state&.name, user.district&.name, user.block&.name, user.village&.name].compact.join(" / ") %></td>
+        <td><%= user.active? ? "Yes" : "No" %></td>
+        <td>
+          <div class="action-row">
+            <%= link_to "Details", user %>
+            <% if can_manage_records? %>
+              <%= link_to "Edit", edit_user_path(user) %>
+              <% if user.crp? || user.district_coordinator? %>
+                <%= button_to "Reset Password", reset_password_user_path(user), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Generate a new temporary password for this user?" } } %>
+              <% end %>
+              <% if can_bulk_delete_records? && user != current_user %>
+                <%= button_to "Delete", user, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this user?" } } %>
+              <% end %>
+            <% end %>
+          </div>
+        </td>
+      </tr>
+    <% end %>
+  </tbody></table></div>
+  <%= pagination_controls("users") %>
+</section>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= content_for(:title) || "Shg Loan Management" %></title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Shg Loan Management">
+    <meta name="mobile-web-app-capable" content="yes">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= yield :head %>
+
+    <%# Enable PWA manifest for installable apps (make sure to enable in config/routes.rb too!) %>
+    <%#= tag.link rel: "manifest", href: pwa_manifest_path(format: :json) %>
+
+    <link rel="icon" href="/icon.png" type="image/png">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.png">
+
+    <%# Includes all stylesheet files in app/assets/stylesheets %>
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+
+  <body>
+    <% if logged_in? %>
+      <div class="app-shell">
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="brand-mark">SHG</div>
+            <div>
+              <strong>SHG Loan</strong>
+              <span>Management System</span>
+            </div>
+          </div>
+          <nav>
+            <% app_nav_items.each do |label, path| %>
+              <%= link_to label, path, class: ("active" if request.path == path) %>
+            <% end %>
+          </nav>
+        </aside>
+        <main class="main">
+          <header class="topbar">
+            <div>
+              <p class="eyebrow">Welcome</p>
+              <h1><%= content_for(:page_title) || "SHG Loan Management" %></h1>
+            </div>
+            <div class="user-pill">
+              <%= link_to current_user.name, profile_path, class: "user-profile-link" %>
+              <%= button_to "Logout", logout_path, method: :delete, class: "link-button" %>
+            </div>
+          </header>
+          <%= render "shared/flash" %>
+          <%= yield %>
+        </main>
+      </div>
+    <% else %>
+      <%= render "shared/flash" %>
+      <%= yield %>
+    <% end %>
+  </body>
+</html>

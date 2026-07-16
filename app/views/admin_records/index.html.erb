@@ -1,0 +1,52 @@
+<% content_for :page_title, controller.record_title.pluralize %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Master</p>
+      <h2><%= controller.record_title.pluralize %></h2>
+    </div>
+    <div class="action-row">
+      <% if controller.record_class == Village %>
+        <%= link_to "Export Locations", location_export_path, class: "secondary-link" %>
+        <% if can_manage_records? %>
+          <%= link_to "Import Locations", new_location_import_path, class: "secondary-link" %>
+        <% end %>
+      <% end %>
+      <% if can_manage_records? %>
+        <%= link_to "Add #{controller.record_title}", new_polymorphic_path(controller.record_class), class: "primary-link" %>
+      <% end %>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <% controller.record_fields.each do |field| %>
+            <th><%= field[:label] %></th>
+          <% end %>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @records.each do |record| %>
+          <tr>
+            <% controller.record_fields.each do |field| %>
+              <td><%= record_field_value(record, field) %></td>
+            <% end %>
+            <td>
+              <div class="action-row">
+                <%= link_to "Details", polymorphic_path(record) %>
+                <% if can_manage_records? %>
+                  <%= link_to "Edit", polymorphic_path([:edit, record]) %>
+                  <%= button_to "Delete", polymorphic_path(record), method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this record?" } } %>
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <%= pagination_controls(controller.record_title.pluralize.downcase) %>
+</section>

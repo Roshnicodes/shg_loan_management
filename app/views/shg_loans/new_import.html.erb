@@ -1,0 +1,47 @@
+<% content_for :page_title, "Import SHG Loans" %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Old Data</p>
+      <h2>Import SHG Loan Data</h2>
+    </div>
+    <%= link_to "Back to Loans", shg_loans_path, class: "secondary-link" %>
+  </div>
+
+  <div class="tool-grid two">
+    <div class="tool-box">
+      <div class="panel-header compact">
+        <div>
+          <p class="eyebrow">Upload</p>
+          <h3>Loan CSV Import</h3>
+        </div>
+      </div>
+      <div class="form-help full">
+        CRP/DC import karega to normal approval flow chalega. Assistant Admin import karega to SHG automatically approved ho jayegi.
+      </div>
+      <%= form_with url: import_shg_loans_path, multipart: true, class: "form-grid" do |form| %>
+        <label class="full">
+          <span>Excel/CSV File</span>
+          <%= form.file_field :file, accept: ".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", required: true %>
+        </label>
+        <div class="form-actions">
+          <%= link_to "Cancel", shg_loans_path, class: "secondary-link" %>
+          <%= form.submit "Upload Loan Data", class: "primary-button" %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="tool-box">
+      <div class="panel-header compact">
+        <div>
+          <p class="eyebrow">Format</p>
+          <h3>Required Columns</h3>
+        </div>
+      </div>
+      <pre class="sample-code">SHG Name,Member,State,District,Block,Village,CRP ID,CRPName,Product,Disbursement Date,Loan Status,Term Type,Loan term,Principal,Annual Interest Percent,Interest Amount,Total Payable,Principal Collected,Interest collected,Paid,Remaining,Mobile,Aadhaar,Monthly hh income
+Kushum,Sima Kushwaha,Madhya Pradesh,Shahdol,Sohagpur,Lalpur,367,Vandana,Water Quality Improvement,2024-08-04,Active,Monthly,5,15000,1,750,15750,10000,450,10450,5300,9000000001,111122223333,12000</pre>
+      <p class="tool-copy">Excel me yahi headers supported hain. Annual Interest Percent blank ho to rate blank rahega aur Excel ka Interest Amount / Total Payable preserve hoga.</p>
+    </div>
+  </div>
+</section>

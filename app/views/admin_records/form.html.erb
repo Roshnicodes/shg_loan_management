@@ -1,0 +1,32 @@
+<% content_for :page_title, "#{@record.persisted? ? "Edit" : "Add"} #{controller.record_title}" %>
+
+<section class="panel narrow">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Master Form</p>
+      <h2><%= @record.persisted? ? "Edit" : "Add" %> <%= controller.record_title %></h2>
+    </div>
+  </div>
+  <%= render "shared/errors", record: @record %>
+  <%= form_with model: @record, class: "form-grid" do |form| %>
+    <% controller.record_fields.each do |field| %>
+      <label class="<%= "checkbox-field" if field[:type] == :checkbox %>">
+        <span><%= field[:label] %></span>
+        <% case field[:type] %>
+        <% when :select %>
+          <%= form.collection_select field[:name], field[:collection].call, :id, :display_name, { prompt: "Select #{field[:label]}" }, required: true %>
+        <% when :static_select %>
+          <%= form.select field[:name], field[:options], { prompt: "Select #{field[:label]}" }, required: true %>
+        <% when :checkbox %>
+          <%= form.check_box field[:name] %>
+        <% else %>
+          <%= form.text_field field[:name], required: true %>
+        <% end %>
+      </label>
+    <% end %>
+    <div class="form-actions">
+      <%= link_to "Cancel", polymorphic_path(controller.record_class), class: "secondary-link" %>
+      <%= form.submit "Save", class: "primary-button" %>
+    </div>
+  <% end %>
+</section>
