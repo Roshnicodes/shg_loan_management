@@ -1,6 +1,6 @@
 <% content_for :page_title, "SHG Loans" %>
 
-<section class="panel">
+<section class="panel" data-controller="table-search">
   <div class="panel-header">
     <div><p class="eyebrow">Loans</p><h2>SHG Loan Forms</h2></div>
     <div class="action-row">
@@ -11,6 +11,10 @@
         <% end %>
       <% end %>
       <% if can_manage_records? %><%= link_to "Add Loan", new_shg_loan_path, class: "primary-link" %><% end %>
+      <label class="header-search-box">
+        <span>Search</span>
+        <input type="search" placeholder="Search loans..." data-table-search-target="input" data-action="input->table-search#update">
+      </label>
     </div>
   </div>
 
@@ -44,8 +48,10 @@
     Download will follow the selected date, location and CRP filters.
   </div>
 
-  <div class="table-wrap">
-    <table class="loan-import-table">
+  <div class="searchable-table compact-search-results">
+    <div class="table-empty-state" data-table-search-target="empty" hidden>No matching loans on this page.</div>
+    <div class="table-wrap">
+    <table class="loan-import-table" data-table-search-target="table">
       <thead>
         <tr>
           <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_loans", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-loans" }, aria: { label: "Select all loans on this page" } %></th><% end %>
@@ -109,6 +115,7 @@
         <% end %>
       </tbody>
     </table>
+    </div>
   </div>
   <%= pagination_controls("loans") %>
 </section>

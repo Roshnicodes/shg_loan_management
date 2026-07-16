@@ -1,6 +1,6 @@
 <% content_for :page_title, controller.record_title.pluralize %>
 
-<section class="panel">
+<section class="panel" data-controller="table-search">
   <div class="panel-header">
     <div>
       <p class="eyebrow">Master</p>
@@ -16,10 +16,16 @@
       <% if can_manage_records? %>
         <%= link_to "Add #{controller.record_title}", new_polymorphic_path(controller.record_class), class: "primary-link" %>
       <% end %>
+      <label class="header-search-box">
+        <span>Search</span>
+        <input type="search" placeholder="Search..." data-table-search-target="input" data-action="input->table-search#update">
+      </label>
     </div>
   </div>
+  <div class="searchable-table compact-search-results">
+    <div class="table-empty-state" data-table-search-target="empty" hidden>No matching records on this page.</div>
   <div class="table-wrap">
-    <table>
+    <table data-table-search-target="table">
       <thead>
         <tr>
           <% controller.record_fields.each do |field| %>
@@ -47,6 +53,7 @@
         <% end %>
       </tbody>
     </table>
+  </div>
   </div>
   <%= pagination_controls(controller.record_title.pluralize.downcase) %>
 </section>

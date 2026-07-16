@@ -1,6 +1,6 @@
 <% content_for :page_title, "SHG Members" %>
 
-<section class="panel">
+<section class="panel" data-controller="table-search">
   <div class="panel-header">
     <div><p class="eyebrow">Members</p><h2>SHG Members</h2></div>
     <div class="action-row">
@@ -11,6 +11,10 @@
         <% end %>
       <% end %>
       <% if can_manage_records? && manageable_shgs.exists? %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
+      <label class="header-search-box">
+        <span>Search</span>
+        <input type="search" placeholder="Search members..." data-table-search-target="input" data-action="input->table-search#update">
+      </label>
     </div>
   </div>
 
@@ -29,8 +33,10 @@
     </div>
   <% end %>
 
-  <div class="table-wrap">
-    <table>
+  <div class="searchable-table compact-search-results">
+    <div class="table-empty-state" data-table-search-target="empty" hidden>No matching members on this page.</div>
+    <div class="table-wrap">
+    <table data-table-search-target="table">
       <thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_members", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-members" }, aria: { label: "Select all members on this page" } %></th><% end %><th>Name</th><th>SHG</th><th>Loan No</th><th>Aadhaar</th><th>Monthly HH Income</th><th>Mobile</th><th>Action</th></tr></thead>
       <tbody>
         <% @members.each do |member| %>
@@ -47,6 +53,7 @@
         <% end %>
       </tbody>
     </table>
+    </div>
   </div>
   <%= pagination_controls("members") %>
 </section>

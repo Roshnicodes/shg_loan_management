@@ -466,6 +466,92 @@ td input[name="ids[]"] {
   font-weight: 800;
   line-height: 1.45;
 }
+.searchable-table {
+  display: grid;
+  gap: 12px;
+}
+.searchable-table.compact-search-results {
+  gap: 8px;
+}
+.header-search-box {
+  display: grid;
+  gap: 3px;
+  width: min(220px, 32vw);
+  min-width: 168px;
+  margin: 0;
+}
+.header-search-box span {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--muted);
+}
+.header-search-box input {
+  height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.table-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(178,204,236,.82);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(248,251,255,.96), rgba(240,250,244,.96));
+}
+.table-search-box {
+  position: relative;
+  flex: 1 1 360px;
+  min-width: min(100%, 240px);
+}
+.table-search-box input {
+  padding-left: 42px;
+}
+.table-search-box::before {
+  content: "";
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--teal);
+  border-radius: 50%;
+  transform: translateY(-58%);
+  pointer-events: none;
+}
+.table-search-box::after {
+  content: "";
+  position: absolute;
+  left: 28px;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--teal);
+  transform: translateY(7px) rotate(45deg);
+  pointer-events: none;
+}
+.table-tool-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.table-empty-state {
+  padding: 18px;
+  border: 1px dashed #b8c9df;
+  border-radius: 12px;
+  color: var(--muted);
+  background: #fff;
+  font-weight: 800;
+  text-align: center;
+}
 .inline-import-form {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) auto;
@@ -1092,6 +1178,8 @@ td input[name="ids[]"] {
   .login-story p { max-width: 330px; font-size: 14px; }
   .hero-photo { max-height: none; }
   .login-benefits, .form-grid, .filter-grid, .tool-grid, .metrics-grid, .loan-summary-grid, .inline-import-form { grid-template-columns: 1fr; }
+  .table-tools { align-items: stretch; flex-direction: column; }
+  .table-tool-meta { width: 100%; justify-content: space-between; }
   .approval-metrics { grid-template-columns: 1fr; }
   .login-benefits { width: calc(100% - 28px); margin-top: -72px; border-radius: 24px; }
   .login-benefits span { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -1102,6 +1190,7 @@ td input[name="ids[]"] {
   .user-pill { width: 100%; justify-content: space-between; }
   .detail-list { grid-template-columns: 1fr; }
   .record-hero, .record-metrics { grid-template-columns: 1fr; }
+  .header-search-box { width: 100%; }
   .sidebar nav { grid-template-columns: 1fr; }
   .brand strong { font-size: 20px; }
   .panel { padding: 18px 14px; }

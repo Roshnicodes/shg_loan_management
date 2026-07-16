@@ -55,16 +55,24 @@
   </div>
 </section>
 
-<section class="panel">
+<section class="panel" data-controller="table-search">
   <div class="panel-header">
     <div>
       <p class="eyebrow">Latest entries</p>
       <h2>Recent SHG Loans</h2>
     </div>
-    <%= link_to "New Loan", new_shg_loan_path, class: "primary-link" %>
+    <div class="action-row">
+      <%= link_to "New Loan", new_shg_loan_path, class: "primary-link" %>
+      <label class="header-search-box">
+        <span>Search</span>
+        <input type="search" placeholder="Search recent..." data-table-search-target="input" data-action="input->table-search#update">
+      </label>
+    </div>
   </div>
+  <div class="searchable-table compact-search-results">
+    <div class="table-empty-state" data-table-search-target="empty" hidden>No matching recent loans.</div>
   <div class="table-wrap">
-    <table>
+    <table data-table-search-target="table">
       <thead>
         <tr>
           <th>SHG</th>
@@ -86,5 +94,6 @@
         <% end %>
       </tbody>
     </table>
+  </div>
   </div>
 </section>
