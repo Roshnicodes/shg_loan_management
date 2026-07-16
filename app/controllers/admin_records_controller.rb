@@ -2,6 +2,7 @@ class AdminRecordsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_record, only: %i[show edit update destroy]
   before_action :require_manage_permission!, except: %i[index show]
+  before_action :require_bulk_delete_permission!, only: :destroy
 
   class_attribute :record_class, :record_fields, :record_title
 

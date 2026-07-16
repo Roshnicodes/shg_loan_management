@@ -106,6 +106,8 @@
                 <%= link_to "Details", shg %>
                 <% if can_manage_shg?(shg) %>
                   <%= link_to "Edit", edit_shg_path(shg) %>
+                <% end %>
+                <% if can_bulk_delete_records? %>
                   <%= button_to "Delete", shg, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this SHG?" } } %>
                 <% end %>
                 <% if can_approve_shg?(shg) %>

@@ -5,7 +5,7 @@ class ShgMembersController < ApplicationController
   before_action :set_member, only: %i[show edit update destroy]
   before_action :require_manage_permission!, only: %i[new create]
   before_action :require_shg_member_manage_permission!, only: %i[edit update destroy]
-  before_action :require_bulk_delete_permission!, only: :bulk_destroy
+  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
 
   def index
     set_filter_options

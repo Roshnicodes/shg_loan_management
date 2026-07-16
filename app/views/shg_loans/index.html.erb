@@ -1,4 +1,9 @@
 <% content_for :page_title, "SHG Loans" %>
+<% if @loan_imports&.any?(&:running?) %>
+  <% content_for :head do %>
+    <meta http-equiv="refresh" content="10">
+  <% end %>
+<% end %>
 
 <section class="panel" data-controller="table-search">
   <div class="panel-header">
@@ -28,6 +33,31 @@
         <%= form.submit "Upload Loan Data", class: "primary-button" %>
       <% end %>
     </div>
+
+    <% if @loan_imports.present? %>
+      <div class="import-status-list">
+        <% @loan_imports.each do |loan_import| %>
+          <div class="import-status-item <%= loan_import.status %>">
+            <div class="import-status-main">
+              <strong><%= loan_import.filename %></strong>
+              <small>
+                #<%= loan_import.id %> · <%= loan_import.status.titleize %>
+                <% if loan_import.user.present? %> · <%= loan_import.user.name %><% end %>
+                <% if loan_import.finished_at.present? %> · <%= l(loan_import.finished_at, format: :short) %><% end %>
+              </small>
+            </div>
+            <div class="import-status-counts">
+              <span>Rows <%= loan_import.total_rows %></span>
+              <span>Loans <%= loan_import.total_loans %></span>
+              <span>Skipped <%= loan_import.skipped_rows %></span>
+            </div>
+            <% if loan_import.error_message.present? %>
+              <p><%= loan_import.error_message %></p>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
   <% end %>
 
   <%= form_with url: shg_loans_path, method: :get, class: "filter-grid" do |form| %>
@@ -110,7 +140,7 @@
             <td><%= loan.shg_member.mobile.presence || "-" %></td>
             <td><%= loan.shg_member.aadhaar_no.presence || "-" %></td>
             <td><%= loan.shg_member.monthly_income.present? ? number_to_currency(loan.shg_member.monthly_income, unit: "₹") : "-" %></td>
-            <td><div class="action-row"><%= link_to "Details", loan %><%= link_to "Passbook", passbook_shg_loan_path(loan) %><% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(loan) %><%= button_to "Delete", loan, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this loan?" } } %><% end %></div></td>
+            <td><div class="action-row"><%= link_to "Details", loan %><%= link_to "Passbook", passbook_shg_loan_path(loan) %><% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(loan) %><% end %><% if can_bulk_delete_records? %><%= button_to "Delete", loan, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this loan?" } } %><% end %></div></td>
           </tr>
         <% end %>
       </tbody>

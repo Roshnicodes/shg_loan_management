@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_15_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_16_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -70,6 +70,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_15_110000) do
     t.datetime "updated_at", null: false
     t.index ["state_id", "name"], name: "index_districts_on_state_id_and_name"
     t.index ["state_id"], name: "index_districts_on_state_id"
+  end
+
+  create_table "loan_imports", force: :cascade do |t|
+    t.integer "approved_shgs", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.string "filename", null: false
+    t.datetime "finished_at"
+    t.integer "skipped_rows", default: 0, null: false
+    t.datetime "started_at"
+    t.string "status", default: "queued", null: false
+    t.integer "total_loans", default: 0, null: false
+    t.integer "total_rows", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["status", "created_at"], name: "index_loan_imports_on_status_and_created_at"
+    t.index ["user_id"], name: "index_loan_imports_on_user_id"
   end
 
   create_table "loan_statuses", force: :cascade do |t|
@@ -299,6 +316,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_15_110000) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "blocks", "districts"
   add_foreign_key "districts", "states"
+  add_foreign_key "loan_imports", "users"
   add_foreign_key "shg_loan_emis", "shg_loans"
   add_foreign_key "shg_loans", "activities"
   add_foreign_key "shg_loans", "loan_statuses"

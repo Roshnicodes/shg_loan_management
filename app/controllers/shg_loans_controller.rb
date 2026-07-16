@@ -1,4 +1,5 @@
 require "csv"
+require "fileutils"
 require "nokogiri"
 require "rexml/document"
 require "set"
@@ -15,10 +16,11 @@ class ShgLoansController < ApplicationController
   before_action :set_loan, only: %i[show edit update destroy passbook]
   before_action :require_manage_permission!, only: %i[new create edit update destroy]
   before_action :require_loan_import_permission!, only: %i[new_import import]
-  before_action :require_bulk_delete_permission!, only: :bulk_destroy
+  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
 
   def index
     set_filter_options
+    @loan_imports = LoanImport.includes(:user).recent.limit(5) if can_manage_records?
     @loans = paginate_relation(filtered_loans.order(created_at: :desc))
   end
 
@@ -36,9 +38,8 @@ class ShgLoansController < ApplicationController
     file = params[:file]
     return redirect_to(shg_loans_path, alert: "Please select a CSV or Excel file.") unless file.present?
 
-    result = import_loans(file)
-    flash[:alert] = "Skipped rows: #{result[:skipped]}. #{result[:errors].join(' | ')}" if result[:skipped].positive?
-    redirect_to shg_loans_path, notice: "Loan import completed. Rows: #{result[:rows]}, loans: #{result[:loans]}, auto-approved SHGs: #{result[:approved_shgs]}, skipped: #{result[:skipped]}."
+    loan_import = start_async_loan_import(file)
+    redirect_to shg_loans_path, notice: "Loan import started in background. Import ##{loan_import.id} status will update here."
   rescue CSV::MalformedCSVError, Zip::Error, REXML::ParseException
     redirect_to shg_loans_path, alert: "Uploaded file is not a valid CSV or Excel file."
   rescue ActiveRecord::RecordInvalid => e
@@ -105,6 +106,59 @@ class ShgLoansController < ApplicationController
 
   def require_loan_import_permission!
     redirect_back fallback_location: shg_loans_path, alert: "You do not have permission to import loan data." unless can_manage_records?
+  end
+
+  def start_async_loan_import(file)
+    filename = file.respond_to?(:original_filename) ? file.original_filename.to_s : File.basename(file.path)
+    import = LoanImport.create!(
+      user: current_user,
+      filename: filename,
+      status: "queued"
+    )
+
+    import_dir = Rails.root.join("tmp", "loan_imports")
+    FileUtils.mkdir_p(import_dir)
+    import_path = import_dir.join("#{import.id}-#{SecureRandom.hex(8)}#{File.extname(filename)}")
+    FileUtils.cp(file.path, import_path)
+
+    run_loan_import_in_background(import.id, import_path.to_s, filename, current_user.id)
+    import
+  end
+
+  def run_loan_import_in_background(import_id, path, filename, user_id)
+    Thread.new do
+      Rails.application.executor.wrap do
+        ActiveRecord::Base.connection_pool.with_connection do
+          import = LoanImport.find(import_id)
+          import.update!(status: "running", started_at: Time.current)
+
+          file = Struct.new(:path, :original_filename).new(path, filename)
+          controller = self.class.new
+          controller.define_singleton_method(:current_user) { User.find(user_id) }
+          result = controller.send(:import_loans, file)
+
+          import.update!(
+            status: "completed",
+            total_rows: result[:rows],
+            total_loans: result[:loans],
+            approved_shgs: result[:approved_shgs],
+            skipped_rows: result[:skipped],
+            error_message: result[:errors].join(" | ").presence,
+            finished_at: Time.current
+          )
+        rescue StandardError => e
+          LoanImport.where(id: import_id).update_all(
+            status: "failed",
+            error_message: e.message.truncate(1000),
+            finished_at: Time.current,
+            updated_at: Time.current
+          )
+          Rails.logger.error("Loan import ##{import_id} failed: #{e.class}: #{e.message}")
+        ensure
+          FileUtils.rm_f(path)
+        end
+      end
+    end
   end
 
   def loan_selection_available?(loan)
@@ -803,8 +857,10 @@ class ShgLoansController < ApplicationController
   def approve_existing_import_shgs!(processed_rows, result)
     return unless current_user&.assistant_admin?
 
-    processed_rows.each do |processed|
-      shg = cached_import_shg(processed.fetch(:attrs), processed.fetch(:village))
+    processed_rows
+      .filter_map { |processed| cached_import_shg(processed.fetch(:attrs), processed.fetch(:village)) }
+      .uniq { |shg| shg.id }
+      .each do |shg|
       result[:approved_shgs] += 1 if shg.is_a?(Shg) && approve_imported_shg!(shg)
     end
   end

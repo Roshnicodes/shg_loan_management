@@ -466,6 +466,70 @@ td input[name="ids[]"] {
   font-weight: 800;
   line-height: 1.45;
 }
+.import-status-list {
+  display: grid;
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+.import-status-item {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(178,204,236,.82);
+  border-left: 4px solid #6d85a8;
+  border-radius: 12px;
+  background: rgba(255,255,255,.92);
+}
+.import-status-item.queued,
+.import-status-item.running {
+  border-left-color: #1f75d6;
+}
+.import-status-item.completed {
+  border-left-color: #20935a;
+}
+.import-status-item.failed {
+  border-left-color: #c33a3a;
+}
+.import-status-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.import-status-main strong {
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.import-status-main small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.import-status-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.import-status-counts span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #263855;
+  font-size: 12px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.import-status-item p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #a22929;
+  font-size: 12px;
+  font-weight: 800;
+}
 .searchable-table {
   display: grid;
   gap: 12px;
@@ -1180,6 +1244,8 @@ td input[name="ids[]"] {
   .login-benefits, .form-grid, .filter-grid, .tool-grid, .metrics-grid, .loan-summary-grid, .inline-import-form { grid-template-columns: 1fr; }
   .table-tools { align-items: stretch; flex-direction: column; }
   .table-tool-meta { width: 100%; justify-content: space-between; }
+  .import-status-item { grid-template-columns: 1fr; }
+  .import-status-counts { justify-content: flex-start; }
   .approval-metrics { grid-template-columns: 1fr; }
   .login-benefits { width: calc(100% - 28px); margin-top: -72px; border-radius: 24px; }
   .login-benefits span { border-right: 0; border-bottom: 1px solid var(--line); }

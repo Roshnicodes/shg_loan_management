@@ -6,7 +6,7 @@ class VisitRecordsController < ApplicationController
   before_action :require_manage_permission!, only: %i[new create]
   before_action :require_visit_manage_permission!, only: %i[edit update destroy]
   before_action :require_visit_approval_permission!, only: %i[approve return_for_correction reject]
-  before_action :require_bulk_delete_permission!, only: :bulk_destroy
+  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
 
   def index
     set_filter_options

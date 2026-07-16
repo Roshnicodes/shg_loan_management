@@ -45,6 +45,8 @@
                 <%= link_to "Details", polymorphic_path(record) %>
                 <% if can_manage_records? %>
                   <%= link_to "Edit", polymorphic_path([:edit, record]) %>
+                <% end %>
+                <% if can_bulk_delete_records? %>
                   <%= button_to "Delete", polymorphic_path(record), method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this record?" } } %>
                 <% end %>
               </div>

@@ -93,6 +93,8 @@
                 <button type="button" class="secondary-link compact-button" data-action="visit-review#open">Review</button>
                 <% if can_manage_visit?(visit) %>
                   <%= link_to "Edit", edit_visit_record_path(visit) %>
+                <% end %>
+                <% if can_bulk_delete_records? %>
                   <%= button_to "Delete", visit, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this visit?" } } %>
                 <% end %>
 
