@@ -9,6 +9,7 @@ class User < ApplicationRecord
 
   before_validation :normalize_login_id
   before_validation :normalize_mobile
+  after_commit :attach_imported_crp_loans, on: %i[create update]
 
   validates :name, :email, :login_id, presence: true
   validates :email, uniqueness: true
@@ -26,6 +27,14 @@ class User < ApplicationRecord
   def display_name = "#{name} (#{user_type&.name})"
 
   private
+
+  def attach_imported_crp_loans
+    return unless crp? && login_id.present?
+
+    ShgLoan.where("LOWER(source_crp_identifier) = ?", login_id.downcase)
+      .where.not(created_by_id: id)
+      .update_all(created_by_id: id, updated_at: Time.current)
+  end
 
   def normalize_login_id
     self.login_id = login_id.to_s.strip.downcase

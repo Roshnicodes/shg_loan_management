@@ -145,7 +145,7 @@ class ApplicationController < ActionController::Base
   def visible_shgs
     relation = Shg.includes(:state, :district, :block, :village)
     if current_user&.crp?
-      loan_shg_ids = ShgLoan.where(created_by: current_user).select(:shg_id)
+      loan_shg_ids = crp_visible_loan_scope.select(:shg_id)
       return relation.where(created_by: current_user).or(relation.where(id: loan_shg_ids))
     end
     return relation if current_user&.admin? || current_user&.assistant_admin?
@@ -164,7 +164,7 @@ class ApplicationController < ActionController::Base
   def visible_shg_members
     relation = ShgMember.includes(:shg, :occupation)
     if current_user&.crp?
-      loan_member_ids = ShgLoan.where(created_by: current_user).select(:shg_member_id)
+      loan_member_ids = crp_visible_loan_scope.select(:shg_member_id)
       return relation.where(shg_id: visible_shgs.select(:id)).or(relation.where(id: loan_member_ids))
     end
 
@@ -173,9 +173,16 @@ class ApplicationController < ActionController::Base
 
   def visible_shg_loans
     relation = ShgLoan.includes(:shg, :shg_member, :product, :loan_status, :created_by)
-    return relation.where(created_by: current_user) if current_user&.crp?
+    return relation.merge(crp_visible_loan_scope) if current_user&.crp?
 
     relation.where(shg_id: visible_shgs.select(:id))
+  end
+
+  def crp_visible_loan_scope
+    login_id = current_user.login_id.to_s.downcase
+
+    ShgLoan.where(created_by: current_user)
+      .or(ShgLoan.where("LOWER(source_crp_identifier) = ?", login_id))
   end
 
   def visible_visit_records
