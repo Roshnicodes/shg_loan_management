@@ -3,14 +3,13 @@ class DashboardController < ApplicationController
 
   def index
     shgs = visible_shgs
-    members = visible_shg_members
     loans = visible_shg_loans
     visits = visible_visit_records
     emis = ShgLoanEmi.where(shg_loan_id: loans.select(:id))
 
     @summary_counts = {
-      "SHG Total" => shgs.count,
-      "SHG Members" => members.count,
+      "SHG Total" => loans.select(:shg_id).distinct.count,
+      "SHG Members" => loans.select(:shg_member_id).distinct.count,
       "Total Loan" => helpers.number_to_currency(loans.sum(:principal_amount), unit: "₹"),
       "Collection" => helpers.number_to_currency(emis.sum(:paid_amount), unit: "₹")
     }
