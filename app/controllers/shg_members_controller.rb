@@ -106,7 +106,7 @@ class ShgMembersController < ApplicationController
           member.name,
           member.shg.name,
           member.loan_no,
-          member.aadhaar_no,
+          helpers.masked_aadhaar(member.aadhaar_no),
           member.mobile,
           member.monthly_income,
           member.shg.state.name,

@@ -27,7 +27,7 @@
 
   <div class="record-metrics">
     <div><small>Loan No</small><strong><%= @member.loan_no.presence || "-" %></strong></div>
-    <div><small>Aadhaar</small><strong><%= @member.aadhaar_no.presence || "-" %></strong></div>
+    <div><small>Aadhaar</small><strong><%= masked_aadhaar(@member.aadhaar_no) %></strong></div>
     <div><small>Monthly HH Income</small><strong><%= @member.monthly_income.present? ? number_to_currency(@member.monthly_income, unit: "₹") : "-" %></strong></div>
   </div>
 

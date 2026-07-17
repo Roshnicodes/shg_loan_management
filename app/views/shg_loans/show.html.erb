@@ -17,7 +17,7 @@
     </div>
     <div class="record-card">
       <h3>Loan Status</h3>
-      <p><span class="status <%= @loan.closed? ? "paid" : "pending" %>"><%= @loan.loan_status.name %></span></p>
+      <p><span class="status <%= @loan.loan_status.name.to_s.casecmp?("overdue") ? "paid" : (@loan.closed? ? "paid" : "pending") %>"><%= display_loan_status_label(@loan.loan_status.name) %></span></p>
     </div>
   </div>
 
@@ -57,7 +57,7 @@
             <td><%= number_to_currency(emi.due_amount, unit: "₹") %></td>
             <td><%= number_to_currency(emi.paid_amount, unit: "₹") %></td>
             <td><%= number_to_currency(closing_balance, unit: "₹") %></td>
-            <td><span class="status <%= emi.overdue? ? "overdue" : emi.status %>"><%= (emi.overdue? ? "overdue" : emi.status).titleize %></span></td>
+            <td><span class="status <%= display_emi_status_class(emi) %>"><%= display_emi_status(emi) %></span></td>
             <td>
               <% if can_manage_records? && emi.remaining_amount.positive? %>
                 <%= form_with url: pay_shg_loan_shg_loan_emi_path(@loan, emi), method: :patch, class: "inline-pay-form" do |form| %>

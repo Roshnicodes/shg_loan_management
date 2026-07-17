@@ -225,7 +225,7 @@ class ShgLoansController < ApplicationController
           loan_paid_amount(loan),
           loan_remaining_amount(loan),
           loan.shg_member.mobile,
-          loan.shg_member.aadhaar_no,
+          helpers.masked_aadhaar(loan.shg_member.aadhaar_no),
           loan.shg_member.monthly_income
         ]
       end
@@ -241,9 +241,13 @@ class ShgLoansController < ApplicationController
   end
 
   def loan_status_label(loan)
-    return loan.source_loan_status.presence || loan.loan_status.name if source_import_loan?(loan)
+    label = if source_import_loan?(loan)
+      loan.source_loan_status.presence || loan.loan_status.name
+    else
+      loan.loan_status.name
+    end
 
-    loan.loan_status.name
+    label.to_s.casecmp?("overdue") ? "Paid" : label
   end
 
   def loan_interest_amount(loan)
@@ -1065,58 +1069,101 @@ class ShgLoansController < ApplicationController
   end
 
   def create_imported_summary_emi!(loan)
-    due_date = loan.distribution_date + loan.emi_interval_months.months
-    due_amount = loan.total_payable.to_d
-    paid_amount = loan.source_paid.to_d
-    status = paid_amount >= due_amount ? "paid" : (due_date < Date.current ? "overdue" : "pending")
+    paid_remaining = loan.source_paid.to_d
     timestamp = Time.current
+    rows = loan.equal_installment_schedule.map do |emi|
+      paid_amount = [ paid_remaining, emi[:due_amount].to_d ].min
+      paid_remaining -= paid_amount
 
-    ShgLoanEmi.insert_all!([
       {
         shg_loan_id: loan.id,
-        installment_no: 1,
-        due_date: due_date,
-        principal_amount: loan.principal_amount,
-        interest_amount: loan.interest_amount,
-        due_amount: due_amount,
+        installment_no: emi[:installment_no],
+        due_date: emi[:due_date],
+        principal_amount: emi[:principal_amount],
+        interest_amount: emi[:interest_amount],
+        due_amount: emi[:due_amount],
         paid_amount: paid_amount,
         paid_on: paid_amount.positive? ? Date.current : nil,
-        status: status,
+        status: imported_emi_status_for(emi[:due_date], emi[:due_amount], paid_amount),
         created_at: timestamp,
         updated_at: timestamp
       }
-    ])
+    end
+
+    ShgLoanEmi.insert_all!(rows) if rows.any?
   end
 
   def imported_summary_emi_attributes(attrs, loan_attributes)
-    due_date = loan_attributes[:distribution_date] + emi_interval_months_for(loan_attributes[:loan_term_type]).months
-    due_amount = loan_attributes[:total_payable].to_d
-    paid_amount = attrs[:paid_amount].to_d
-    status = paid_amount >= due_amount ? "paid" : (due_date < Date.current ? "overdue" : "pending")
     timestamp = loan_attributes[:created_at]
+    paid_remaining = attrs[:paid_amount].to_d
 
-    {
-      installment_no: 1,
-      due_date: due_date,
-      principal_amount: loan_attributes[:principal_amount],
-      interest_amount: loan_attributes[:interest_amount],
-      due_amount: due_amount,
-      paid_amount: paid_amount,
-      paid_on: paid_amount.positive? ? Date.current : nil,
-      status: status,
-      created_at: timestamp,
-      updated_at: timestamp
-    }
+    imported_equal_installment_schedule(loan_attributes).map do |emi|
+      paid_amount = [ paid_remaining, emi[:due_amount].to_d ].min
+      paid_remaining -= paid_amount
+
+      {
+        installment_no: emi[:installment_no],
+        due_date: emi[:due_date],
+        principal_amount: emi[:principal_amount],
+        interest_amount: emi[:interest_amount],
+        due_amount: emi[:due_amount],
+        paid_amount: paid_amount,
+        paid_on: paid_amount.positive? ? Date.current : nil,
+        status: imported_emi_status_for(emi[:due_date], emi[:due_amount], paid_amount),
+        created_at: timestamp,
+        updated_at: timestamp
+      }
+    end
   end
 
   def insert_imported_loan_batch!(loan_batch, emi_batch)
     return if loan_batch.blank?
 
     inserted = ShgLoan.insert_all!(loan_batch, returning: %w[id])
-    emi_rows = inserted.rows.map.with_index do |row, index|
-      emi_batch[index].merge(shg_loan_id: row.first)
+    emi_rows = inserted.rows.flat_map.with_index do |row, index|
+      emi_batch[index].map { |emi| emi.merge(shg_loan_id: row.first) }
     end
     ShgLoanEmi.insert_all!(emi_rows) if emi_rows.any?
+  end
+
+  def imported_equal_installment_schedule(loan_attributes)
+    installments = loan_attributes[:loan_term].to_i
+    return [] if installments <= 0
+
+    total_due = loan_attributes[:total_payable].to_d
+    principal_total = loan_attributes[:principal_amount].to_d
+    interest_total = [ total_due - principal_total, loan_attributes[:interest_amount].to_d ].max
+    principal_emi = principal_total / installments
+    interest_emi = interest_total / installments
+    due_emi = total_due / installments
+    principal_allocated = 0.to_d
+    interest_allocated = 0.to_d
+    due_allocated = 0.to_d
+
+    installments.times.map do |index|
+      final_installment = index == installments - 1
+      principal_component = final_installment ? principal_total - principal_allocated : principal_emi.round(2)
+      interest_component = final_installment ? interest_total - interest_allocated : interest_emi.round(2)
+      due_amount = final_installment ? total_due - due_allocated : due_emi.round(2)
+
+      principal_allocated += principal_component
+      interest_allocated += interest_component
+      due_allocated += due_amount
+
+      {
+        installment_no: index + 1,
+        due_date: loan_attributes[:distribution_date] + ((index + 1) * emi_interval_months_for(loan_attributes[:loan_term_type])).months,
+        principal_amount: principal_component.round(2),
+        interest_amount: interest_component.round(2),
+        due_amount: due_amount.round(2)
+      }
+    end
+  end
+
+  def imported_emi_status_for(due_date, due_amount, paid_amount)
+    return "paid" if paid_amount.to_d >= due_amount.to_d
+
+    due_date < Date.current ? "overdue" : "pending"
   end
 
   def emi_interval_months_for(term_type)

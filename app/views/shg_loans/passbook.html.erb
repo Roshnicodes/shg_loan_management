@@ -46,20 +46,10 @@
         <dt>Member ID</dt><dd><%= @loan.shg_member.loan_no.presence || "MEM#{@loan.shg_member.id.to_s.rjust(4, '0')}" %></dd>
         <dt>Product</dt><dd><%= @loan.product.name %></dd>
         <dt>Loan Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
-        <dt>Interest Rate</dt><dd><%= @loan.interest_percent.present? ? "#{@loan.interest_percent}% per #{@loan.loan_term_type.downcase} reducing" : "-" %></dd>
+        <dt>Interest Amount</dt><dd><%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
+        <dt>Total Payable</dt><dd><%= number_to_currency(@loan.total_payable, unit: "₹") %></dd>
         <dt>Loan Term</dt><dd><%= @loan.loan_term %> <%= @loan.loan_term_type %></dd>
         <dt>Disbursement Date</dt><dd><%= @loan.distribution_date.strftime("%d/%m/%Y") %></dd>
-      </dl>
-    </div>
-
-    <div class="passbook-card">
-      <h2>Loan Summary</h2>
-      <dl>
-        <dt>Principal Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
-        <dt>Total Interest</dt><dd><%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
-        <dt>Total Payable</dt><dd><%= number_to_currency(@loan.total_payable, unit: "₹") %></dd>
-        <dt>Paid Amount</dt><dd><%= number_to_currency(@loan.total_paid, unit: "₹") %></dd>
-        <dt>Remaining</dt><dd><%= number_to_currency(@loan.remaining_amount, unit: "₹") %></dd>
       </dl>
     </div>
 
@@ -101,9 +91,9 @@
           <td><%= number_to_currency(@loan.principal_amount, unit: "₹") %></td>
           <td>Disbursed</td>
         </tr>
-        <% balance = @loan.principal_amount.to_d %>
+        <% balance = @loan.total_payable.to_d %>
         <% @emis.each_with_index do |emi, index| %>
-          <% balance = [balance - emi.principal_amount.to_d, 0.to_d].max %>
+          <% balance = [balance - emi.due_amount.to_d, 0.to_d].max %>
           <tr>
             <td><%= index + 2 %></td>
             <td><%= emi.due_date.strftime("%d/%m/%Y") %></td>
@@ -113,7 +103,7 @@
             <td><%= number_to_currency(emi.principal_amount, unit: "₹") %></td>
             <td><%= number_to_currency(emi.interest_amount, unit: "₹") %></td>
             <td><%= number_to_currency(balance, unit: "₹") %></td>
-            <td><%= balance.zero? ? "Loan Closed" : "" %></td>
+            <td><%= @loan.closed? && balance.zero? ? "Loan Closed" : display_emi_status(emi) %></td>
           </tr>
         <% end %>
       </tbody>
@@ -135,6 +125,7 @@
     <div>
       <strong>Important Instructions</strong>
       <p>Pay EMI on or before due date. Keep this passbook safe.</p>
+      <p class="system-generated-note">This passbook is system generated and does not require a physical signature.</p>
     </div>
     <span>Member Signature</span>
     <span>Authorised Signatory</span>

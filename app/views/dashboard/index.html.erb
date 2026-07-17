@@ -87,7 +87,7 @@
           <tr>
             <td><%= link_to loan.shg.name, loan %></td>
             <td><%= loan.shg_member.name %></td>
-            <td><span class="status"><%= loan.loan_status.name %></span></td>
+            <td><span class="status"><%= display_loan_status_label(loan.loan_status.name) %></span></td>
             <td><%= number_to_currency(loan.principal_amount, unit: "₹") %></td>
             <td><%= number_to_currency(loan.total_payable, unit: "₹") %></td>
           </tr>

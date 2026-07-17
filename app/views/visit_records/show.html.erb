@@ -23,7 +23,7 @@
     <dt>Member Loan No</dt>
     <dd><%= @visit_record.shg_member.loan_no.presence || "-" %></dd>
     <dt>Aadhaar No</dt>
-    <dd><%= @visit_record.shg_member.aadhaar_no.presence || "-" %></dd>
+    <dd><%= masked_aadhaar(@visit_record.shg_member.aadhaar_no) %></dd>
     <dt>Mobile</dt>
     <dd><%= @visit_record.shg_member.mobile.presence || "-" %></dd>
     <dt>Member Address</dt>

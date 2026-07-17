@@ -145,7 +145,7 @@
                           <dl class="compact-detail-list">
                             <dt>Name</dt><dd><%= visit.shg_member.name %></dd>
                             <dt>Loan No</dt><dd><%= visit.shg_member.loan_no.presence || "-" %></dd>
-                            <dt>Aadhaar</dt><dd><%= visit.shg_member.aadhaar_no.presence || "-" %></dd>
+                            <dt>Aadhaar</dt><dd><%= masked_aadhaar(visit.shg_member.aadhaar_no) %></dd>
                             <dt>Mobile</dt><dd><%= visit.shg_member.mobile.presence || "-" %></dd>
                             <dt>Address</dt><dd><%= visit.shg_member.address.presence || "-" %></dd>
                           </dl>

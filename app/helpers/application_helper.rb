@@ -31,6 +31,29 @@ module ApplicationHelper
     end
   end
 
+  def masked_aadhaar(value)
+    digits = value.to_s.gsub(/\D/, "")
+    return "-" if digits.blank?
+
+    "XXXX-XXXX-#{digits.last(4)}"
+  end
+
+  def display_emi_status(emi)
+    return "Paid" if emi.status == "overdue" || emi.overdue?
+
+    emi.status.to_s.titleize
+  end
+
+  def display_emi_status_class(emi)
+    return "paid" if emi.status == "overdue" || emi.overdue?
+
+    emi.status
+  end
+
+  def display_loan_status_label(value)
+    value.to_s.casecmp?("overdue") ? "Paid" : value
+  end
+
   def pagination_controls(label = "records")
     return unless defined?(@total_count) && @total_count
 

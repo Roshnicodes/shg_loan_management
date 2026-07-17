@@ -1021,99 +1021,150 @@ td input[name="ids[]"] {
   margin-bottom: 14px;
 }
 .passbook-page {
+  --passbook-primary: #12335f;
+  --passbook-primary-dark: #0b2446;
+  --passbook-accent: #0f8f8f;
+  --passbook-soft: #eef8f8;
+  --passbook-line: #c8d9e5;
+  position: relative;
   display: grid;
-  grid-template-columns: .95fr 1.05fr;
-  gap: 18px;
-  margin-bottom: 18px;
-  padding: 18px;
-  border: 1px solid #cfe2d2;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 12px 34px rgba(42,91,161,.1);
+  grid-template-columns: minmax(0, .86fr) minmax(0, 1.14fr);
+  grid-template-areas:
+    "brand loan"
+    "image loan"
+    "shg loan"
+    "issued issued";
+  gap: 12px 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--passbook-line);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(250,255,251,.98)),
+    #fff;
+  box-shadow: 0 18px 42px rgba(42,91,161,.12);
+  overflow: hidden;
+}
+.passbook-page::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: linear-gradient(90deg, #12335f, #0f8f8f, #7aa6c2);
 }
 .passbook-page.transactions {
   display: block;
 }
 .passbook-cover {
-  display: grid;
-  gap: 14px;
-  border-right: 1px solid #dcebdd;
-  padding-right: 18px;
+  display: contents;
+}
+.passbook-cover > .passbook-brand,
+.passbook-cover > .passbook-illustration,
+.passbook-cover > .passbook-card,
+.passbook-cover > .passbook-issued {
+  min-width: 0;
+}
+.passbook-cover > .passbook-brand {
+  grid-area: brand;
+}
+.passbook-cover > .passbook-illustration {
+  grid-area: image;
+}
+.passbook-cover > .passbook-card {
+  grid-area: shg;
+}
+.passbook-cover > .passbook-issued {
+  grid-area: issued;
+}
+.passbook-page > .passbook-details {
+  grid-area: loan;
+}
+.passbook-cover {
+  border-right: 1px solid rgba(191,221,197,.9);
+  padding-right: 16px;
+  min-width: 0;
 }
 .passbook-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
-  color: #096b2b;
+  gap: 12px;
+  color: var(--passbook-primary);
 }
 .passbook-logo {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
-  border: 3px solid #0b7b35;
+  flex: 0 0 auto;
+  width: 54px;
+  height: 54px;
+  border: 3px solid var(--passbook-accent);
   border-radius: 50%;
+  background: #f7fbfd;
   font-weight: 900;
 }
 .passbook-brand p {
   margin: 0;
   text-transform: uppercase;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
+  letter-spacing: 0;
 }
 .passbook-brand h1 {
   margin: 0;
-  font-size: 44px;
+  font-size: 36px;
   line-height: 1;
-  color: #0b7b35;
+  color: var(--passbook-primary);
 }
 .passbook-brand span,
 .passbook-note {
   display: inline-block;
   border-radius: 999px;
-  padding: 8px 18px;
+  padding: 7px 16px;
   color: #fff;
-  background: linear-gradient(135deg, #0b7b35, #05551f);
+  background: linear-gradient(135deg, var(--passbook-primary), var(--passbook-accent));
   font-weight: 900;
 }
 .passbook-illustration {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   place-items: center;
-  min-height: 190px;
+  min-height: 145px;
   border-radius: 14px;
-  background: linear-gradient(180deg, #fff7dc, #eef8f1);
-  color: #1b6b35;
+  border: 1px solid #d8e5ec;
+  background: linear-gradient(180deg, #f9fcff, #eef8f8);
+  color: var(--passbook-primary);
   text-align: center;
   overflow: hidden;
+  font-weight: 900;
 }
 .passbook-women-image {
   display: block;
   width: 100%;
-  max-height: 210px;
+  max-height: 135px;
   object-fit: contain;
   object-position: center bottom;
 }
 .passbook-card {
-  border: 1px solid #cfe2d2;
-  border-radius: 12px;
+  min-width: 0;
+  border: 1px solid var(--passbook-line);
+  border-radius: 13px;
   overflow: hidden;
-  background: #fbfffc;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 10px 22px rgba(18,51,95,.06);
 }
 .passbook-card h2,
 .passbook-table-header h2 {
   margin: 0;
-  padding: 9px 14px;
+  padding: 9px 13px;
   color: #fff;
-  background: linear-gradient(135deg, #0b7b35, #05551f);
-  border-radius: 8px 8px 0 0;
+  background: linear-gradient(135deg, var(--passbook-primary), var(--passbook-primary-dark));
+  border-radius: 0;
   font-size: 16px;
   text-align: center;
   text-transform: uppercase;
 }
 .passbook-card dl {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: minmax(130px, .42fr) minmax(0, 1fr);
   gap: 0;
   margin: 0;
   padding: 10px 14px;
@@ -1122,14 +1173,16 @@ td input[name="ids[]"] {
 .passbook-card dd {
   margin: 0;
   padding: 7px 0;
-  border-bottom: 1px solid #e3efe6;
+  border-bottom: 1px solid #e2edf3;
   font-weight: 800;
+  line-height: 1.35;
 }
 .passbook-card dt {
   color: #53637a;
 }
 .passbook-card dd {
   color: #15213a;
+  overflow-wrap: anywhere;
 }
 .passbook-card dt:last-of-type,
 .passbook-card dd:last-of-type {
@@ -1137,8 +1190,9 @@ td input[name="ids[]"] {
 }
 .passbook-details {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   align-content: start;
+  min-width: 0;
 }
 .passbook-card.highlight {
   background: #fff;
@@ -1148,10 +1202,12 @@ td input[name="ids[]"] {
   grid-template-columns: 1fr auto;
   gap: 3px 16px;
   align-items: end;
+  align-self: start;
   padding: 12px 14px;
   border-radius: 12px;
   color: #fff;
-  background: linear-gradient(135deg, #0b7b35, #05551f);
+  background: linear-gradient(135deg, var(--passbook-primary), var(--passbook-accent));
+  box-shadow: 0 10px 18px rgba(18,51,95,.12);
 }
 .passbook-issued small {
   grid-column: 2;
@@ -1159,32 +1215,53 @@ td input[name="ids[]"] {
   padding-top: 6px;
 }
 .passbook-note {
-  border-radius: 12px;
+  width: 100%;
+  border-radius: 13px;
+  padding: 7px 14px;
   text-align: center;
-  background: #eef8f1;
-  color: #0b6830;
-  border: 1px solid #cfe2d2;
+  background: var(--passbook-soft);
+  color: var(--passbook-primary);
+  border: 1px solid var(--passbook-line);
+  box-shadow: none;
 }
 .passbook-table-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   gap: 12px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  color: #18233c;
+}
+.passbook-table-header span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .passbook-table-header span:last-child {
   text-align: right;
 }
 .passbook-table {
   min-width: 980px;
-  font-size: 13px;
+  font-size: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 .passbook-table th {
   color: #fff;
-  background: #0b7b35;
+  background: var(--passbook-primary);
+  white-space: nowrap;
+}
+.passbook-table td,
+.passbook-table th {
+  padding: 9px 10px;
+}
+.passbook-table tbody tr:nth-child(even) {
+  background: #f7fbff;
+}
+.passbook-table tbody tr:hover {
+  background: var(--passbook-soft);
 }
 .passbook-table tfoot th {
-  background: #eef8f1;
+  background: var(--passbook-soft);
   color: #13213b;
 }
 .passbook-footer {
@@ -1192,17 +1269,23 @@ td input[name="ids[]"] {
   grid-template-columns: 1fr 220px 220px;
   gap: 18px;
   align-items: end;
-  margin-top: 14px;
+  margin-top: 12px;
   padding: 14px;
-  border: 1px solid #cfe2d2;
+  border: 1px solid var(--passbook-line);
   border-radius: 12px;
-  background: #fbfffc;
+  background: rgba(255,255,255,.96);
 }
 .passbook-footer span {
   display: block;
   border-top: 1px solid #6b778c;
   padding-top: 7px;
   text-align: center;
+  font-weight: 800;
+}
+.system-generated-note {
+  margin-top: 6px;
+  color: #53637a;
+  font-size: 12px;
   font-weight: 800;
 }
 .muted-text {
@@ -1231,6 +1314,16 @@ td input[name="ids[]"] {
   .dashboard-approval-grid { grid-template-columns: 1fr; }
   .approval-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .main { padding: 18px; }
+  .passbook-page {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "brand"
+      "loan"
+      "image"
+      "shg"
+      "issued";
+  }
+  .passbook-details { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 640px) {
@@ -1265,30 +1358,85 @@ td input[name="ids[]"] {
   .visit-review-grid, .modal-approval-bar, .modal-approval-form { grid-template-columns: 1fr; }
   .visit-review-media, .document-preview { min-height: 240px; }
   .compact-detail-list { grid-template-columns: 1fr; }
+  .passbook-actions { align-items: stretch; flex-direction: column; }
   .passbook-page, .passbook-table-header, .passbook-footer { grid-template-columns: 1fr; }
-  .passbook-cover { border-right: 0; padding-right: 0; }
-  .passbook-brand h1 { font-size: 34px; }
+  .passbook-page { padding: 16px 12px; }
+  .passbook-brand { align-items: flex-start; }
+  .passbook-logo { width: 50px; height: 50px; font-size: 14px; }
+  .passbook-brand h1 { font-size: 32px; }
+  .passbook-brand p { font-size: 10px; }
+  .passbook-brand span { padding: 7px 13px; }
+  .passbook-illustration { min-height: 150px; }
+  .passbook-women-image { max-height: 145px; }
   .passbook-card dl { grid-template-columns: 1fr; }
+  .passbook-card dt { padding-bottom: 2px; border-bottom: 0; }
+  .passbook-card dd { padding-top: 0; }
+  .passbook-table-header span:last-child { text-align: left; }
+  .passbook-table-header h2 { width: 100%; }
+  .passbook-footer span { margin-top: 22px; }
 }
 
 @media print {
-  @page { size: A4; margin: 10mm; }
+  @page { size: A4 landscape; margin: 8mm; }
   body { background: #fff; }
   .sidebar, .topbar, .flash-wrap, .passbook-actions { display: none !important; }
   .app-shell { display: block; }
   .main { padding: 0; background: #fff; }
   .passbook-page {
-    break-after: page;
-    margin: 0;
+    break-after: auto;
+    margin: 0 0 4mm;
     padding: 0;
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    grid-template-columns: .9fr 1.1fr;
+    grid-template-areas:
+      "brand loan"
+      "image loan"
+      "shg loan"
+      "issued issued";
+    gap: 5mm;
+    overflow: visible;
   }
+  .passbook-page::before { display: none; }
   .passbook-page.transactions {
     break-after: auto;
+    display: block;
   }
   .passbook-page:last-child { break-after: auto; }
+  .passbook-brand h1 { font-size: 28px; }
+  .passbook-logo { width: 42px; height: 42px; border-width: 2px; }
+  .passbook-brand span { padding: 4px 10px; }
+  .passbook-illustration { min-height: 86px; }
+  .passbook-women-image { max-height: 82px; }
+  .passbook-card,
+  .passbook-issued,
+  .passbook-note,
+  .passbook-footer {
+    box-shadow: none;
+  }
+  .passbook-card h2,
+  .passbook-table-header h2 {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+  .passbook-card dl {
+    grid-template-columns: 105px minmax(0, 1fr);
+    padding: 4px 8px;
+  }
+  .passbook-card dt,
+  .passbook-card dd {
+    padding: 2px 0;
+    font-size: 9px;
+  }
+  .passbook-issued { padding: 5px 8px; font-size: 9px; }
+  .passbook-issued small { padding-top: 3px; }
+  .passbook-note { padding: 4px 8px; font-size: 10px; }
+  .passbook-table-header {
+    grid-template-columns: 1fr auto 1fr;
+    margin-bottom: 4px;
+    font-size: 9px;
+  }
   .passbook-table-wrap {
     overflow: visible;
     border: 0;
@@ -1296,18 +1444,27 @@ td input[name="ids[]"] {
   .passbook-table {
     min-width: 0;
     width: 100%;
-    font-size: 10px;
+    font-size: 7.8px;
   }
   .passbook-table th,
   .passbook-table td {
-    padding: 5px 4px;
+    padding: 2px 2px;
   }
-  tr,
+  .passbook-table tr,
   .passbook-card,
   .passbook-footer {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+  .passbook-footer {
+    grid-template-columns: 1fr 150px 150px;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 5px 8px;
+    font-size: 8.5px;
+  }
+  .passbook-footer p { margin: 4px 0 0; }
+  .passbook-footer span { padding-top: 4px; }
   thead { display: table-header-group; }
   tfoot { display: table-footer-group; }
   a { color: inherit; }

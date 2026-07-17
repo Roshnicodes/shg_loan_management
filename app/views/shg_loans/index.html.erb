@@ -138,7 +138,7 @@
             <td><%= number_to_currency(loan_paid_amount(loan), unit: "₹") %></td>
             <td><%= number_to_currency(loan_remaining_amount(loan), unit: "₹") %></td>
             <td><%= loan.shg_member.mobile.presence || "-" %></td>
-            <td><%= loan.shg_member.aadhaar_no.presence || "-" %></td>
+            <td><%= masked_aadhaar(loan.shg_member.aadhaar_no) %></td>
             <td><%= loan.shg_member.monthly_income.present? ? number_to_currency(loan.shg_member.monthly_income, unit: "₹") : "-" %></td>
             <td><div class="action-row"><%= link_to "Details", loan %><%= link_to "Passbook", passbook_shg_loan_path(loan) %><% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(loan) %><% end %><% if can_bulk_delete_records? %><%= button_to "Delete", loan, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this loan?" } } %><% end %></div></td>
           </tr>

@@ -73,6 +73,40 @@ class ShgLoan < ApplicationRecord
     end
   end
 
+  def equal_installment_schedule
+    installments = loan_term.to_i
+    return [] if installments <= 0
+
+    total_due = total_payable.to_d.positive? ? total_payable.to_d : principal_amount.to_d + interest_amount.to_d
+    principal_total = principal_amount.to_d
+    interest_total = [ total_due - principal_total, interest_amount.to_d ].max
+    principal_emi = principal_total / installments
+    interest_emi = interest_total / installments
+    due_emi = total_due / installments
+    principal_allocated = 0.to_d
+    interest_allocated = 0.to_d
+    due_allocated = 0.to_d
+
+    installments.times.map do |index|
+      final_installment = index == installments - 1
+      principal_component = final_installment ? principal_total - principal_allocated : principal_emi.round(2)
+      interest_component = final_installment ? interest_total - interest_allocated : interest_emi.round(2)
+      due_amount = final_installment ? total_due - due_allocated : due_emi.round(2)
+
+      principal_allocated += principal_component
+      interest_allocated += interest_component
+      due_allocated += due_amount
+
+      {
+        installment_no: index + 1,
+        due_date: distribution_date + ((index + 1) * emi_interval_months).months,
+        principal_amount: principal_component.round(2),
+        interest_amount: interest_component.round(2),
+        due_amount: due_amount.round(2)
+      }
+    end
+  end
+
   def total_paid
     shg_loan_emis.sum(:paid_amount)
   end
@@ -101,15 +135,11 @@ class ShgLoan < ApplicationRecord
   end
 
   def ensure_emi_schedule!
-    return if manual_total_loan? && shg_loan_emis.any?
-
     rebuild_emi_schedule(preserve_payments: true) if shg_loan_emis.empty? || emi_schedule_outdated?
   end
 
   def emi_schedule_outdated?
-    return false if manual_total_loan?
-
-    expected_schedule = reducing_balance_schedule
+    expected_schedule = expected_emi_schedule
     current_schedule = shg_loan_emis.order(:installment_no).to_a
     return true if expected_schedule.size != current_schedule.size
 
@@ -125,6 +155,10 @@ class ShgLoan < ApplicationRecord
     manual_import_totals || source_total_payable.present? || source_interest_amount.present? || interest_percent.blank?
   end
 
+  def expected_emi_schedule
+    manual_total_loan? ? equal_installment_schedule : reducing_balance_schedule
+  end
+
   private
 
   def set_defaults
@@ -135,7 +169,7 @@ class ShgLoan < ApplicationRecord
   def calculate_totals
     return if manual_total_loan?
 
-    schedule = reducing_balance_schedule
+    schedule = expected_emi_schedule
     self.interest_amount = schedule.sum { |emi| emi[:interest_amount] }.round(2)
     self.total_payable = schedule.sum { |emi| emi[:due_amount] }.round(2)
   end
@@ -144,7 +178,7 @@ class ShgLoan < ApplicationRecord
     return if loan_term.blank? || loan_term <= 0
 
     paid_amount = preserve_payments ? total_paid.to_d : 0.to_d
-    schedule = reducing_balance_schedule
+    schedule = expected_emi_schedule
     total_interest = schedule.sum { |emi| emi[:interest_amount] }.round(2)
     total_due = schedule.sum { |emi| emi[:due_amount] }.round(2)
 

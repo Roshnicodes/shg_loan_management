@@ -147,7 +147,7 @@ class VisitRecordsController < ApplicationController
           visit.shg.name,
           visit.shg_member.name,
           visit.shg_member.loan_no,
-          visit.shg_member.aadhaar_no,
+          helpers.masked_aadhaar(visit.shg_member.aadhaar_no),
           visit.shg_member.mobile,
           visit.product&.name,
           visit.purpose,

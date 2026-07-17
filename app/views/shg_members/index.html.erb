@@ -45,7 +45,7 @@
             <td><%= link_to member.name, member %></td>
             <td><%= member.shg.name %></td>
             <td><%= member.loan_no.presence || "-" %></td>
-            <td><%= member.aadhaar_no.presence || "-" %></td>
+            <td><%= masked_aadhaar(member.aadhaar_no) %></td>
             <td><%= member.monthly_income.present? ? number_to_currency(member.monthly_income, unit: "₹") : "-" %></td>
             <td><%= member.mobile %></td>
             <td><div class="action-row"><%= link_to "Details", member %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member) %><% end %><% if can_bulk_delete_records? %><%= button_to "Delete", member, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this member?" } } %><% end %></div></td>
