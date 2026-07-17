@@ -144,7 +144,10 @@ class ApplicationController < ActionController::Base
 
   def visible_shgs
     relation = Shg.includes(:state, :district, :block, :village)
-    return relation.where(created_by: current_user) if current_user&.crp?
+    if current_user&.crp?
+      loan_shg_ids = ShgLoan.where(created_by: current_user).select(:shg_id)
+      return relation.where(created_by: current_user).or(relation.where(id: loan_shg_ids))
+    end
     return relation if current_user&.admin? || current_user&.assistant_admin?
     return relation.where(district_id: current_user.district_id).where.not(approval_status: "draft") if current_user&.district_coordinator? && current_user.district_id.present?
 
@@ -159,7 +162,13 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_shg_members
-    ShgMember.includes(:shg, :occupation).where(shg_id: visible_shgs.select(:id))
+    relation = ShgMember.includes(:shg, :occupation)
+    if current_user&.crp?
+      loan_member_ids = ShgLoan.where(created_by: current_user).select(:shg_member_id)
+      return relation.where(shg_id: visible_shgs.select(:id)).or(relation.where(id: loan_member_ids))
+    end
+
+    relation.where(shg_id: visible_shgs.select(:id))
   end
 
   def visible_shg_loans
