@@ -10,7 +10,7 @@
           <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected members?" } %>
         <% end %>
       <% end %>
-      <% if can_manage_records? && manageable_shgs.exists? %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
+      <% if can_manage_records? && visible_shgs.exists? %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
       <label class="header-search-box">
         <span>Search</span>
         <input type="search" placeholder="Search members..." data-table-search-target="input" data-action="input->table-search#update">
