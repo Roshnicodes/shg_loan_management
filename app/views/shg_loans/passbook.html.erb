@@ -47,7 +47,7 @@
         <dt>Loan Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
         <dt>Interest Amount</dt><dd><%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
         <dt>Total Payable</dt><dd><%= number_to_currency(@loan.total_payable, unit: "₹") %></dd>
-        <dt>Loan Term</dt><dd><%= @loan.loan_term %> <%= @loan.loan_term_type %></dd>
+        <dt>Loan Term</dt><dd><%= loan_term_display(@loan) %></dd>
         <dt>Disbursement Date</dt><dd><%= @loan.distribution_date.strftime("%d/%m/%Y") %></dd>
       </dl>
     </div>

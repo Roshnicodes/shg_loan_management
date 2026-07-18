@@ -54,6 +54,20 @@ module ApplicationHelper
     value.to_s.casecmp?("overdue") ? "Paid" : value
   end
 
+  def loan_term_display(loan)
+    term = loan.loan_term.to_i
+    period =
+      case loan.loan_term_type
+      when "Monthly" then "Month"
+      when "Quarterly" then "Quarter"
+      when "Half Yearly" then "Half Year"
+      when "Yearly" then "Year"
+      else loan.loan_term_type.to_s
+      end
+
+    "#{term} #{period.pluralize(term)}"
+  end
+
   def pagination_controls(label = "records")
     return unless defined?(@total_count) && @total_count
 
