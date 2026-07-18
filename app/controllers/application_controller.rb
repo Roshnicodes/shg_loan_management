@@ -1,4 +1,6 @@
 class ApplicationController < ActionController::Base
+  rescue_from ActiveRecord::RecordNotFound, with: :handle_record_not_found
+
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
 
@@ -157,7 +159,10 @@ class ApplicationController < ActionController::Base
     relation = Shg.includes(:state, :district, :block, :village)
     if current_user&.crp?
       loan_shg_ids = crp_visible_loan_scope.select(:shg_id)
-      return relation.where(created_by: current_user).or(relation.where(id: loan_shg_ids))
+      shg_scope = Shg.where(created_by: current_user).or(Shg.where(id: loan_shg_ids))
+      location_scope = crp_visible_location_shgs
+      shg_scope = shg_scope.or(location_scope) if location_scope.exists?
+      return relation.where(id: shg_scope.select(:id))
     end
     return current_user.state_id.present? ? relation.where(state_id: current_user.state_id) : relation if current_user&.admin? || current_user&.assistant_admin?
     if current_user&.district_coordinator?
@@ -190,7 +195,7 @@ class ApplicationController < ActionController::Base
 
   def visible_shg_loans
     relation = ShgLoan.includes(:shg, :shg_member, :product, :loan_status, :created_by)
-    return relation.merge(crp_visible_loan_scope) if current_user&.crp?
+    return relation.where(shg_id: visible_shgs.select(:id)).or(relation.merge(crp_visible_loan_scope)) if current_user&.crp?
 
     relation.where(shg_id: visible_shgs.select(:id))
   end
@@ -204,7 +209,7 @@ class ApplicationController < ActionController::Base
 
   def visible_visit_records
     relation = VisitRecord.includes(:village, :shg, :shg_member, :product, :created_by, :dc_approved_by, :assistant_approved_by)
-    return relation.where(created_by: current_user) if current_user&.crp?
+    return relation.where(created_by: current_user).or(relation.where(shg_id: visible_shgs.select(:id))) if current_user&.crp?
     return current_user.state_id.present? ? relation.joins(:shg).where(shgs: { state_id: current_user.state_id }) : relation if current_user&.admin? || current_user&.assistant_admin?
     if current_user&.district_coordinator?
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
@@ -251,6 +256,24 @@ class ApplicationController < ActionController::Base
         (user.office_block_ids & visible_blocks.pluck(:id)).present? ||
         (user.office_village_ids & visible_villages.pluck(:id)).present?
     end
+  end
+
+  def crp_visible_location_shgs
+    return Shg.none unless current_user&.crp?
+
+    if current_user.office_village_ids.present?
+      Shg.where(village_id: current_user.office_village_ids)
+    elsif current_user.office_block_ids.present?
+      Shg.where(block_id: current_user.office_block_ids)
+    elsif current_user.office_district_ids.present?
+      Shg.where(district_id: current_user.office_district_ids)
+    else
+      Shg.none
+    end
+  end
+
+  def handle_record_not_found
+    redirect_back fallback_location: dashboard_path, alert: "This record is not available for your login or was removed."
   end
 
   def bulk_destroy_records(relation, ids)
