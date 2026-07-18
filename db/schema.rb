@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_17_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_18_164000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -251,6 +251,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_17_060000) do
     t.bigint "district_id"
     t.string "email", null: false
     t.string "login_id", null: false
+    t.integer "mapped_block_ids", default: [], null: false, array: true
+    t.integer "mapped_district_ids", default: [], null: false, array: true
+    t.integer "mapped_village_ids", default: [], null: false, array: true
     t.string "mobile"
     t.string "name", null: false
     t.string "password_digest", null: false

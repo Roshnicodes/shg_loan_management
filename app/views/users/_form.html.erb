@@ -2,20 +2,66 @@
 <% district_options = District.order(:name).map { |district| [district.name, district.id, { data: { state_id: district.state_id } }] } %>
 <% block_options = Block.order(:name).map { |block| [block.name, block.id, { data: { district_id: block.district_id } }] } %>
 <% village_options = Village.order(:name).map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
+<% user_type_options = UserType.order(:name).map { |type| [type.display_name, type.id, { data: { role: type.code.to_s.upcase } }] } %>
 
-<%= form_with model: @user, class: "form-grid", data: { controller: "location-select" } do |form| %>
+<%= form_with model: @user, class: "form-grid user-form", data: { controller: "user-mapping" } do |form| %>
   <label><span>User Name</span><%= form.text_field :name, required: true %></label>
   <label><span>Login ID</span><%= form.text_field :login_id, required: true, pattern: "[A-Za-z0-9_.-]+", title: "Only letters, numbers, dot, dash and underscore" %></label>
   <label><span>Email</span><%= form.email_field :email, required: true %></label>
   <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
   <label><span>Designation</span><%= form.text_field :designation %></label>
-  <label><span>User Type</span><%= form.collection_select :user_type_id, UserType.order(:name), :id, :display_name, { prompt: "Select role" }, required: true %></label>
-  <label><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { include_blank: "No state mapping" }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-  <label><span>District Office</span><%= form.select :district_id, options_for_select(district_options, @user.district_id), { include_blank: "No district mapping" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
-  <label><span>Block Office</span><%= form.select :block_id, options_for_select(block_options, @user.block_id), { include_blank: "No block mapping" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
-  <label><span>Village Office</span><%= form.select :village_id, options_for_select(village_options, @user.village_id), { include_blank: "No village mapping" }, data: { location_select_target: "village" } %></label>
-  <label><span>Password</span><%= form.password_field :password, required: !@user.persisted?, autocomplete: "new-password" %></label>
-  <label><span>Confirm Password</span><%= form.password_field :password_confirmation, required: !@user.persisted?, autocomplete: "new-password" %></label>
+  <label><span>User Type</span><%= form.select :user_type_id, options_for_select(user_type_options, @user.user_type_id), { prompt: "Select role" }, required: true, data: { user_mapping_target: "role", action: "user-mapping#roleChanged" } %></label>
+  <label data-user-mapping-target="stateField"><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { include_blank: "No state mapping" }, data: { user_mapping_target: "state", action: "user-mapping#stateChanged" } %></label>
+  <label data-user-mapping-target="districtField">
+    <span>District Office</span>
+    <div class="multi-select-combobox" data-user-mapping-select-param="district">
+      <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="district" data-user-mapping-target="districtToggle">Select districts</button>
+      <div class="multi-select-menu" data-user-mapping-target="districtMenu">
+        <div class="selected-options-bar" data-user-mapping-target="districtSelected"></div>
+        <div class="multi-select-options" data-user-mapping-target="districtOptions"></div>
+      </div>
+    </div>
+    <%= form.select :mapped_district_ids, options_for_select(district_options, @user.office_district_ids), {}, multiple: true, data: { user_mapping_target: "district", action: "user-mapping#districtChanged" } %>
+    <button type="button" class="mini-link" data-user-mapping-target="districtSelectAll" data-action="user-mapping#selectAll" data-user-mapping-select-param="district">Select all districts</button>
+  </label>
+  <label data-user-mapping-target="blockField">
+    <span>Block Office</span>
+    <div class="multi-select-combobox" data-user-mapping-select-param="block">
+      <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="block" data-user-mapping-target="blockToggle">Select blocks</button>
+      <div class="multi-select-menu" data-user-mapping-target="blockMenu">
+        <div class="selected-options-bar" data-user-mapping-target="blockSelected"></div>
+        <div class="multi-select-options" data-user-mapping-target="blockOptions"></div>
+      </div>
+    </div>
+    <%= form.select :mapped_block_ids, options_for_select(block_options, @user.office_block_ids), {}, multiple: true, data: { user_mapping_target: "block", action: "user-mapping#blockChanged" } %>
+    <button type="button" class="mini-link" data-action="user-mapping#selectAll" data-user-mapping-select-param="block">Select all blocks</button>
+  </label>
+  <label data-user-mapping-target="villageField">
+    <span>Village Office</span>
+    <div class="multi-select-combobox" data-user-mapping-select-param="village">
+      <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="village" data-user-mapping-target="villageToggle">Select villages</button>
+      <div class="multi-select-menu" data-user-mapping-target="villageMenu">
+        <div class="selected-options-bar" data-user-mapping-target="villageSelected"></div>
+        <div class="multi-select-options" data-user-mapping-target="villageOptions"></div>
+      </div>
+    </div>
+    <%= form.select :mapped_village_ids, options_for_select(village_options, @user.office_village_ids), {}, multiple: true, data: { user_mapping_target: "village" } %>
+    <button type="button" class="mini-link" data-action="user-mapping#selectAll" data-user-mapping-select-param="village">Select all villages</button>
+  </label>
+  <label>
+    <span>Password</span>
+    <div class="password-field">
+      <%= form.password_field :password, required: !@user.persisted?, autocomplete: "new-password", data: { user_mapping_target: "password" } %>
+      <button type="button" class="password-toggle" data-action="user-mapping#togglePassword" aria-label="Show password">Show</button>
+    </div>
+  </label>
+  <label>
+    <span>Confirm Password</span>
+    <div class="password-field">
+      <%= form.password_field :password_confirmation, required: !@user.persisted?, autocomplete: "new-password", data: { user_mapping_target: "password" } %>
+      <button type="button" class="password-toggle" data-action="user-mapping#togglePassword" aria-label="Show password">Show</button>
+    </div>
+  </label>
   <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
   <div class="form-actions"><%= link_to "Cancel", users_path, class: "secondary-link" %><%= form.submit "Save User", class: "primary-button" %></div>
 <% end %>

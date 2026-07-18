@@ -81,13 +81,13 @@ class VisitRecordsController < ApplicationController
 
   def set_filter_options
     users = User.includes(:user_type).order(:name)
-    @crps = users.select(&:crp?)
+    @crps = filter_crps
     @district_coordinators = users.select(&:district_coordinator?)
     @assistant_admins = users.select(&:assistant_admin?)
-    @states = State.order(:name)
-    @districts = params[:state_id].present? ? District.where(state_id: params[:state_id]).order(:name) : District.order(:name)
-    @blocks = params[:district_id].present? ? Block.where(district_id: params[:district_id]).order(:name) : Block.order(:name)
-    @villages = params[:block_id].present? ? Village.where(block_id: params[:block_id]).order(:name) : Village.order(:name)
+    @states = filter_states
+    @districts = filter_districts
+    @blocks = filter_blocks
+    @villages = filter_villages
   end
 
   def filtered_visit_records

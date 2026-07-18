@@ -71,12 +71,12 @@ class ShgMembersController < ApplicationController
   private
 
   def set_filter_options
-    @states = State.order(:name)
-    @districts = params[:state_id].present? ? District.where(state_id: params[:state_id]).order(:name) : District.order(:name)
-    @blocks = params[:district_id].present? ? Block.where(district_id: params[:district_id]).order(:name) : Block.order(:name)
-    @villages = params[:block_id].present? ? Village.where(block_id: params[:block_id]).order(:name) : Village.order(:name)
+    @states = filter_states
+    @districts = filter_districts
+    @blocks = filter_blocks
+    @villages = filter_villages
     @shgs = visible_shgs.order(:name)
-    @crps = User.includes(:user_type).select(&:crp?).sort_by(&:name)
+    @crps = filter_crps
   end
 
   def filtered_members

@@ -169,11 +169,11 @@ class ShgLoansController < ApplicationController
   end
 
   def set_filter_options
-    @states = State.order(:name)
-    @districts = params[:state_id].present? ? District.where(state_id: params[:state_id]).order(:name) : District.order(:name)
-    @blocks = params[:district_id].present? ? Block.where(district_id: params[:district_id]).order(:name) : Block.order(:name)
-    @villages = params[:block_id].present? ? Village.where(block_id: params[:block_id]).order(:name) : Village.order(:name)
-    @crps = User.includes(:user_type).select(&:crp?).sort_by(&:name)
+    @states = filter_states
+    @districts = filter_districts
+    @blocks = filter_blocks
+    @villages = filter_villages
+    @crps = filter_crps
   end
 
   def filtered_loans
@@ -305,13 +305,12 @@ class ShgLoansController < ApplicationController
           cache_existing_import_shgs!(processed_rows)
           result[:approved_shgs] += insert_missing_import_shgs!(processed_rows)
           approve_existing_import_shgs!(processed_rows, result)
-          cache_existing_import_members!(processed_rows)
-          insert_missing_import_members!(processed_rows)
+          create_import_members_for_rows!(processed_rows)
 
           processed_rows.each do |processed|
             attrs = processed.fetch(:attrs)
             shg = cached_import_shg(attrs, processed.fetch(:village))
-            member = cached_import_member(attrs, shg)
+            member = processed.fetch(:member)
             loan_attributes = imported_loan_attributes(attrs, shg, member, processed.fetch(:created_by))
             loan_batch << loan_attributes
             emi_batch << imported_summary_emi_attributes(attrs, loan_attributes)
@@ -363,7 +362,6 @@ class ShgLoansController < ApplicationController
     @import_blocks = {}
     @import_villages = {}
     @import_shgs = {}
-    @import_members_by_group = {}
     @import_used_aadhaars = ShgMember.where.not(aadhaar_no: nil).pluck(:aadhaar_no).to_set
     @import_products = {}
     @import_activities = {}
@@ -890,59 +888,11 @@ class ShgLoansController < ApplicationController
     )
   end
 
-  def find_or_create_imported_member(attrs, shg)
-    member = @import_members_by_group[[ shg.id, attrs[:member] ]]
-    member ||= ShgMember.find_or_initialize_by(shg: shg, name: attrs[:member])
-    member.loan_no = next_import_member_loan_number if member.new_record? && member.loan_no.blank?
-    member.assign_attributes(
-      shg: shg,
-      occupation: cached_import_occupation(attrs[:occupation]),
-      gender: attrs[:gender],
-      dob: attrs[:dob],
-      aadhaar_no: member.persisted? ? member.aadhaar_no : unique_import_aadhaar(attrs[:aadhaar_no]),
-      mobile: attrs[:mobile],
-      monthly_income: attrs[:monthly_income].presence,
-      address: attrs[:address],
-      active: true
-    )
-    member.save!
-    @import_members_by_group[[ shg.id, member.name ]] = member
-    member
-  end
-
-  def cache_existing_import_members!(processed_rows)
-    shg_ids = processed_rows.map { |processed| cached_import_shg(processed.fetch(:attrs), processed.fetch(:village)).id }.uniq
-    names = processed_rows.map { |processed| processed.dig(:attrs, :member) }.compact_blank.uniq
-    uncached_group_keys = processed_rows.any? do |processed|
-      shg = cached_import_shg(processed.fetch(:attrs), processed.fetch(:village))
-      key = [ shg.id, processed.dig(:attrs, :member) ]
-      !@import_members_by_group.key?(key)
-    end
-    return unless uncached_group_keys && shg_ids.any? && names.any?
-
-    ShgMember.where(shg_id: shg_ids, name: names).find_each do |member|
-      cache_import_member(member)
-    end
-  end
-
-  def insert_missing_import_members!(processed_rows)
-    missing_members = {}
-
-    processed_rows.each do |processed|
+  def create_import_members_for_rows!(processed_rows)
+    timestamp = Time.current
+    rows = processed_rows.map do |processed|
       attrs = processed.fetch(:attrs)
       shg = cached_import_shg(attrs, processed.fetch(:village))
-      key = import_member_cache_key(attrs, shg)
-      next if cached_import_member(attrs, shg)
-
-      missing_members[key] ||= { attrs: attrs, shg: shg }
-    end
-
-    return if missing_members.blank?
-
-    timestamp = Time.current
-    rows = missing_members.values.map do |processed|
-      attrs = processed.fetch(:attrs)
-      shg = processed.fetch(:shg)
 
       {
         shg_id: shg.id,
@@ -961,31 +911,19 @@ class ShgLoansController < ApplicationController
       }
     end
 
+    return if rows.blank?
+
     inserted = ShgMember.insert_all!(rows, returning: %w[id aadhaar_no shg_id name])
-    inserted.rows.each do |row|
+    inserted.rows.each_with_index do |row, index|
       data = inserted.columns.zip(row).to_h
-      cache_import_member(
-        ImportMemberReference.new(
-          id: data.fetch("id"),
-          aadhaar_no: data["aadhaar_no"],
-          shg_id: data.fetch("shg_id"),
-          name: data.fetch("name")
-        )
+      processed_rows[index][:member] = ImportMemberReference.new(
+        id: data.fetch("id"),
+        aadhaar_no: data["aadhaar_no"],
+        shg_id: data.fetch("shg_id"),
+        name: data.fetch("name")
       )
+      @import_used_aadhaars << data["aadhaar_no"] if data["aadhaar_no"].present?
     end
-  end
-
-  def cached_import_member(attrs, shg)
-    @import_members_by_group[[ shg.id, attrs[:member] ]]
-  end
-
-  def cache_import_member(member)
-    @import_members_by_group[[ member.shg_id, member.name ]] = member
-    @import_used_aadhaars << member.aadhaar_no if member.aadhaar_no.present?
-  end
-
-  def import_member_cache_key(attrs, shg)
-    [ shg.id, attrs[:member] ]
   end
 
   def unique_import_aadhaar(aadhaar_no)

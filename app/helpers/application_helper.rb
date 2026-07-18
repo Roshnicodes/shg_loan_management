@@ -1,21 +1,31 @@
 module ApplicationHelper
   def app_nav_items
-    items = [
-      [ "Dashboard", dashboard_path ],
-      [ "States", states_path ],
-      [ "Districts", districts_path ],
-      [ "Blocks", blocks_path ],
-      [ "Villages", villages_path ],
-      [ "Loan Status", loan_statuses_path ],
-      [ "Products", products_path ],
+    items = [ [ "Dashboard", dashboard_path ] ]
+    if can_manage_users?
+      items += [
+        [ "States", states_path ],
+        [ "Districts", districts_path ],
+        [ "Blocks", blocks_path ],
+        [ "Villages", villages_path ],
+        [ "User Types", user_types_path ],
+        [ "Users", users_path ],
+        [ "Loan Status", loan_statuses_path ],
+        [ "Products", products_path ]
+      ]
+    end
+
+    items += [
       [ "SHG Master", shgs_path ],
       [ "SHG Members", shg_members_path ],
       [ "Visits", visit_records_path ],
       [ "SHG Loans", shg_loans_path ]
     ]
 
-    items.insert(5, [ "User Types", user_types_path ], [ "Users", users_path ]) if can_manage_users?
     items
+  end
+
+  def office_names(names)
+    names.present? ? names.join(", ") : "-"
   end
 
   def record_field_value(record, field)

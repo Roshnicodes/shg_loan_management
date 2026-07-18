@@ -2,24 +2,22 @@
 
 one:
   shg: one
-  member_type: one
   occupation: one
   name: MyString
-  guardian_name: MyString
   gender: MyString
   dob: 2026-07-12
-  mobile: MyString
+  mobile: "9876543210"
+  loan_no: ASAWO24-9001
   address: MyText
   active: false
 
 two:
   shg: two
-  member_type: two
   occupation: two
   name: MyString
-  guardian_name: MyString
   gender: MyString
   dob: 2026-07-12
-  mobile: MyString
+  mobile: "9876543211"
+  loan_no: ASAWO24-9002
   address: MyText
   active: false

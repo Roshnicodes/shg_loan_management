@@ -1,0 +1,27 @@
+<% content_for :page_title, "Import Users" %>
+
+<section class="panel narrow">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">User Import</p>
+      <h2>Import Excel CSV</h2>
+    </div>
+    <%= link_to "Back to Users", users_path, class: "secondary-link" %>
+  </div>
+
+  <div class="inline-import-panel">
+    <p>Upload a CSV file exported from Excel. Columns: Name, Login ID, Email, Mobile, Designation, Role, State, Districts, Blocks, Villages, Active, Password.</p>
+    <p>For multiple districts, blocks, or villages, write names separated by commas.</p>
+  </div>
+
+  <%= form_with url: import_users_path, multipart: true, class: "form-grid" do |form| %>
+    <label class="full">
+      <span>Excel CSV File</span>
+      <%= form.file_field :file, accept: ".csv,text/csv", required: true %>
+    </label>
+    <div class="form-actions">
+      <%= link_to "Cancel", users_path, class: "secondary-link" %>
+      <%= form.submit "Import Users", class: "primary-button" %>
+    </div>
+  <% end %>
+</section>

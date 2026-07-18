@@ -36,12 +36,12 @@
     <dt>Email</dt>
     <dd><%= @user.email %></dd>
     <dt>State</dt>
-    <dd><%= @user.state&.name || "-" %></dd>
+    <dd><%= office_names(@user.office_state_names) %></dd>
     <dt>District</dt>
-    <dd><%= @user.district&.name || "-" %></dd>
+    <dd><%= office_names(@user.office_district_names) %></dd>
     <dt>Block</dt>
-    <dd><%= @user.block&.name || "-" %></dd>
+    <dd><%= office_names(@user.office_block_names) %></dd>
     <dt>Village</dt>
-    <dd><%= @user.village&.name || "-" %></dd>
+    <dd><%= office_names(@user.office_village_names) %></dd>
   </dl>
 </section>

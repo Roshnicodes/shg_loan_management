@@ -26,9 +26,14 @@ Rails.application.routes.draw do
   resources :users do
     member do
       patch :reset_password
+      patch :disable
     end
 
     collection do
+      get :export
+      get :import, action: :new_import
+      post :import
+      patch :bulk_disable
       delete :bulk_destroy
     end
   end

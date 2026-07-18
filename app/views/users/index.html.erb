@@ -5,10 +5,12 @@
     <div><p class="eyebrow">Access</p><h2>Registered Users</h2></div>
     <div class="action-row">
       <% if can_bulk_delete_records? %>
-        <%= form_with url: bulk_destroy_users_path, method: :delete, id: "bulk-delete-users" do |form| %>
-          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected users?" } %>
+        <%= form_with url: bulk_disable_users_path, method: :patch, id: "bulk-disable-users" do |form| %>
+          <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected users?" } %>
         <% end %>
       <% end %>
+      <%= link_to "Export Excel", export_users_path(format: :csv), class: "secondary-link" %>
+      <% if can_manage_records? %><%= link_to "Import Excel", import_users_path, class: "secondary-link" %><% end %>
       <% if can_manage_records? %><%= link_to "Add User", new_user_path, class: "primary-link" %><% end %>
       <label class="header-search-box">
         <span>Search</span>
@@ -18,15 +20,20 @@
   </div>
   <div class="searchable-table compact-search-results">
     <div class="table-empty-state" data-table-search-target="empty" hidden>No matching users on this page.</div>
-  <div class="table-wrap"><table data-table-search-target="table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>Name</th><th>Login ID</th><th>Email</th><th>Role</th><th>Office Mapping</th><th>Active</th><th></th></tr></thead><tbody>
+  <div class="table-wrap"><table data-table-search-target="table" class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
     <% @users.each do |user| %>
       <tr>
-        <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: "bulk-delete-users", disabled: user == current_user %></td><% end %>
+        <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: "bulk-disable-users", disabled: user == current_user %></td><% end %>
+        <td><%= user.id %></td>
         <td><%= link_to user.name, user %></td>
         <td><%= user.login_id %></td>
+        <td><span class="muted-cell">Reset to view new password</span></td>
         <td><%= user.email %></td>
         <td><%= user.user_type.name %></td>
-        <td><%= [user.state&.name, user.district&.name, user.block&.name, user.village&.name].compact.join(" / ") %></td>
+        <td><%= office_names(user.office_state_names) %></td>
+        <td><%= office_names(user.office_district_names) %></td>
+        <td><%= office_names(user.office_block_names) %></td>
+        <td><%= office_names(user.office_village_names) %></td>
         <td><%= user.active? ? "Yes" : "No" %></td>
         <td>
           <div class="action-row">
@@ -37,7 +44,7 @@
                 <%= button_to "Reset Password", reset_password_user_path(user), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Generate a new temporary password for this user?" } } %>
               <% end %>
               <% if can_bulk_delete_records? && user != current_user %>
-                <%= button_to "Delete", user, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this user?" } } %>
+                <%= button_to "Disable", disable_user_path(user), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this user?" } } %>
               <% end %>
             <% end %>
           </div>

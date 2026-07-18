@@ -6,8 +6,8 @@ one:
   block: one
   village: one
   name: MyString
-  shg_code: MyString
-  formation_date: 2026-07-12
+  shg_code: SHG-ONE
+  linkage_date: 2026-07-12
   active: false
 
 two:
@@ -16,6 +16,6 @@ two:
   block: two
   village: two
   name: MyString
-  shg_code: MyString
-  formation_date: 2026-07-12
+  shg_code: SHG-TWO
+  linkage_date: 2026-07-12
   active: false

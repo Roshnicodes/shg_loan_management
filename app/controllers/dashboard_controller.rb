@@ -9,7 +9,7 @@ class DashboardController < ApplicationController
 
     @summary_counts = {
       "SHG Total" => loans.select(:shg_id).distinct.count,
-      "SHG Members" => loans.select(:shg_member_id).distinct.count,
+      "SHG Members" => loans.select(:shg_member_id).count,
       "Total Loan" => helpers.number_to_currency(loans.sum(:principal_amount), unit: "₹"),
       "Collection" => helpers.number_to_currency(emis.sum(:paid_amount), unit: "₹")
     }

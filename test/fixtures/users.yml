@@ -1,9 +1,10 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  name: MyString
-  email: MyString
-  mobile: MyString
+  name: Test User One
+  email: one@example.com
+  login_id: user_one
+  mobile: "9876543201"
   designation: MyString
   user_type: one
   state: one
@@ -14,9 +15,10 @@ one:
   active: false
 
 two:
-  name: MyString
-  email: MyString
-  mobile: MyString
+  name: Test User Two
+  email: two@example.com
+  login_id: user_two
+  mobile: "9876543202"
   designation: MyString
   user_type: two
   state: two
