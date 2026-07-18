@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title><%= content_for(:title) || "Shg Loan Management" %></title>
+    <title><%= content_for(:title) || "Cash 360" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="application-name" content="Shg Loan Management">
+    <meta name="application-name" content="Cash 360">
     <meta name="mobile-web-app-capable" content="yes">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
@@ -28,11 +28,7 @@
       <div class="app-shell">
         <aside class="sidebar">
           <div class="brand">
-            <div class="brand-mark">SHG</div>
-            <div>
-              <strong>SHG Loan</strong>
-              <span>Management System</span>
-            </div>
+            <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "brand-logo" %>
           </div>
           <nav>
             <% app_nav_items.each do |label, path| %>
@@ -44,7 +40,11 @@
           <header class="topbar">
             <div>
               <p class="eyebrow">Welcome</p>
-              <h1><%= content_for(:page_title) || "SHG Loan Management" %></h1>
+              <% if content_for?(:page_title) %>
+                <h1><%= content_for(:page_title) %></h1>
+              <% else %>
+                <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "topbar-logo" %>
+              <% end %>
             </div>
             <div class="user-pill">
               <%= link_to current_user.name, profile_path, class: "user-profile-link" %>

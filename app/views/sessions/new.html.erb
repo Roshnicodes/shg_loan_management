@@ -1,29 +1,34 @@
-<% content_for :title, "Login - SHG Loan Management" %>
+<% content_for :title, "Login - Cash 360" %>
 
 <section class="login-page">
   <div class="login-card">
     <div class="login-story">
-      <div class="brand login-brand">
-        <div class="brand-mark">SHG</div>
-        <div>
-          <strong>SHG Loan</strong>
-          <span>Management System</span>
+      <div class="hero-photo">
+        <%= image_tag "wash-community-finance.jpeg", alt: "Community members receiving WASH support material" %>
+        <div class="login-photo-badge">
+          <strong>WASH Finance</strong>
+          <span>Community first, field ready</span>
         </div>
       </div>
-      <h1>Empowering Women, Building Stronger Communities</h1>
-      <div class="login-accent-line"></div>
-      <p>A digital solution for Self Help Groups to manage members, loans, repayments and field office mapping with confidence.</p>
-      <div class="hero-photo">
-        <%= image_tag "shg-women-hero.png", alt: "Self Help Group women meeting in a rural village" %>
+      <div class="login-story-copy">
+        <%= image_tag "asa-logo.png", alt: "ASA Action for Social Advancement", class: "asa-login-logo" %>
+        <h1>Enabling WASH Access Through Community Finance</h1>
+        <p>A digital platform supporting ASA's Water, Sanitation and Hygiene financing initiatives with field tracking, loan monitoring and repayment management.</p>
+        <div class="login-story-tags">
+          <span>Water</span>
+          <span>Sanitation</span>
+          <span>Hygiene</span>
+          <span>Finance</span>
+        </div>
       </div>
     </div>
 
     <div class="login-panel">
       <div class="login-panel-inner">
-        <div class="login-logo">SHG</div>
+        <div class="login-panel-kicker">Secure Access</div>
+        <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "login-logo" %>
         <h2>Welcome Back!</h2>
-        <div class="login-divider"><span></span><i></i><span></span></div>
-        <p>Please sign in to your account</p>
+        <p>Please sign in to continue.</p>
         <%= form_with url: login_path, class: "login-form" do |form| %>
           <label>
             <span>Login ID</span>
@@ -38,16 +43,16 @@
         <% end %>
         <div class="login-security-note">
           <strong>Authorized access only</strong>
-          <span>Use the official account credentials assigned by the SHG admin team.</span>
+          <span>Use the official account credentials assigned by the admin team.</span>
         </div>
       </div>
     </div>
 
     <div class="login-benefits">
-      <span><b>Strong Communities</b><small>Building a better tomorrow</small></span>
-      <span><b>Financial Inclusion</b><small>Access to finance for everyone</small></span>
-      <span><b>Better Growth</b><small>Empowering lives, inspiring growth</small></span>
-      <span><b>Secure & Reliable</b><small>Your data is safe with us</small></span>
+      <span class="benefit-wash"><b>WASH Financing</b><small>Supporting access to water, sanitation and hygiene solutions</small></span>
+      <span class="benefit-loan"><b>Loan Tracking</b><small>Monitor applications, approvals and repayments</small></span>
+      <span class="benefit-field"><b>Field Mapping</b><small>Track households, villages and field-level progress</small></span>
+      <span class="benefit-secure"><b>Secure & Reliable</b><small>Data is protected and access-controlled</small></span>
     </div>
   </div>
 </section>
