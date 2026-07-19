@@ -2,10 +2,24 @@
 <% district_options = District.order(:name).map { |district| [district.name, district.id, { data: { state_id: district.state_id } }] } %>
 <% block_options = Block.order(:name).map { |block| [block.name, block.id, { data: { district_id: block.district_id } }] } %>
 <% village_options = Village.order(:name).map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
+<% lock_state_district = (current_user&.crp? || current_user&.district_coordinator?) && @shg.state_id.present? && @shg.district_id.present? %>
 
 <%= form_with model: @shg, class: "form-grid", data: { controller: "location-select" } do |form| %>
-  <label><span>State</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-  <label><span>District</span><%= form.select :district_id, options_for_select(district_options, @shg.district_id), { prompt: "Select district" }, required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+  <% if lock_state_district %>
+    <label>
+      <span>State</span>
+      <input type="text" value="<%= @shg.state&.display_name || @shg.state&.name %>" readonly>
+      <%= form.hidden_field :state_id, data: { location_select_target: "state" } %>
+    </label>
+    <label>
+      <span>District</span>
+      <input type="text" value="<%= @shg.district&.name %>" readonly>
+      <%= form.hidden_field :district_id, data: { location_select_target: "district" } %>
+    </label>
+  <% else %>
+    <label><span>State</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+    <label><span>District</span><%= form.select :district_id, options_for_select(district_options, @shg.district_id), { prompt: "Select district" }, required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+  <% end %>
   <label><span>Block</span><%= form.select :block_id, options_for_select(block_options, @shg.block_id), { prompt: "Select block" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
   <label><span>Village</span><%= form.select :village_id, options_for_select(village_options, @shg.village_id), { prompt: "Select village" }, required: true, data: { location_select_target: "village" } %></label>
   <label><span>SHG Name</span><%= form.text_field :name, required: true %></label>

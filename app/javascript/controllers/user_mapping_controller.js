@@ -57,8 +57,9 @@ export default class extends Controller {
 
     const show = input.type === "password"
     input.type = show ? "text" : "password"
-    button.textContent = show ? "Hide" : "Show"
+    button.classList.toggle("is-visible", show)
     button.setAttribute("aria-label", show ? "Hide password" : "Show password")
+    button.setAttribute("title", show ? "Hide password" : "Show password")
   }
 
   toggleDropdown(event) {

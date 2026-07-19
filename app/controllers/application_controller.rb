@@ -136,7 +136,8 @@ class ApplicationController < ActionController::Base
   def visible_blocks
     return Block.all if current_user&.admin? && current_user.state_id.blank?
     return Block.all if current_user&.assistant_admin? && current_user.state_id.blank?
-    return Block.where(id: current_user.office_block_ids) if current_user&.office_block_ids.present? && (current_user.crp? || current_user.district_coordinator?)
+    return Block.where(district_id: current_user.office_district_ids) if current_user&.district_coordinator? && current_user.office_district_ids.present?
+    return Block.where(id: current_user.office_block_ids) if current_user&.office_block_ids.present? && current_user.crp?
     return Block.joins(:villages).where(villages: { id: current_user.office_village_ids }).distinct if current_user&.office_village_ids.present? && current_user.crp?
     return Block.where(district_id: current_user.office_district_ids) if current_user&.office_district_ids.present?
     return Block.joins(:district).where(districts: { state_id: current_user.state_id }) if current_user&.state_id.present?
@@ -148,6 +149,7 @@ class ApplicationController < ActionController::Base
     return Village.all if current_user&.admin? && current_user.state_id.blank?
     return Village.all if current_user&.assistant_admin? && current_user.state_id.blank?
     return Village.where(id: current_user.office_village_ids) if current_user&.office_village_ids.present? && current_user.crp?
+    return Village.joins(block: :district).where(districts: { id: current_user.office_district_ids }) if current_user&.district_coordinator? && current_user.office_district_ids.present?
     return Village.where(block_id: current_user.office_block_ids) if current_user&.office_block_ids.present?
     return Village.joins(block: :district).where(districts: { id: current_user.office_district_ids }) if current_user&.office_district_ids.present?
     return Village.joins(block: :district).where(districts: { state_id: current_user.state_id }) if current_user&.state_id.present?
@@ -168,8 +170,11 @@ class ApplicationController < ActionController::Base
     if current_user&.district_coordinator?
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
 
-      relation = relation.where(district_id: current_user.office_district_ids) if current_user.office_district_ids.present?
-      relation = relation.where(block_id: current_user.office_block_ids) if current_user.office_block_ids.present?
+      if current_user.office_district_ids.present?
+        relation = relation.where(district_id: current_user.office_district_ids)
+      elsif current_user.office_block_ids.present?
+        relation = relation.where(block_id: current_user.office_block_ids)
+      end
       return relation.where.not(approval_status: "draft")
     end
 
@@ -215,8 +220,11 @@ class ApplicationController < ActionController::Base
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
 
       relation = relation.joins(:shg)
-      relation = relation.where(shgs: { district_id: current_user.office_district_ids }) if current_user.office_district_ids.present?
-      relation = relation.where(shgs: { block_id: current_user.office_block_ids }) if current_user.office_block_ids.present?
+      if current_user.office_district_ids.present?
+        relation = relation.where(shgs: { district_id: current_user.office_district_ids })
+      elsif current_user.office_block_ids.present?
+        relation = relation.where(shgs: { block_id: current_user.office_block_ids })
+      end
       return relation
     end
 
@@ -265,7 +273,9 @@ class ApplicationController < ActionController::Base
   def apply_user_office_scope_to_shgs(relation, user)
     return relation.none unless user
 
-    if user.office_village_ids.present?
+    if user.district_coordinator? && user.office_district_ids.present?
+      relation.where(district_id: user.office_district_ids)
+    elsif user.office_village_ids.present?
       relation.where(village_id: user.office_village_ids)
     elsif user.office_block_ids.present?
       relation.where(block_id: user.office_block_ids)
@@ -282,7 +292,9 @@ class ApplicationController < ActionController::Base
     return relation.none unless user
 
     relation = relation.joins(:shg)
-    if user.office_village_ids.present?
+    if user.district_coordinator? && user.office_district_ids.present?
+      relation.where(shgs: { district_id: user.office_district_ids })
+    elsif user.office_village_ids.present?
       relation.where(shgs: { village_id: user.office_village_ids })
     elsif user.office_block_ids.present?
       relation.where(shgs: { block_id: user.office_block_ids })
@@ -381,6 +393,7 @@ class ApplicationController < ActionController::Base
   end
 
   def user_office_block_ids(user)
+    return Block.where(district_id: user.office_district_ids).pluck(:id) if user.district_coordinator? && user.office_district_ids.present?
     return user.office_block_ids if user.office_block_ids.present?
     return Village.where(id: user.office_village_ids).pluck(:block_id).uniq if user.office_village_ids.present?
 
@@ -391,6 +404,7 @@ class ApplicationController < ActionController::Base
   end
 
   def user_office_village_ids(user)
+    return Village.joins(block: :district).where(districts: { id: user.office_district_ids }).pluck(:id) if user.district_coordinator? && user.office_district_ids.present?
     return user.office_village_ids if user.office_village_ids.present?
 
     block_ids = user_office_block_ids(user)

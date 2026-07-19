@@ -2,9 +2,9 @@ class DashboardController < ApplicationController
   before_action :authenticate_user!
 
   def index
-    shgs = visible_shgs.where(active: true)
-    loans = visible_shg_loans.where(active: true)
-    visits = visible_visit_records.where(active: true)
+    loans = dashboard_loans
+    shgs = dashboard_shgs(loans)
+    visits = dashboard_visits(shgs)
     emis = ShgLoanEmi.where(shg_loan_id: loans.select(:id))
 
     @summary_counts = {
@@ -20,6 +20,24 @@ class DashboardController < ApplicationController
   end
 
   private
+
+  def dashboard_loans
+    return crp_visible_loan_scope.where(active: true) if current_user&.crp?
+
+    visible_shg_loans.where(active: true)
+  end
+
+  def dashboard_shgs(loans)
+    return Shg.where(active: true, id: loans.select(:shg_id)) if current_user&.crp?
+
+    visible_shgs.where(active: true)
+  end
+
+  def dashboard_visits(shgs)
+    return visible_visit_records.where(active: true, shg_id: shgs.select(:id)) if current_user&.crp?
+
+    visible_visit_records.where(active: true)
+  end
 
   def approval_counts_for(relation)
     table_name = relation.klass.table_name

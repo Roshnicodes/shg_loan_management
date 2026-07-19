@@ -52,14 +52,24 @@
     <span>Password</span>
     <div class="password-field">
       <%= form.password_field :password, required: !@user.persisted?, autocomplete: "new-password", data: { user_mapping_target: "password" } %>
-      <button type="button" class="password-toggle" data-action="user-mapping#togglePassword" aria-label="Show password">Show</button>
+      <button type="button" class="password-toggle" data-action="user-mapping#togglePassword" aria-label="Show password" title="Show password">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
     </div>
   </label>
   <label>
     <span>Confirm Password</span>
     <div class="password-field">
       <%= form.password_field :password_confirmation, required: !@user.persisted?, autocomplete: "new-password", data: { user_mapping_target: "password" } %>
-      <button type="button" class="password-toggle" data-action="user-mapping#togglePassword" aria-label="Show password">Show</button>
+      <button type="button" class="password-toggle" data-action="user-mapping#togglePassword" aria-label="Show password" title="Show password">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+      </button>
     </div>
   </label>
   <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>

@@ -24,6 +24,7 @@ class ShgsController < ApplicationController
 
   def new
     @shg = Shg.new(active: true)
+    apply_default_location(@shg)
   end
 
   def create
@@ -145,6 +146,34 @@ class ShgsController < ApplicationController
 
   def set_shg
     @shg = visible_shgs.find(params[:id])
+  end
+
+  def apply_default_location(shg)
+    return unless current_user&.crp? || current_user&.district_coordinator?
+    return if shg.state_id.present? || shg.district_id.present? || shg.block_id.present? || shg.village_id.present?
+
+    district = District.includes(:state).find_by(id: current_user.office_district_ids.first)
+    if district
+      shg.district = district
+      shg.state = district.state
+      return
+    end
+
+    block = Block.includes(:district).find_by(id: current_user.office_block_ids.first)
+    if block
+      shg.district = block.district
+      shg.state = block.district.state
+      return
+    end
+
+    village = Village.includes(block: :district).find_by(id: current_user.office_village_ids.first)
+    if village
+      shg.district = village.block.district
+      shg.state = village.block.district.state
+      return
+    end
+
+    shg.state_id = current_user.state_id if current_user.state_id.present?
   end
 
   def shg_params

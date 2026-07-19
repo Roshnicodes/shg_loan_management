@@ -36,7 +36,15 @@
           </label>
           <label>
             <span>Password</span>
-            <%= form.password_field :password, placeholder: "Enter your password", required: true, autocomplete: "current-password" %>
+            <div class="password-field" data-controller="password-visibility">
+              <%= form.password_field :password, placeholder: "Enter your password", required: true, autocomplete: "current-password", data: { password_visibility_target: "input" } %>
+              <button type="button" class="password-toggle" data-password-visibility-target="button" data-action="password-visibility#toggle" aria-label="Show password" title="Show password">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
           </label>
           <label class="checkbox-field"><span>Keep me logged in</span><%= form.check_box :keep_login %></label>
           <%= form.submit "Sign In", class: "primary-button login-submit" %>

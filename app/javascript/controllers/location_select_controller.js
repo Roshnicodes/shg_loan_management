@@ -39,10 +39,14 @@ export default class extends Controller {
   }
 
   cloneOptions(select) {
+    if (!select.options) return []
+
     return Array.from(select.options).map((option) => option.cloneNode(true))
   }
 
   filterSelect(select, originalOptions, parentKey, parentValue) {
+    if (!select.options) return
+
     const selectedValue = select.value
     select.innerHTML = ""
 
