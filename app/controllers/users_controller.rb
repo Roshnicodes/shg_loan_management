@@ -45,20 +45,18 @@ class UsersController < ApplicationController
 
   def destroy
     if @user == current_user
-      redirect_to users_path, alert: "You cannot delete your own login."
+      redirect_to users_path, alert: "You cannot disable your own login."
       return
     end
 
-    @user.destroy
-    redirect_to users_path, notice: "User deleted successfully."
-  rescue ActiveRecord::DeleteRestrictionError, ActiveRecord::InvalidForeignKey
-    redirect_to users_path, alert: "This user is linked with records, so it cannot be deleted."
+    @user.update!(active: false)
+    redirect_to users_path, notice: "User disabled successfully."
   end
 
   def bulk_destroy
     ids = Array(params[:ids]).reject { |id| id.to_i == current_user.id }
-    result = bulk_destroy_records(User.all, ids)
-    redirect_to users_path, notice: "Users deleted: #{result[:deleted]}, skipped: #{result[:skipped]}."
+    disabled = User.where(id: ids).update_all(active: false, updated_at: Time.current)
+    redirect_to users_path, notice: "Users disabled: #{disabled}."
   end
 
   def disable
@@ -123,7 +121,7 @@ class UsersController < ApplicationController
       attrs = user_import_attributes(row)
       next if attrs[:login_id].blank?
 
-      user = User.find_or_initialize_by(login_id: attrs[:login_id])
+      user = User.where(active: true).find_or_initialize_by(login_id: attrs[:login_id])
       password = row["Password"].presence || SecureRandom.alphanumeric(10)
       user.assign_attributes(attrs)
       unless user.persisted?

@@ -13,10 +13,10 @@ class ShgLoansController < ApplicationController
   end
 
   before_action :authenticate_user!
-  before_action :set_loan, only: %i[show edit update destroy passbook]
-  before_action :require_manage_permission!, only: %i[new create edit update destroy]
+  before_action :set_loan, only: %i[show edit update destroy disable passbook]
+  before_action :require_manage_permission!, only: %i[new create edit update destroy disable]
   before_action :require_loan_import_permission!, only: %i[new_import import]
-  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
+  before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
 
   def index
     set_filter_options
@@ -93,13 +93,21 @@ class ShgLoansController < ApplicationController
   end
 
   def destroy
-    @loan.destroy
-    redirect_to shg_loans_path, notice: "SHG loan deleted successfully."
+    disable
   end
 
   def bulk_destroy
-    result = bulk_destroy_records(filtered_loans, params[:ids])
-    redirect_to shg_loans_path, notice: "SHG loans deleted: #{result[:deleted]}, skipped: #{result[:skipped]}."
+    bulk_disable
+  end
+
+  def disable
+    @loan.update_columns(active: false, updated_at: Time.current)
+    redirect_to shg_loans_path, notice: "SHG loan disabled successfully."
+  end
+
+  def bulk_disable
+    result = disable_records(filtered_loans, params[:ids])
+    redirect_to shg_loans_path, notice: "SHG loans disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   private

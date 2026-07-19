@@ -1,6 +1,6 @@
 <%= render "shared/errors", record: @member %>
 <%= form_with model: @member, class: "form-grid" do |form| %>
-  <label><span>SHG Name</span><%= form.collection_select :shg_id, visible_shgs.order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true %></label>
+  <label><span>SHG Name</span><%= form.collection_select :shg_id, visible_shgs.where(active: true).order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true %></label>
   <label><span>Member Name</span><%= form.text_field :name, required: true %></label>
   <label><span>Gender</span><%= form.select :gender, [ "Female", "Male", "Other" ], { prompt: "Select gender" } %></label>
   <label><span>Date of Birth</span><%= form.date_field :dob %></label>

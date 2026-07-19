@@ -2,11 +2,11 @@ require "csv"
 
 class ShgsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_shg, only: %i[show edit update destroy approve return_for_correction reject]
+  before_action :set_shg, only: %i[show edit update destroy disable approve return_for_correction reject]
   before_action :require_manage_permission!, only: %i[new create]
-  before_action :require_shg_manage_permission!, only: %i[edit update destroy]
+  before_action :require_shg_manage_permission!, only: %i[edit update destroy disable]
   before_action :require_approval_permission!, only: %i[approve return_for_correction reject]
-  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
+  before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
 
   def index
     set_filter_options
@@ -47,13 +47,21 @@ class ShgsController < ApplicationController
   end
 
   def destroy
-    @shg.destroy
-    redirect_to shgs_path, notice: "SHG deleted successfully."
+    disable
   end
 
   def bulk_destroy
-    result = bulk_destroy_records(visible_shgs, params[:ids])
-    redirect_to shgs_path, notice: "SHGs deleted: #{result[:deleted]}, skipped: #{result[:skipped]}."
+    bulk_disable
+  end
+
+  def disable
+    @shg.update_columns(active: false, updated_at: Time.current)
+    redirect_to shgs_path, notice: "SHG disabled successfully."
+  end
+
+  def bulk_disable
+    result = disable_records(visible_shgs, params[:ids])
+    redirect_to shgs_path, notice: "SHGs disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   def approve
@@ -86,7 +94,7 @@ class ShgsController < ApplicationController
     @villages = filter_villages
     users = User.includes(:user_type).order(:name)
     @crps = filter_crps
-    @district_coordinators = users.select(&:district_coordinator?)
+    @district_coordinators = filter_district_coordinators
     @assistant_admins = users.select(&:assistant_admin?)
   end
 
@@ -103,7 +111,9 @@ class ShgsController < ApplicationController
     shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
     shgs = shgs.where(approval_status: params[:approval_status]) if params[:approval_status].present?
     shgs = shgs.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
-    shgs = shgs.where(dc_approved_by_id: params[:dc_id]) if params[:dc_id].present? && (current_user&.assistant_admin? || current_user&.admin?)
+    if params[:dc_id].present? && (current_user&.assistant_admin? || current_user&.admin?)
+      shgs = apply_user_office_scope_to_shgs(shgs, User.includes(:user_type).find_by(id: params[:dc_id]))
+    end
     shgs = shgs.where(assistant_approved_by_id: params[:assistant_id]) if params[:assistant_id].present? && current_user&.admin?
     shgs
   end

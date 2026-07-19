@@ -47,6 +47,7 @@ export default class extends Controller {
       option.selected = option.value !== ""
     })
     target.dispatchEvent(new Event("change", { bubbles: true }))
+    this.closeMenus()
   }
 
   togglePassword(event) {
@@ -192,6 +193,9 @@ export default class extends Controller {
     const option = Array.from(select.options).find((item) => item.value === value)
     if (option) option.selected = selected
     select.dispatchEvent(new Event("change", { bubbles: true }))
+    this.renderDropdownOptions()
+    this.renderSelectedSummaries()
+    this.closeMenus()
   }
 
   updateToggleText(select, toggle, label) {

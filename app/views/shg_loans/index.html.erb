@@ -11,8 +11,8 @@
     <div class="action-row">
       <%= link_to "Export CSV", export_shg_loans_path(request.query_parameters), class: "secondary-link" %>
       <% if can_bulk_delete_records? %>
-        <%= form_with url: bulk_destroy_shg_loans_path(request.query_parameters), method: :delete, id: "bulk-delete-loans" do |form| %>
-          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected loans?" } %>
+        <%= form_with url: bulk_disable_shg_loans_path(request.query_parameters), method: :patch, id: "bulk-disable-loans" do |form| %>
+          <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected loans?" } %>
         <% end %>
       <% end %>
       <% if can_manage_records? %><%= link_to "Add Loan", new_shg_loan_path, class: "primary-link" %><% end %>
@@ -60,14 +60,14 @@
     <% end %>
   <% end %>
 
-  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid" do |form| %>
+  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select" } do |form| %>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
-    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
-    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
-    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
-    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
-    <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+    <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
+    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village" } %></label>
+    <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
     <div class="filter-actions">
       <%= link_to "Clear", shg_loans_path, class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
@@ -84,7 +84,7 @@
     <table class="loan-import-table" data-table-search-target="table">
       <thead>
         <tr>
-          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_loans", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-loans" }, aria: { label: "Select all loans on this page" } %></th><% end %>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_loans", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-loans" }, aria: { label: "Select all loans on this page" } %></th><% end %>
           <th>SHG</th>
           <th>Member</th>
           <th>State</th>
@@ -96,6 +96,7 @@
           <th>Product</th>
           <th>Disbursement Date</th>
           <th>Loan Status</th>
+          <th>Record</th>
           <th>Term Type</th>
           <th>Loan term</th>
           <th>Principal</th>
@@ -115,7 +116,7 @@
       <tbody>
         <% @loans.each do |loan| %>
           <tr>
-            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", loan.id, false, form: "bulk-delete-loans" %></td><% end %>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", loan.id, false, form: "bulk-disable-loans", disabled: !loan.active? %></td><% end %>
             <td><%= loan.shg.name %></td>
             <td><%= link_to loan.shg_member.name, loan %></td>
             <td><%= loan.shg.state.name %></td>
@@ -127,6 +128,7 @@
             <td><%= loan.product.name %></td>
             <td><%= formatted_import_date(loan.distribution_date) %></td>
             <td><span class="status"><%= loan_status_label(loan) %></span></td>
+            <td><span class="status <%= loan.active? ? "approved" : "rejected" %>"><%= loan.active? ? "Active" : "Inactive" %></span></td>
             <td><%= loan.loan_term_type %></td>
             <td><%= loan.loan_term %></td>
             <td><%= number_to_currency(loan.principal_amount, unit: "₹") %></td>
@@ -140,7 +142,7 @@
             <td><%= loan.shg_member.mobile.presence || "-" %></td>
             <td><%= masked_aadhaar(loan.shg_member.aadhaar_no) %></td>
             <td><%= loan.shg_member.monthly_income.present? ? number_to_currency(loan.shg_member.monthly_income, unit: "₹") : "-" %></td>
-            <td><div class="action-row"><%= link_to "Details", loan %><%= link_to "Passbook", passbook_shg_loan_path(loan) %><% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(loan) %><% end %><% if can_bulk_delete_records? %><%= button_to "Delete", loan, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this loan?" } } %><% end %></div></td>
+            <td><div class="action-row"><%= link_to "Details", loan %><%= link_to "Passbook", passbook_shg_loan_path(loan) %><% if can_manage_records? %><%= link_to "Edit", edit_shg_loan_path(loan) %><% end %><% if can_bulk_delete_records? && loan.active? %><%= button_to "Disable", disable_shg_loan_path(loan), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this loan?" } } %><% elsif !loan.active? %><span class="muted-cell">Disabled</span><% end %></div></td>
           </tr>
         <% end %>
       </tbody>

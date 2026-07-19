@@ -2,9 +2,9 @@ class DashboardController < ApplicationController
   before_action :authenticate_user!
 
   def index
-    shgs = visible_shgs
-    loans = visible_shg_loans
-    visits = visible_visit_records
+    shgs = visible_shgs.where(active: true)
+    loans = visible_shg_loans.where(active: true)
+    visits = visible_visit_records.where(active: true)
     emis = ShgLoanEmi.where(shg_loan_id: loans.select(:id))
 
     @summary_counts = {

@@ -228,33 +228,70 @@ class ApplicationController < ActionController::Base
   end
 
   def filter_districts
-    relation = visible_districts
-    relation = relation.where(state_id: params[:state_id]) if params[:state_id].present?
-    relation.order(:name)
+    visible_districts.order(:name)
   end
 
   def filter_blocks
-    relation = visible_blocks
-    relation = relation.where(district_id: params[:district_id]) if params[:district_id].present?
-    relation.order(:name)
+    visible_blocks.order(:name)
   end
 
   def filter_villages
-    relation = visible_villages
-    relation = relation.where(block_id: params[:block_id]) if params[:block_id].present?
-    relation.order(:name)
+    visible_villages.order(:name)
   end
 
   def filter_crps
     return User.where(id: current_user.id).includes(:user_type).order(:name) if current_user&.crp?
 
     users = User.includes(:user_type).order(:name).select(&:crp?)
-    return users if current_user&.admin? || current_user&.assistant_admin?
+    users =
+      if current_user&.admin? || current_user&.assistant_admin?
+        users
+      else
+        users.select do |user|
+          (user.office_district_ids & visible_districts.pluck(:id)).present? ||
+            (user.office_block_ids & visible_blocks.pluck(:id)).present? ||
+            (user.office_village_ids & visible_villages.pluck(:id)).present?
+        end
+      end
 
-    users.select do |user|
-      (user.office_district_ids & visible_districts.pluck(:id)).present? ||
-        (user.office_block_ids & visible_blocks.pluck(:id)).present? ||
-        (user.office_village_ids & visible_villages.pluck(:id)).present?
+    filter_users_by_selected_location(users)
+  end
+
+  def filter_district_coordinators
+    users = User.includes(:user_type).order(:name).select(&:district_coordinator?)
+    filter_users_by_selected_location(users)
+  end
+
+  def apply_user_office_scope_to_shgs(relation, user)
+    return relation.none unless user
+
+    if user.office_village_ids.present?
+      relation.where(village_id: user.office_village_ids)
+    elsif user.office_block_ids.present?
+      relation.where(block_id: user.office_block_ids)
+    elsif user.office_district_ids.present?
+      relation.where(district_id: user.office_district_ids)
+    elsif user.state_id.present?
+      relation.where(state_id: user.state_id)
+    else
+      relation.none
+    end
+  end
+
+  def apply_user_office_scope_to_joined_shgs(relation, user)
+    return relation.none unless user
+
+    relation = relation.joins(:shg)
+    if user.office_village_ids.present?
+      relation.where(shgs: { village_id: user.office_village_ids })
+    elsif user.office_block_ids.present?
+      relation.where(shgs: { block_id: user.office_block_ids })
+    elsif user.office_district_ids.present?
+      relation.where(shgs: { district_id: user.office_district_ids })
+    elsif user.state_id.present?
+      relation.where(shgs: { state_id: user.state_id })
+    else
+      relation.none
     end
   end
 
@@ -276,22 +313,23 @@ class ApplicationController < ActionController::Base
     redirect_back fallback_location: dashboard_path, alert: "This record is not available for your login or was removed."
   end
 
-  def bulk_destroy_records(relation, ids)
+  def disable_records(relation, ids)
     records = relation.where(id: Array(ids).compact_blank)
-    deleted = 0
+    disabled = 0
     skipped = 0
 
     records.find_each do |record|
-      if record.destroy
-        deleted += 1
+      if record.respond_to?(:active=)
+        record.update_columns(active: false, updated_at: Time.current)
+        disabled += 1
       else
         skipped += 1
       end
-    rescue ActiveRecord::DeleteRestrictionError, ActiveRecord::InvalidForeignKey, ActiveRecord::RecordNotDestroyed
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved
       skipped += 1
     end
 
-    { deleted: deleted, skipped: skipped }
+    { disabled: disabled, skipped: skipped }
   end
 
   def paginate_relation(relation, per_page: DEFAULT_PAGE_SIZE)
@@ -303,5 +341,61 @@ class ApplicationController < ActionController::Base
     @page = @total_pages if @total_pages.positive? && @page > @total_pages
 
     relation.offset((@page - 1) * @per_page).limit(@per_page)
+  end
+
+  def filter_users_by_selected_location(users)
+    filters = {
+      state_id: params[:state_id].presence&.to_i,
+      district_id: params[:district_id].presence&.to_i,
+      block_id: params[:block_id].presence&.to_i,
+      village_id: params[:village_id].presence&.to_i
+    }
+    return users if filters.values.compact.blank?
+
+    users.select { |user| user_matches_selected_location?(user, filters) }
+  end
+
+  def user_matches_selected_location?(user, filters)
+    return false if filters[:state_id].present? && !user_office_state_ids(user).include?(filters[:state_id])
+    return false if filters[:district_id].present? && !user_office_district_ids(user).include?(filters[:district_id])
+    return false if filters[:block_id].present? && !user_office_block_ids(user).include?(filters[:block_id])
+    return false if filters[:village_id].present? && !user_office_village_ids(user).include?(filters[:village_id])
+
+    true
+  end
+
+  def user_office_state_ids(user)
+    ids = user.office_state_ids
+    ids += District.where(id: user.office_district_ids).pluck(:state_id) if user.office_district_ids.present?
+    ids += Block.joins(:district).where(id: user.office_block_ids).pluck("districts.state_id") if user.office_block_ids.present?
+    ids += Village.joins(block: :district).where(id: user.office_village_ids).pluck("districts.state_id") if user.office_village_ids.present?
+    ids.uniq
+  end
+
+  def user_office_district_ids(user)
+    ids = user.office_district_ids
+    ids += Block.where(id: user.office_block_ids).pluck(:district_id) if user.office_block_ids.present?
+    ids += Village.joins(:block).where(id: user.office_village_ids).pluck("blocks.district_id") if user.office_village_ids.present?
+    ids = District.where(state_id: user.office_state_ids).pluck(:id) if ids.blank? && user.office_state_ids.present?
+    ids.uniq
+  end
+
+  def user_office_block_ids(user)
+    return user.office_block_ids if user.office_block_ids.present?
+    return Village.where(id: user.office_village_ids).pluck(:block_id).uniq if user.office_village_ids.present?
+
+    district_ids = user_office_district_ids(user)
+    return Block.where(district_id: district_ids).pluck(:id) if district_ids.present?
+
+    []
+  end
+
+  def user_office_village_ids(user)
+    return user.office_village_ids if user.office_village_ids.present?
+
+    block_ids = user_office_block_ids(user)
+    return Village.where(block_id: block_ids).pluck(:id) if block_ids.present?
+
+    []
   end
 end

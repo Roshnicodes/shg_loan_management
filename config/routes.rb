@@ -18,11 +18,15 @@ Rails.application.routes.draw do
   resource :location_import, only: %i[new create]
   resource :location_export, only: :show
 
-  resources :states
-  resources :districts
-  resources :blocks
-  resources :villages
-  resources :user_types
+  soft_disable_routes = lambda do
+    member { patch :disable }
+  end
+
+  resources :states, &soft_disable_routes
+  resources :districts, &soft_disable_routes
+  resources :blocks, &soft_disable_routes
+  resources :villages, &soft_disable_routes
+  resources :user_types, &soft_disable_routes
   resources :users do
     member do
       patch :reset_password
@@ -37,15 +41,17 @@ Rails.application.routes.draw do
       delete :bulk_destroy
     end
   end
-  resources :loan_statuses
-  resources :products
+  resources :loan_statuses, &soft_disable_routes
+  resources :products, &soft_disable_routes
   resources :shgs do
     collection do
       get :export
+      patch :bulk_disable
       delete :bulk_destroy
     end
 
     member do
+      patch :disable
       patch :approve
       patch :return_for_correction
       patch :reject
@@ -54,16 +60,23 @@ Rails.application.routes.draw do
   resources :shg_members do
     collection do
       get :export
+      patch :bulk_disable
       delete :bulk_destroy
+    end
+
+    member do
+      patch :disable
     end
   end
   resources :visit_records do
     collection do
       get :export
+      patch :bulk_disable
       delete :bulk_destroy
     end
 
     member do
+      patch :disable
       patch :approve
       patch :return_for_correction
       patch :reject
@@ -78,7 +91,12 @@ Rails.application.routes.draw do
       get :export
       get :import, action: :new_import
       post :import
+      patch :bulk_disable
       delete :bulk_destroy
+    end
+
+    member do
+      patch :disable
     end
 
     resources :shg_loan_emis, only: [] do

@@ -1,6 +1,6 @@
 class AdminRecordsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_record, only: %i[show edit update destroy]
+  before_action :set_record, only: %i[show edit update destroy disable]
   before_action :require_manage_permission!, except: %i[index show]
   before_action :require_bulk_delete_permission!, only: :destroy
 
@@ -42,8 +42,12 @@ class AdminRecordsController < ApplicationController
   end
 
   def destroy
-    @record.destroy
-    redirect_to polymorphic_path(record_class), notice: "#{record_title} removed successfully."
+    disable
+  end
+
+  def disable
+    @record.update!(active: false)
+    redirect_to polymorphic_path(record_class), notice: "#{record_title} disabled successfully."
   end
 
   private

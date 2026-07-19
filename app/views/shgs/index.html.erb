@@ -9,8 +9,8 @@
     <div class="action-row">
       <%= link_to "Download CSV", export_shgs_path(request.query_parameters), class: "secondary-link" %>
       <% if can_bulk_delete_records? %>
-        <%= form_with url: bulk_destroy_shgs_path(request.query_parameters), method: :delete, id: "bulk-delete-shgs" do |form| %>
-          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected SHGs?" } %>
+        <%= form_with url: bulk_disable_shgs_path(request.query_parameters), method: :patch, id: "bulk-disable-shgs" do |form| %>
+          <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected SHGs?" } %>
         <% end %>
       <% end %>
       <% if can_manage_records? %>
@@ -23,17 +23,17 @@
     </div>
   </div>
 
-  <%= form_with url: shgs_path, method: :get, class: "filter-grid" do |form| %>
+  <%= form_with url: shgs_path, method: :get, class: "filter-grid", data: { controller: "location-select" } do |form| %>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
-    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
-    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
-    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
-    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+    <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
+    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village" } %></label>
     <label><span>Approval</span><%= form.select :approval_status, Shg::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, { prompt: "All status", selected: params[:approval_status] } %></label>
-    <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+    <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
     <% if current_user&.assistant_admin? || current_user&.admin? %>
-      <label><span>DC</span><%= form.collection_select :dc_id, @district_coordinators, :id, :name, { prompt: "All DC", selected: params[:dc_id] } %></label>
+      <label><span>DC</span><%= form.select :dc_id, options_for_select(user_filter_options(@district_coordinators), params[:dc_id]), { prompt: "All DC" }, data: { location_select_target: "dc" } %></label>
     <% end %>
     <% if current_user&.admin? %>
       <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
@@ -50,10 +50,11 @@
     <table data-table-search-target="table">
       <thead>
         <tr>
-          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_shgs", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-shgs" }, aria: { label: "Select all SHGs on this page" } %></th><% end %>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_shgs", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-shgs" }, aria: { label: "Select all SHGs on this page" } %></th><% end %>
           <th>Name</th>
           <th>Location</th>
           <th>Linkage Date</th>
+          <th>Status</th>
           <th>Approval</th>
           <th>Meeting</th>
           <th>DC Approval</th>
@@ -65,10 +66,11 @@
       <tbody>
         <% @shgs.each do |shg| %>
           <tr>
-            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", shg.id, false, form: "bulk-delete-shgs" %></td><% end %>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", shg.id, false, form: "bulk-disable-shgs", disabled: !shg.active? %></td><% end %>
             <td><%= link_to shg.name, shg %></td>
             <td><%= [shg.state.name, shg.district.name, shg.block.name, shg.village.name].join(" / ") %></td>
             <td><%= shg.linkage_date %></td>
+            <td><span class="status <%= shg.active? ? "approved" : "rejected" %>"><%= shg.active? ? "Active" : "Inactive" %></span></td>
             <td><span class="status <%= shg.approval_status %>"><%= shg.approval_label %></span></td>
             <td>
               <div class="attachment-list">
@@ -107,8 +109,10 @@
                 <% if can_manage_shg?(shg) %>
                   <%= link_to "Edit", edit_shg_path(shg) %>
                 <% end %>
-                <% if can_bulk_delete_records? %>
-                  <%= button_to "Delete", shg, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this SHG?" } } %>
+                <% if can_bulk_delete_records? && shg.active? %>
+                  <%= button_to "Disable", disable_shg_path(shg), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this SHG?" } } %>
+                <% elsif !shg.active? %>
+                  <span class="muted-cell">Disabled</span>
                 <% end %>
                 <% if can_approve_shg?(shg) %>
                   <%= button_to "Approve", approve_shg_path(shg), method: :patch, class: "success-link" %>

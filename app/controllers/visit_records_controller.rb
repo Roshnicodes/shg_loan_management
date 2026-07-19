@@ -2,11 +2,11 @@ require "csv"
 
 class VisitRecordsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_visit_record, only: %i[show edit update destroy approve return_for_correction reject]
+  before_action :set_visit_record, only: %i[show edit update destroy disable approve return_for_correction reject]
   before_action :require_manage_permission!, only: %i[new create]
-  before_action :require_visit_manage_permission!, only: %i[edit update destroy]
+  before_action :require_visit_manage_permission!, only: %i[edit update destroy disable]
   before_action :require_visit_approval_permission!, only: %i[approve return_for_correction reject]
-  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
+  before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
 
   def index
     set_filter_options
@@ -47,13 +47,21 @@ class VisitRecordsController < ApplicationController
   end
 
   def destroy
-    @visit_record.destroy
-    redirect_to visit_records_path, notice: "Visit entry deleted successfully."
+    disable
   end
 
   def bulk_destroy
-    result = bulk_destroy_records(filtered_visit_records, params[:ids])
-    redirect_to visit_records_path, notice: "Visits deleted: #{result[:deleted]}, skipped: #{result[:skipped]}."
+    bulk_disable
+  end
+
+  def disable
+    @visit_record.update_columns(active: false, updated_at: Time.current)
+    redirect_to visit_records_path, notice: "Visit entry disabled successfully."
+  end
+
+  def bulk_disable
+    result = disable_records(filtered_visit_records, params[:ids])
+    redirect_to visit_records_path, notice: "Visits disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   def approve
@@ -82,7 +90,7 @@ class VisitRecordsController < ApplicationController
   def set_filter_options
     users = User.includes(:user_type).order(:name)
     @crps = filter_crps
-    @district_coordinators = users.select(&:district_coordinator?)
+    @district_coordinators = filter_district_coordinators
     @assistant_admins = users.select(&:assistant_admin?)
     @states = filter_states
     @districts = filter_districts
@@ -103,7 +111,7 @@ class VisitRecordsController < ApplicationController
     visits = visits.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     visits = visits.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
     visits = visits.where(created_by_id: params[:crp_id]) if params[:crp_id].present? && can_filter_crp?
-    visits = visits.where("visit_records.dc_approved_by_id = :id OR visit_records.created_by_id = :id", id: params[:dc_id]) if params[:dc_id].present? && can_filter_dc?
+    visits = apply_user_office_scope_to_joined_shgs(visits, User.includes(:user_type).find_by(id: params[:dc_id])) if params[:dc_id].present? && can_filter_dc?
     visits = visits.where("visit_records.assistant_approved_by_id = :id OR visit_records.created_by_id = :id", id: params[:assistant_id]) if params[:assistant_id].present? && can_filter_assistant?
     visits
   end
@@ -167,6 +175,6 @@ class VisitRecordsController < ApplicationController
   end
 
   def visit_record_params
-    params.require(:visit_record).permit(:village_id, :shg_id, :shg_member_id, :product_id, :visit_date, :purpose, :observations, :photo)
+    params.require(:visit_record).permit(:village_id, :shg_id, :shg_member_id, :product_id, :visit_date, :purpose, :observations, :photo, :active)
   end
 end

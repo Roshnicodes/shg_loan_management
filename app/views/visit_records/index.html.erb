@@ -6,8 +6,8 @@
     <div class="action-row">
       <%= link_to "Download CSV", export_visit_records_path(request.query_parameters), class: "secondary-link" %>
       <% if can_bulk_delete_records? %>
-        <%= form_with url: bulk_destroy_visit_records_path(request.query_parameters), method: :delete, id: "bulk-delete-visits" do |form| %>
-          <%= form.submit "Delete Selected", class: "danger-link", data: { turbo_confirm: "Delete selected visits?" } %>
+        <%= form_with url: bulk_disable_visit_records_path(request.query_parameters), method: :patch, id: "bulk-disable-visits" do |form| %>
+          <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected visits?" } %>
         <% end %>
       <% end %>
       <% if can_manage_records? %><%= link_to "Add Visit", new_visit_record_path, class: "primary-link" %><% end %>
@@ -18,7 +18,7 @@
     </div>
   </div>
 
-  <%= form_with url: visit_records_path, method: :get, class: "filter-grid visit-filter-grid" do |form| %>
+  <%= form_with url: visit_records_path, method: :get, class: "filter-grid visit-filter-grid", data: { controller: "location-select" } do |form| %>
     <% if current_user&.crp? %>
       <label><span>Month</span><%= form.month_field :month, value: params[:month].presence || Date.current.strftime("%Y-%m") %></label>
     <% else %>
@@ -28,16 +28,16 @@
         <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
       <% end %>
       <% if current_user&.assistant_admin? || current_user&.admin? %>
-        <label><span>District Coordinator</span><%= form.collection_select :dc_id, @district_coordinators, :id, :name, { prompt: "All DC", selected: params[:dc_id] } %></label>
+        <label><span>District Coordinator</span><%= form.select :dc_id, options_for_select(user_filter_options(@district_coordinators), params[:dc_id]), { prompt: "All DC" }, data: { location_select_target: "dc" } %></label>
       <% end %>
       <% if current_user&.district_coordinator? || current_user&.assistant_admin? || current_user&.admin? %>
-        <label><span>CRP</span><%= form.collection_select :crp_id, @crps, :id, :name, { prompt: "All CRP", selected: params[:crp_id] } %></label>
+        <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
       <% end %>
     <% end %>
-    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] } %></label>
-    <label><span>District</span><%= form.collection_select :district_id, @districts, :id, :name, { prompt: "All districts", selected: params[:district_id] } %></label>
-    <label><span>Block</span><%= form.collection_select :block_id, @blocks, :id, :name, { prompt: "All blocks", selected: params[:block_id] } %></label>
-    <label><span>Village</span><%= form.collection_select :village_id, @villages, :id, :name, { prompt: "All villages", selected: params[:village_id] } %></label>
+    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+    <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
+    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village" } %></label>
     <div class="filter-actions">
       <%= link_to "Clear", visit_records_path, class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
@@ -50,12 +50,13 @@
     <table data-table-search-target="table">
       <thead>
         <tr>
-          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_visits", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-delete-visits" }, aria: { label: "Select all visits on this page" } %></th><% end %>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_visits", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-visits" }, aria: { label: "Select all visits on this page" } %></th><% end %>
           <th>Visit Date</th>
           <th>Village / SHG / Member</th>
           <th>Product</th>
           <th>Photo</th>
           <th>Approval</th>
+          <th>Status</th>
           <th>DC Approval</th>
           <th>Assistant Approval</th>
           <th>Created By</th>
@@ -65,7 +66,7 @@
       <tbody>
         <% @visit_records.each do |visit| %>
           <tr>
-            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", visit.id, false, form: "bulk-delete-visits" %></td><% end %>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", visit.id, false, form: "bulk-disable-visits", disabled: !visit.active? %></td><% end %>
             <td><%= visit.visit_date %></td>
             <td>
               <strong><%= visit.village.name %></strong><br>
@@ -85,6 +86,7 @@
               <% end %>
             </td>
             <td><span class="status <%= visit.approval_status %>"><%= visit.approval_label %></span></td>
+            <td><span class="status <%= visit.active? ? "approved" : "rejected" %>"><%= visit.active? ? "Active" : "Inactive" %></span></td>
             <td><%= visit.dc_approved_by&.name || "-" %><% if visit.dc_approved_at.present? %><br><small><%= l(visit.dc_approved_at, format: :short) %></small><% end %></td>
             <td><%= visit.assistant_approved_by&.name || "-" %><% if visit.assistant_approved_at.present? %><br><small><%= l(visit.assistant_approved_at, format: :short) %></small><% end %></td>
             <td><%= visit.created_by&.name || "-" %></td>
@@ -94,8 +96,10 @@
                 <% if can_manage_visit?(visit) %>
                   <%= link_to "Edit", edit_visit_record_path(visit) %>
                 <% end %>
-                <% if can_bulk_delete_records? %>
-                  <%= button_to "Delete", visit, method: :delete, class: "danger-link", form: { data: { turbo_confirm: "Delete this visit?" } } %>
+                <% if can_bulk_delete_records? && visit.active? %>
+                  <%= button_to "Disable", disable_visit_record_path(visit), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this visit?" } } %>
+                <% elsif !visit.active? %>
+                  <span class="muted-cell">Disabled</span>
                 <% end %>
 
                 <dialog class="visit-dialog" data-visit-review-target="dialog">

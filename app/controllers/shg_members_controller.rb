@@ -2,10 +2,10 @@ require "csv"
 
 class ShgMembersController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_member, only: %i[show edit update destroy]
+  before_action :set_member, only: %i[show edit update destroy disable]
   before_action :require_manage_permission!, only: %i[new create]
-  before_action :require_shg_member_manage_permission!, only: %i[edit update destroy]
-  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
+  before_action :require_shg_member_manage_permission!, only: %i[edit update destroy disable]
+  before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
 
   def index
     set_filter_options
@@ -59,13 +59,21 @@ class ShgMembersController < ApplicationController
   end
 
   def destroy
-    @member.destroy
-    redirect_to shg_members_path, notice: "SHG member deleted successfully."
+    disable
   end
 
   def bulk_destroy
-    result = bulk_destroy_records(visible_shg_members, params[:ids])
-    redirect_to shg_members_path, notice: "SHG members deleted: #{result[:deleted]}, skipped: #{result[:skipped]}."
+    bulk_disable
+  end
+
+  def disable
+    @member.update_columns(active: false, updated_at: Time.current)
+    redirect_to shg_members_path, notice: "SHG member disabled successfully."
+  end
+
+  def bulk_disable
+    result = disable_records(visible_shg_members, params[:ids])
+    redirect_to shg_members_path, notice: "SHG members disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   private

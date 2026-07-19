@@ -13,8 +13,9 @@ class User < ApplicationRecord
   after_commit :attach_imported_crp_loans, on: %i[create update]
 
   validates :name, :email, :login_id, presence: true
-  validates :email, uniqueness: true
-  validates :login_id, uniqueness: { case_sensitive: false }, format: { with: /\A[a-zA-Z0-9_.-]+\z/, message: "can use only letters, numbers, dot, dash and underscore" }
+  validates :email, uniqueness: { case_sensitive: false, conditions: -> { where(active: true) } }, if: :active?
+  validates :login_id, uniqueness: { case_sensitive: false, conditions: -> { where(active: true) } }, if: :active?
+  validates :login_id, format: { with: /\A[a-zA-Z0-9_.-]+\z/, message: "can use only letters, numbers, dot, dash and underscore" }
   validates :mobile, format: { with: /\A\d{10}\z/, allow_blank: true, message: "must be 10 digits" }
   validates :password, length: { minimum: 6 }, if: -> { password.present? }
 
@@ -92,11 +93,13 @@ class User < ApplicationRecord
     elsif district_coordinator?
       self.mapped_district_ids = Array(mapped_district_ids.first || district_id).compact
       self.district_id = mapped_district_ids.first
-      self.block_id = mapped_block_ids.first
+      self.block_id = mapped_block_ids.first || block_id
       self.village_id = nil
       self.mapped_village_ids = []
     elsif crp?
       self.mapped_district_ids = Array(mapped_district_ids.first || district_id).compact
+      self.mapped_block_ids = normalize_id_list(mapped_block_ids.presence || Array(block_id))
+      self.mapped_village_ids = normalize_id_list(mapped_village_ids.presence || Array(village_id))
       self.district_id = mapped_district_ids.first
       self.block_id = mapped_block_ids.first || block_id
       self.village_id = mapped_village_ids.first || village_id

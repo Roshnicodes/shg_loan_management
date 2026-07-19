@@ -28,6 +28,49 @@ module ApplicationHelper
     names.present? ? names.join(", ") : "-"
   end
 
+  def district_filter_options(districts)
+    districts.map { |district| [ district.name, district.id, { data: { state_id: district.state_id } } ] }
+  end
+
+  def block_filter_options(blocks)
+    blocks.map { |block| [ block.name, block.id, { data: { district_id: block.district_id } } ] }
+  end
+
+  def village_filter_options(villages)
+    villages.map { |village| [ village.name, village.id, { data: { block_id: village.block_id } } ] }
+  end
+
+  def user_filter_options(users)
+    users.map { |user| [ user.name, user.id, { data: user_location_filter_data(user) } ] }
+  end
+
+  def user_location_filter_data(user)
+    district_ids = user.office_district_ids
+    block_ids = user.office_block_ids
+    village_ids = user.office_village_ids
+
+    state_ids = user.office_state_ids
+    state_ids += District.where(id: district_ids).pluck(:state_id) if district_ids.present?
+    state_ids += Block.joins(:district).where(id: block_ids).pluck("districts.state_id") if block_ids.present?
+    state_ids += Village.joins(block: :district).where(id: village_ids).pluck("districts.state_id") if village_ids.present?
+
+    district_ids += Block.where(id: block_ids).pluck(:district_id) if block_ids.present?
+    district_ids += Village.joins(:block).where(id: village_ids).pluck("blocks.district_id") if village_ids.present?
+    district_ids = District.where(state_id: user.office_state_ids).pluck(:id) if district_ids.blank? && user.office_state_ids.present?
+
+    if block_ids.blank?
+      block_ids = village_ids.present? ? Village.where(id: village_ids).pluck(:block_id) : Block.where(district_id: district_ids).pluck(:id)
+    end
+    village_ids = Village.where(block_id: block_ids).pluck(:id) if village_ids.blank? && block_ids.present?
+
+    {
+      state_ids: state_ids.uniq.join(" "),
+      district_ids: district_ids.uniq.join(" "),
+      block_ids: block_ids.uniq.join(" "),
+      village_ids: village_ids.uniq.join(" ")
+    }
+  end
+
   def record_field_value(record, field)
     name = field[:name].to_s
     if name.ends_with?("_id")

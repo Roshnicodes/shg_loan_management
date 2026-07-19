@@ -1,5 +1,5 @@
 <%= render "shared/errors", record: @loan %>
-<% member_options = visible_shg_members.includes(:shg).order(:name).map do |member|
+<% member_options = visible_shg_members.where(active: true).includes(:shg).order(:name).map do |member|
   [
     member.name,
     member.id,
@@ -18,7 +18,7 @@ end %>
 <% paid_amount = @loan.persisted? ? @loan.total_paid : 0 %>
 
 <%= form_with model: @loan, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f } do |form| %>
-  <label><span>SHG / Group Name</span><%= form.collection_select :shg_id, visible_shgs.order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true, data: { loan_member_details_target: "shg", action: "loan-member-details#shgChanged" } %></label>
+  <label><span>SHG / Group Name</span><%= form.collection_select :shg_id, visible_shgs.where(active: true).order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true, data: { loan_member_details_target: "shg", action: "loan-member-details#shgChanged" } %></label>
   <label><span>SHG Member Name</span><%= form.select :shg_member_id, options_for_select(member_options, @loan.shg_member_id), { prompt: "Select member" }, required: true, data: { loan_member_details_target: "member", action: "loan-member-details#update" } %></label>
   <div class="form-help full member-summary">
     <label><span>Group Name</span><input type="text" readonly data-loan-member-details-target="group"></label>
