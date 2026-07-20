@@ -20,7 +20,6 @@ class ShgLoansController < ApplicationController
 
   def index
     set_filter_options
-    @loan_imports = LoanImport.includes(:user).recent.limit(5) if can_manage_records?
     @loans = paginate_relation(filtered_loans.order(created_at: :desc))
   end
 
@@ -39,7 +38,7 @@ class ShgLoansController < ApplicationController
     return redirect_to(shg_loans_path, alert: "Please select a CSV or Excel file.") unless file.present?
 
     loan_import = start_async_loan_import(file)
-    redirect_to shg_loans_path, notice: "Loan import started in background. Import ##{loan_import.id} status will update here."
+    redirect_to shg_loans_path, notice: "Loan import started in background."
   rescue CSV::MalformedCSVError, Zip::Error, REXML::ParseException
     redirect_to shg_loans_path, alert: "Uploaded file is not a valid CSV or Excel file."
   rescue ActiveRecord::RecordInvalid => e

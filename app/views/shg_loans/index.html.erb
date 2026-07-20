@@ -1,9 +1,4 @@
 <% content_for :page_title, "SHG Loans" %>
-<% if @loan_imports&.any?(&:running?) %>
-  <% content_for :head do %>
-    <meta http-equiv="refresh" content="10">
-  <% end %>
-<% end %>
 
 <section class="panel">
   <div class="panel-header">
@@ -31,30 +26,6 @@
       <% end %>
     </div>
 
-    <% if @loan_imports.present? %>
-      <div class="import-status-list">
-        <% @loan_imports.each do |loan_import| %>
-          <div class="import-status-item <%= loan_import.status %>">
-            <div class="import-status-main">
-              <strong><%= loan_import.filename %></strong>
-              <small>
-                #<%= loan_import.id %> · <%= loan_import.status.titleize %>
-                <% if loan_import.user.present? %> · <%= loan_import.user.name %><% end %>
-                <% if loan_import.finished_at.present? %> · <%= l(loan_import.finished_at, format: :short) %><% end %>
-              </small>
-            </div>
-            <div class="import-status-counts">
-              <span>Rows <%= loan_import.total_rows %></span>
-              <span>Loans <%= loan_import.total_loans %></span>
-              <span>Skipped <%= loan_import.skipped_rows %></span>
-            </div>
-            <% if loan_import.error_message.present? %>
-              <p><%= loan_import.error_message %></p>
-            <% end %>
-          </div>
-        <% end %>
-      </div>
-    <% end %>
   <% end %>
 
   <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select" } do |form| %>
