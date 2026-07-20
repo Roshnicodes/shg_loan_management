@@ -15,7 +15,7 @@ class ShgMember < ApplicationRecord
   validates :monthly_income, numericality: { greater_than_or_equal_to: 0, allow_blank: true }
   validates :aadhaar_no,
     uniqueness: { allow_blank: true, message: "already registered with another member" },
-    format: { with: /\A\d{12}\z/, allow_blank: true, message: "must be 12 digits" }
+    format: { with: /\A(?:\d{12}|X{4}-X{4}-\d{4})\z/, allow_blank: true, message: "must be 12 digits or masked Aadhaar" }
 
   def display_name = "#{name} - #{shg.name}"
 
@@ -23,7 +23,19 @@ class ShgMember < ApplicationRecord
 
   def normalize_contact_numbers
     self.mobile = mobile.to_s.gsub(/\D/, "") if mobile.present?
-    self.aadhaar_no = aadhaar_no.to_s.gsub(/\D/, "") if aadhaar_no.present?
+    normalize_aadhaar_number
+  end
+
+  def normalize_aadhaar_number
+    return if aadhaar_no.blank?
+
+    raw = aadhaar_no.to_s.strip
+    digits = raw.gsub(/\D/, "")
+    self.aadhaar_no = if raw.match?(/x/i) && digits.length == 4
+      "XXXX-XXXX-#{digits}"
+    else
+      digits
+    end
   end
 
   def assign_loan_no

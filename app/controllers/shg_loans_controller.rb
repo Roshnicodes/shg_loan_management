@@ -373,7 +373,7 @@ class ShgLoansController < ApplicationController
 
   def normalize_import_batch(indexed_rows, result)
     indexed_rows.filter_map do |row, index|
-      next if row.fields.all?(&:blank?)
+      next if import_blank_row?(row)
 
       begin
         attrs = normalized_import_row(row)
@@ -392,6 +392,12 @@ class ShgLoansController < ApplicationController
         nil
       end
     end
+  end
+
+  def import_blank_row?(row)
+    return true if row.fields.all?(&:blank?)
+
+    [ 0, 1, 2, 3, 4, 5 ].all? { |index| row.fields[index].blank? }
   end
 
   def initialize_import_context
@@ -554,8 +560,37 @@ class ShgLoansController < ApplicationController
   end
 
   def import_aadhaar_number(row)
-    digits = import_digits(row, "aadhaar", "aadhaar no", "aadhaar_no", "aadhar", "aadhar no", "aadhar_no", indexes: [ 22, 23 ])
+    value = import_value(
+      row,
+      "aadhaar", "aadhaar no", "aadhaar number", "aadhaar card", "aadhaar card no", "aadhaar card number", "aadhaar_no", "aadhaar_number",
+      "aadhar", "aadhar no", "aadhar number", "aadhar card", "aadhar card no", "aadhar card number", "aadhar_no", "aadhar_number",
+      "borrower aadhaar", "borrower aadhaar no", "borrower aadhaar number", "member aadhaar", "member aadhaar no", "member aadhaar number",
+      indexes: [ 22 ]
+    )
+    return normalized_masked_aadhaar(value) if value.to_s.match?(/x/i)
+
+    digits = normalized_import_identifier(value)
     digits.length == 12 ? digits : nil
+  end
+
+  def normalized_masked_aadhaar(value)
+    digits = value.to_s.gsub(/\D/, "")
+    return if digits.length != 4
+
+    "XXXX-XXXX-#{digits}"
+  end
+
+  def normalized_import_identifier(value)
+    raw = value.to_s.strip
+    return "" if raw.blank?
+
+    if raw.match?(/\A\d+(\.0+)?\z/)
+      raw.to_d.to_i.to_s
+    elsif raw.match?(/\A\d+(\.\d+)?e\+?\d+\z/i)
+      raw.to_d.to_i.to_s
+    else
+      raw.gsub(/\D/, "")
+    end
   end
 
   def import_date(row, *keys, indexes: [])
@@ -994,7 +1029,7 @@ class ShgLoansController < ApplicationController
       created_by_id: (created_by || import_crp(attrs) || @import_current_user).id,
       source_crp_identifier: attrs[:crp_identifier],
       source_crp_name: attrs[:crp_name],
-      source_loan_status: attrs[:loan_status],
+      source_loan_status: imported_loan_status_label(attrs),
       source_interest_amount: attrs[:interest_amount].presence,
       source_total_payable: attrs[:total_payable].presence,
       source_principal_collect: attrs[:principal_collect].presence,
@@ -1019,10 +1054,22 @@ class ShgLoansController < ApplicationController
   end
 
   def imported_loan_status(attrs)
-    status = attrs[:loan_status].to_s.strip
+    status = imported_loan_status_label(attrs)
     return default_import_loan_status if status.blank?
 
     @import_loan_statuses[status.downcase] ||= LoanStatus.where("LOWER(code) = ? OR LOWER(name) = ?", status.downcase, status.downcase).first || default_import_loan_status
+  end
+
+  def imported_loan_status_label(attrs)
+    status = attrs[:loan_status].to_s.strip
+    total = imported_total_payable(attrs).to_d
+    paid = attrs[:paid_amount].to_d
+    remaining = attrs[:remaining_amount].to_d if attrs[:remaining_amount].present?
+
+    return "Closed" if remaining == 0 || (total.positive? && paid >= total)
+    return "Active" if remaining.to_d.positive? || paid <= 0
+
+    status.presence || "Active"
   end
 
   def default_import_loan_status

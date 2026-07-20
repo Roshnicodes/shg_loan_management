@@ -88,7 +88,7 @@ class ShgMembersController < ApplicationController
   end
 
   def filtered_members
-    members = visible_shg_members.includes(shg: [ :state, :district, :block, :village, :created_by ])
+    members = member_rows_scope.includes(shg: [ :state, :district, :block, :village, :created_by ])
     members = members.where(created_at: params[:date_from].to_date.beginning_of_day..) if params[:date_from].present?
     members = members.where(created_at: ..params[:date_to].to_date.end_of_day) if params[:date_to].present?
     members = members.where(shg_id: params[:shg_id]) if params[:shg_id].present?
@@ -100,7 +100,13 @@ class ShgMembersController < ApplicationController
     members = search_members(members)
     members
   rescue Date::Error
+    member_rows_scope
+  end
+
+  def member_rows_scope
     visible_shg_members
+      .joins(:shg_loans)
+      .merge(visible_shg_loans.where(active: true))
   end
 
   def search_members(members)
