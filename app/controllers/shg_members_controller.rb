@@ -97,9 +97,33 @@ class ShgMembersController < ApplicationController
     members = members.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     members = members.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
     members = members.joins(:shg).where(shgs: { created_by_id: params[:crp_id] }) if params[:crp_id].present?
+    members = search_members(members)
     members
   rescue Date::Error
     visible_shg_members
+  end
+
+  def search_members(members)
+    query = params[:q].to_s.strip
+    return members if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    members.left_joins(shg: [ :state, :district, :block, :village ])
+      .where(
+        [
+          "CAST(shg_members.id AS TEXT) ILIKE :query",
+          "LOWER(shg_members.name) LIKE :query",
+          "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
+          "LOWER(COALESCE(shg_members.mobile, '')) LIKE :query",
+          "LOWER(COALESCE(shg_members.aadhaar_no, '')) LIKE :query",
+          "LOWER(shgs.name) LIKE :query",
+          "LOWER(states.name) LIKE :query",
+          "LOWER(districts.name) LIKE :query",
+          "LOWER(blocks.name) LIKE :query",
+          "LOWER(villages.name) LIKE :query"
+        ].join(" OR "),
+        query: pattern
+      ).distinct
   end
 
   def members_csv(members)

@@ -195,7 +195,38 @@ class ShgLoansController < ApplicationController
     loans = loans.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     loans = loans.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
     loans = loans.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
+    loans = search_loans(loans)
     loans
+  end
+
+  def search_loans(loans)
+    query = params[:q].to_s.strip
+    return loans if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    loans.left_joins(:shg_member, :product, :loan_status, :created_by, shg: [ :state, :district, :block, :village ])
+      .where(
+        [
+          "CAST(shg_loans.id AS TEXT) ILIKE :query",
+          "CAST(shg_loans.principal_amount AS TEXT) ILIKE :query",
+          "CAST(shg_loans.total_payable AS TEXT) ILIKE :query",
+          "LOWER(COALESCE(shg_loans.source_crp_identifier, '')) LIKE :query",
+          "LOWER(COALESCE(shg_loans.source_crp_name, '')) LIKE :query",
+          "LOWER(shgs.name) LIKE :query",
+          "LOWER(shg_members.name) LIKE :query",
+          "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
+          "LOWER(COALESCE(shg_members.mobile, '')) LIKE :query",
+          "LOWER(products.name) LIKE :query",
+          "LOWER(loan_statuses.name) LIKE :query",
+          "LOWER(states.name) LIKE :query",
+          "LOWER(districts.name) LIKE :query",
+          "LOWER(blocks.name) LIKE :query",
+          "LOWER(villages.name) LIKE :query",
+          "LOWER(COALESCE(users.name, '')) LIKE :query",
+          "LOWER(COALESCE(users.login_id, '')) LIKE :query"
+        ].join(" OR "),
+        query: pattern
+      ).distinct
   end
 
   def loans_csv(loans)

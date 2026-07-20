@@ -4,14 +4,14 @@
 <% village_options = Village.order(:name).map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
 <% user_type_options = UserType.order(:name).map { |type| [type.display_name, type.id, { data: { role: type.code.to_s.upcase } }] } %>
 
-<%= form_with model: @user, class: "form-grid user-form", data: { controller: "user-mapping" } do |form| %>
+<%= form_with model: @user, class: "form-grid user-form", data: { controller: "user-mapping", action: "submit->user-mapping#validateMapping" } do |form| %>
   <label><span>User Name</span><%= form.text_field :name, required: true %></label>
   <label><span>Login ID</span><%= form.text_field :login_id, required: true, pattern: "[A-Za-z0-9_.-]+", title: "Only letters, numbers, dot, dash and underscore" %></label>
   <label><span>Email</span><%= form.email_field :email, required: true %></label>
-  <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
-  <label><span>Designation</span><%= form.text_field :designation %></label>
+  <label><span>Mobile</span><%= form.telephone_field :mobile, required: true, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
+  <label><span>Designation</span><%= form.text_field :designation, required: true %></label>
   <label><span>User Type</span><%= form.select :user_type_id, options_for_select(user_type_options, @user.user_type_id), { prompt: "Select role" }, required: true, data: { user_mapping_target: "role", action: "user-mapping#roleChanged" } %></label>
-  <label data-user-mapping-target="stateField"><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { include_blank: "No state mapping" }, data: { user_mapping_target: "state", action: "user-mapping#stateChanged" } %></label>
+  <label data-user-mapping-target="stateField"><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { user_mapping_target: "state", action: "user-mapping#stateChanged" } %></label>
   <label data-user-mapping-target="districtField">
     <span>District Office</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="district">

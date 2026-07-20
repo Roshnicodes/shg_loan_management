@@ -12,12 +12,13 @@ class User < ApplicationRecord
   before_validation :normalize_office_mapping
   after_commit :attach_imported_crp_loans, on: %i[create update]
 
-  validates :name, :email, :login_id, presence: true
+  validates :name, :email, :login_id, :mobile, :designation, :user_type, presence: true, if: :user_profile_validation_needed?
   validates :email, uniqueness: { case_sensitive: false, conditions: -> { where(active: true) } }, if: :active?
   validates :login_id, uniqueness: { case_sensitive: false, conditions: -> { where(active: true) } }, if: :active?
   validates :login_id, format: { with: /\A[a-zA-Z0-9_.-]+\z/, message: "can use only letters, numbers, dot, dash and underscore" }
   validates :mobile, format: { with: /\A\d{10}\z/, allow_blank: true, message: "must be 10 digits" }
   validates :password, length: { minimum: 6 }, if: -> { password.present? }
+  validate :office_mapping_required, if: :office_mapping_validation_needed?
 
   def admin? = role_matches?("ADMIN")
   def assistant_admin? = role_matches?("ASSIST_ADMIN", "ASSISTANT_ADMIN")
@@ -108,6 +109,37 @@ class User < ApplicationRecord
 
   def normalize_id_list(values)
     Array(values).reject(&:blank?).map(&:to_i).reject(&:zero?).uniq
+  end
+
+  def user_profile_validation_needed?
+    new_record? ||
+      will_save_change_to_name? ||
+      will_save_change_to_email? ||
+      will_save_change_to_login_id? ||
+      will_save_change_to_mobile? ||
+      will_save_change_to_designation? ||
+      will_save_change_to_user_type_id? ||
+      office_mapping_validation_needed?
+  end
+
+  def office_mapping_validation_needed?
+    new_record? ||
+      will_save_change_to_user_type_id? ||
+      will_save_change_to_state_id? ||
+      will_save_change_to_district_id? ||
+      will_save_change_to_block_id? ||
+      will_save_change_to_village_id? ||
+      will_save_change_to_mapped_district_ids? ||
+      will_save_change_to_mapped_block_ids? ||
+      will_save_change_to_mapped_village_ids? ||
+      (will_save_change_to_active? && active?)
+  end
+
+  def office_mapping_required
+    return if user_type.blank?
+
+    errors.add(:state, "office is required") if state_id.blank?
+    errors.add(:district, "office is required") if (district_coordinator? || crp?) && office_district_ids.blank?
   end
 
   def role_matches?(*keys)

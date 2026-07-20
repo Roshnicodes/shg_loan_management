@@ -7,7 +7,7 @@ class AdminRecordsController < ApplicationController
   class_attribute :record_class, :record_fields, :record_title
 
   def index
-    @records = paginate_relation(record_class.order(created_at: :desc))
+    @records = paginate_relation(searched_records.order(created_at: :desc))
     render "admin_records/index"
   end
 
@@ -51,6 +51,27 @@ class AdminRecordsController < ApplicationController
   end
 
   private
+
+  def searched_records
+    records = record_class.all
+    query = params[:q].to_s.strip
+    return records if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    clauses = [ "CAST(#{record_class.table_name}.id AS TEXT) ILIKE :query" ]
+    searchable_columns.each do |column|
+      clauses << "LOWER(COALESCE(#{record_class.table_name}.#{column}, '')) LIKE :query"
+    end
+
+    records.where(clauses.join(" OR "), query: pattern)
+  end
+
+  def searchable_columns
+    record_fields.filter_map do |field|
+      column = field[:name].to_s
+      column if record_class.columns_hash[column]&.type.in?(%i[string text])
+    end
+  end
 
   def set_record
     @record = record_class.find(params[:id])

@@ -5,7 +5,7 @@
   <% end %>
 <% end %>
 
-<section class="panel" data-controller="table-search">
+<section class="panel">
   <div class="panel-header">
     <div><p class="eyebrow">Loans</p><h2>SHG Loan Forms</h2></div>
     <div class="action-row">
@@ -16,10 +16,7 @@
         <% end %>
       <% end %>
       <% if can_manage_records? %><%= link_to "Add Loan", new_shg_loan_path, class: "primary-link" %><% end %>
-      <label class="header-search-box">
-        <span>Search</span>
-        <input type="search" placeholder="Search loans..." data-table-search-target="input" data-action="input->table-search#update">
-      </label>
+      <%= server_search_box(shg_loans_path, placeholder: "Search loans...") %>
     </div>
   </div>
 
@@ -61,6 +58,7 @@
   <% end %>
 
   <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select" } do |form| %>
+    <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
@@ -79,9 +77,9 @@
   </div>
 
   <div class="searchable-table compact-search-results">
-    <div class="table-empty-state" data-table-search-target="empty" hidden>No matching loans on this page.</div>
+    <% if @loans.blank? %><div class="table-empty-state">No matching loans found.</div><% end %>
     <div class="table-wrap">
-    <table class="loan-import-table" data-table-search-target="table">
+    <table class="loan-import-table">
       <thead>
         <tr>
           <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_loans", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-loans" }, aria: { label: "Select all loans on this page" } %></th><% end %>

@@ -145,4 +145,18 @@ module ApplicationHelper
 
     content_tag(:div, safe_join([ summary, content_tag(:div, safe_join(links), class: "pagination-links") ]), class: "pagination-bar")
   end
+
+  def server_search_box(path, placeholder:)
+    preserved_params = request.query_parameters.except(:q, :page, :commit)
+
+    form_with url: path, method: :get, class: "header-search-box server-search-box" do |form|
+      fields = preserved_params.map do |key, value|
+        hidden_field_tag(key, value)
+      end
+      fields << content_tag(:span, "Search")
+      fields << form.search_field(:q, value: params[:q], placeholder: placeholder)
+      fields << form.submit("Search", class: "search-submit")
+      safe_join(fields)
+    end
+  end
 end

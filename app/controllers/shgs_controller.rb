@@ -116,7 +116,31 @@ class ShgsController < ApplicationController
       shgs = apply_user_office_scope_to_shgs(shgs, User.includes(:user_type).find_by(id: params[:dc_id]))
     end
     shgs = shgs.where(assistant_approved_by_id: params[:assistant_id]) if params[:assistant_id].present? && current_user&.admin?
+    shgs = search_shgs(shgs)
     shgs
+  end
+
+  def search_shgs(shgs)
+    query = params[:q].to_s.strip
+    return shgs if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    shgs.left_joins(:state, :district, :block, :village, :created_by)
+      .where(
+        [
+          "CAST(shgs.id AS TEXT) ILIKE :query",
+          "LOWER(shgs.name) LIKE :query",
+          "LOWER(COALESCE(shgs.shg_code, '')) LIKE :query",
+          "LOWER(shgs.approval_status) LIKE :query",
+          "LOWER(states.name) LIKE :query",
+          "LOWER(districts.name) LIKE :query",
+          "LOWER(blocks.name) LIKE :query",
+          "LOWER(villages.name) LIKE :query",
+          "LOWER(COALESCE(users.name, '')) LIKE :query",
+          "LOWER(COALESCE(users.login_id, '')) LIKE :query"
+        ].join(" OR "),
+        query: pattern
+      ).distinct
   end
 
   def shgs_csv(shgs)

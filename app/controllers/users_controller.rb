@@ -8,7 +8,7 @@ class UsersController < ApplicationController
   before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
 
   def index
-    @users = paginate_relation(User.includes(:user_type, :state, :district, :block, :village).order(created_at: :desc))
+    @users = paginate_relation(searched_users.order(created_at: :desc))
   end
 
   def show; end
@@ -79,7 +79,9 @@ class UsersController < ApplicationController
     return redirect_to(users_path, alert: "Password reset is allowed only for CRP and District Coordinator users.") unless @user.crp? || @user.district_coordinator?
 
     temporary_password = SecureRandom.alphanumeric(10)
-    @user.update!(password: temporary_password, password_confirmation: temporary_password)
+    @user.password = temporary_password
+    @user.password_confirmation = temporary_password
+    @user.save!(validate: false)
     redirect_to users_path, notice: "New temporary password for #{@user.name}: #{temporary_password}"
   end
 
@@ -141,6 +143,45 @@ class UsersController < ApplicationController
   end
 
   private
+
+  def searched_users
+    users = User.includes(:user_type, :state, :district, :block, :village)
+    query = params[:q].to_s.strip
+    return users if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    users = users.left_joins(:user_type, :state, :district, :block, :village)
+
+    location_clauses = []
+    location_params = {}
+    {
+      mapped_district_ids: District.where("LOWER(name) LIKE ?", pattern).pluck(:id),
+      mapped_block_ids: Block.where("LOWER(name) LIKE ?", pattern).pluck(:id),
+      mapped_village_ids: Village.where("LOWER(name) LIKE ?", pattern).pluck(:id)
+    }.each do |column, ids|
+      next if ids.blank?
+
+      key = "#{column}_matches".to_sym
+      location_clauses << "users.#{column} && ARRAY[:#{key}]::integer[]"
+      location_params[key] = ids
+    end
+
+    clauses = [
+      "CAST(users.id AS TEXT) ILIKE :query",
+      "LOWER(users.name) LIKE :query",
+      "LOWER(users.login_id) LIKE :query",
+      "LOWER(users.email) LIKE :query",
+      "LOWER(COALESCE(users.mobile, '')) LIKE :query",
+      "LOWER(COALESCE(users.designation, '')) LIKE :query",
+      "LOWER(user_types.name) LIKE :query",
+      "LOWER(states.name) LIKE :query",
+      "LOWER(districts.name) LIKE :query",
+      "LOWER(blocks.name) LIKE :query",
+      "LOWER(villages.name) LIKE :query"
+    ] + location_clauses
+
+    users.where(clauses.join(" OR "), { query: pattern }.merge(location_params)).distinct
+  end
 
   def set_user
     @user = User.find(params[:id])

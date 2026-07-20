@@ -113,7 +113,36 @@ class VisitRecordsController < ApplicationController
     visits = visits.where(created_by_id: params[:crp_id]) if params[:crp_id].present? && can_filter_crp?
     visits = apply_user_office_scope_to_joined_shgs(visits, User.includes(:user_type).find_by(id: params[:dc_id])) if params[:dc_id].present? && can_filter_dc?
     visits = visits.where("visit_records.assistant_approved_by_id = :id OR visit_records.created_by_id = :id", id: params[:assistant_id]) if params[:assistant_id].present? && can_filter_assistant?
+    visits = search_visits(visits)
     visits
+  end
+
+  def search_visits(visits)
+    query = params[:q].to_s.strip
+    return visits if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    visits.left_joins(:shg_member, :product, :created_by, shg: [ :state, :district, :block, :village ])
+      .where(
+        [
+          "CAST(visit_records.id AS TEXT) ILIKE :query",
+          "CAST(visit_records.visit_date AS TEXT) ILIKE :query",
+          "LOWER(COALESCE(visit_records.purpose, '')) LIKE :query",
+          "LOWER(COALESCE(visit_records.observations, '')) LIKE :query",
+          "LOWER(visit_records.approval_status) LIKE :query",
+          "LOWER(shgs.name) LIKE :query",
+          "LOWER(shg_members.name) LIKE :query",
+          "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
+          "LOWER(products.name) LIKE :query",
+          "LOWER(states.name) LIKE :query",
+          "LOWER(districts.name) LIKE :query",
+          "LOWER(blocks.name) LIKE :query",
+          "LOWER(villages.name) LIKE :query",
+          "LOWER(COALESCE(users.name, '')) LIKE :query",
+          "LOWER(COALESCE(users.login_id, '')) LIKE :query"
+        ].join(" OR "),
+        query: pattern
+      ).distinct
   end
 
   def apply_month_filter(visits)

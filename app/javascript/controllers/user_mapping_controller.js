@@ -23,6 +23,26 @@ export default class extends Controller {
     this.applyRoleVisibility()
   }
 
+  validateMapping(event) {
+    const role = this.selectedRole()
+    const adminRole = ["ADMIN", "ASSIST_ADMIN", "ASSISTANT_ADMIN"].includes(role)
+
+    this.clearMappingError(this.districtToggleTarget)
+    this.stateTarget.setCustomValidity("")
+
+    if (!this.stateTarget.value) {
+      this.stateTarget.setCustomValidity("Please select state office")
+      this.stateTarget.reportValidity()
+      event.preventDefault()
+      return
+    }
+
+    if (role && !adminRole && this.selectedValues(this.districtTarget).length === 0) {
+      this.showMappingError(this.districtToggleTarget, "Please select district office")
+      event.preventDefault()
+    }
+  }
+
   stateChanged() {
     this.clear(this.districtTarget)
     this.clear(this.blockTarget)
@@ -194,6 +214,7 @@ export default class extends Controller {
     const option = Array.from(select.options).find((item) => item.value === value)
     if (option) option.selected = selected
     select.dispatchEvent(new Event("change", { bubbles: true }))
+    this.clearMappingError(this[`${selectName}ToggleTarget`])
     this.renderDropdownOptions()
     this.renderSelectedSummaries()
     this.closeMenus()
@@ -247,6 +268,24 @@ export default class extends Controller {
     Array.from(select.options).forEach((option) => {
       option.selected = false
     })
+  }
+
+  showMappingError(toggle, message) {
+    toggle.classList.add("field-invalid")
+    let error = toggle.closest("label")?.querySelector(".field-error")
+    if (!error) {
+      error = document.createElement("small")
+      error.className = "field-error"
+      toggle.closest("label")?.appendChild(error)
+    }
+    error.textContent = message
+    toggle.focus()
+  }
+
+  clearMappingError(toggle) {
+    toggle.classList.remove("field-invalid")
+    const error = toggle.closest("label")?.querySelector(".field-error")
+    if (error) error.remove()
   }
 
   keepSingleSelection(select) {

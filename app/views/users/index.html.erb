@@ -1,6 +1,6 @@
 <% content_for :page_title, "User Register" %>
 
-<section class="panel" data-controller="table-search">
+<section class="panel">
   <div class="panel-header">
     <div><p class="eyebrow">Access</p><h2>Registered Users</h2></div>
     <div class="action-row">
@@ -12,15 +12,12 @@
       <%= link_to "Export Excel", export_users_path(format: :csv), class: "secondary-link" %>
       <% if can_manage_records? %><%= link_to "Import Excel", import_users_path, class: "secondary-link" %><% end %>
       <% if can_manage_records? %><%= link_to "Add User", new_user_path, class: "primary-link" %><% end %>
-      <label class="header-search-box">
-        <span>Search</span>
-        <input type="search" placeholder="Search users..." data-table-search-target="input" data-action="input->table-search#update">
-      </label>
+      <%= server_search_box(users_path, placeholder: "Search users...") %>
     </div>
   </div>
   <div class="searchable-table compact-search-results">
-    <div class="table-empty-state" data-table-search-target="empty" hidden>No matching users on this page.</div>
-  <div class="table-wrap"><table data-table-search-target="table" class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
+    <% if @users.blank? %><div class="table-empty-state">No matching users found.</div><% end %>
+  <div class="table-wrap"><table class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
     <% @users.each do |user| %>
       <tr>
         <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: "bulk-disable-users", disabled: user == current_user %></td><% end %>
