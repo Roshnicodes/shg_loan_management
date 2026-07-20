@@ -55,6 +55,134 @@
   </div>
 </section>
 
+<section class="panel dashboard-analytics-panel">
+  <div class="panel-header compact analytics-header">
+    <div>
+      <p class="eyebrow">Yearly Analytics</p>
+      <h2>Performance Graphs</h2>
+    </div>
+    <%= form_with url: dashboard_path, method: :get, local: true, class: "analytics-filter" do |form| %>
+      <%= form.label :year, "Financial Year" %>
+      <%= form.select :year,
+        options_for_select([ [ "All years", "all" ] ] + @dashboard_year_options.map { |year| [ "#{year}-#{year + 1}", year ] }, @dashboard_year),
+        {},
+        onchange: "this.form.requestSubmit()" %>
+    <% end %>
+  </div>
+
+  <div class="analytics-total-strip">
+    <div>
+      <span>Loans</span>
+      <strong><%= number_with_delimiter(@yearly_analytics[:totals][:loans]) %></strong>
+    </div>
+    <div>
+      <span>SHGs</span>
+      <strong><%= number_with_delimiter(@yearly_analytics[:totals][:shgs]) %></strong>
+    </div>
+    <div>
+      <span>Principal</span>
+      <strong><%= number_to_currency(@yearly_analytics[:totals][:principal], unit: "₹") %></strong>
+    </div>
+    <div>
+      <span>Collection</span>
+      <strong><%= number_to_currency(@yearly_analytics[:totals][:collection], unit: "₹") %></strong>
+    </div>
+  </div>
+
+  <div class="analytics-grid">
+    <div class="analytics-card chart-card">
+      <div class="chart-title">
+        <div>
+          <span>Monthly Loans</span>
+          <strong>Loan Count</strong>
+        </div>
+      </div>
+      <div class="bar-chart" aria-label="Monthly loan count chart">
+        <% @yearly_analytics[:loan_counts].each_with_index do |value, index| %>
+          <% height = ((value.to_f / @yearly_analytics[:max_loan_count]) * 100).round(2) %>
+          <div class="bar-column">
+            <div class="bar-track">
+              <span class="bar-fill count-fill" style="height: <%= height %>%"></span>
+            </div>
+            <small><%= @yearly_analytics[:month_labels][index] %></small>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="analytics-card chart-card">
+      <div class="chart-title">
+        <div>
+          <span>Amount Flow</span>
+          <strong>Loan vs Collection</strong>
+        </div>
+      </div>
+      <div class="dual-chart" aria-label="Monthly amount and collection chart">
+        <% @yearly_analytics[:principal_amounts].each_with_index do |principal, index| %>
+          <% collection = @yearly_analytics[:collections][index] %>
+          <% principal_height = ((principal.to_d / @yearly_analytics[:max_amount]) * 100).round(2) %>
+          <% collection_height = ((collection.to_d / @yearly_analytics[:max_amount]) * 100).round(2) %>
+          <div class="dual-column">
+            <div class="dual-bars">
+              <span class="dual-fill principal-fill" style="height: <%= principal_height %>%"></span>
+              <span class="dual-fill collection-fill" style="height: <%= collection_height %>%"></span>
+            </div>
+            <small><%= @yearly_analytics[:month_labels][index] %></small>
+          </div>
+        <% end %>
+      </div>
+      <div class="chart-legend">
+        <span><i class="principal-dot"></i> Loan</span>
+        <span><i class="collection-dot"></i> Collection</span>
+      </div>
+    </div>
+
+    <div class="analytics-card">
+      <div class="chart-title">
+        <div>
+          <span>Status</span>
+          <strong>Loan Status Mix</strong>
+        </div>
+      </div>
+      <div class="rank-chart">
+        <% max_status = [ @yearly_analytics[:statuses].map(&:last).max.to_i, 1 ].max %>
+        <% @yearly_analytics[:statuses].each do |label, count| %>
+          <% width = ((count.to_f / max_status) * 100).round(2) %>
+          <div class="rank-row">
+            <div class="rank-meta">
+              <span><%= label.presence || "Unknown" %></span>
+              <strong><%= number_with_delimiter(count) %></strong>
+            </div>
+            <div class="rank-track"><span style="width: <%= width %>%"></span></div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="analytics-card">
+      <div class="chart-title">
+        <div>
+          <span>Products</span>
+          <strong>Top Loan Products</strong>
+        </div>
+      </div>
+      <div class="rank-chart product-rank">
+        <% max_product = [ @yearly_analytics[:products].map(&:last).max.to_i, 1 ].max %>
+        <% @yearly_analytics[:products].each do |label, count| %>
+          <% width = ((count.to_f / max_product) * 100).round(2) %>
+          <div class="rank-row">
+            <div class="rank-meta">
+              <span><%= label %></span>
+              <strong><%= number_with_delimiter(count) %></strong>
+            </div>
+            <div class="rank-track"><span style="width: <%= width %>%"></span></div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="panel" data-controller="table-search">
   <div class="panel-header">
     <div>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_19_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -172,7 +172,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_060000) do
   end
 
   create_table "shg_members", force: :cascade do |t|
-    t.string "aadhaar_no"
     t.boolean "active", default: true, null: false
     t.text "address"
     t.datetime "created_at", null: false
@@ -185,7 +184,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_19_060000) do
     t.bigint "occupation_id", null: false
     t.bigint "shg_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["aadhaar_no"], name: "index_shg_members_on_aadhaar_no", unique: true
     t.index ["loan_no"], name: "index_shg_members_on_loan_no", unique: true
     t.index ["occupation_id"], name: "index_shg_members_on_occupation_id"
     t.index ["shg_id", "name"], name: "index_shg_members_on_shg_id_and_name"

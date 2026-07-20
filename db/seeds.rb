@@ -71,7 +71,6 @@ end
 ShgMember.find_or_create_by!(shg: shg, name: "Sita Bai") do |member|
   member.occupation = Occupation.find_by!(name: "Farmer")
   member.gender = "Female"
-  member.aadhaar_no = "111122223333"
   member.mobile = "9000000001"
   member.address = "Khajuri, Bhopal"
 end

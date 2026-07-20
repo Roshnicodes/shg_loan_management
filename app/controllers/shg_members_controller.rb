@@ -121,7 +121,6 @@ class ShgMembersController < ApplicationController
           "LOWER(shg_members.name) LIKE :query",
           "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
           "LOWER(COALESCE(shg_members.mobile, '')) LIKE :query",
-          "LOWER(COALESCE(shg_members.aadhaar_no, '')) LIKE :query",
           "LOWER(shgs.name) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
@@ -135,7 +134,7 @@ class ShgMembersController < ApplicationController
   def members_csv(members)
     CSV.generate(headers: true) do |csv|
       csv << [
-        "Member", "SHG", "Loan No", "Aadhaar", "Mobile", "Monthly HH Income",
+        "Member", "SHG", "Loan No", "Mobile", "Monthly HH Income",
         "State", "District", "Block", "Village", "Created At"
       ]
 
@@ -144,7 +143,6 @@ class ShgMembersController < ApplicationController
           member.name,
           member.shg.name,
           member.loan_no,
-          helpers.masked_aadhaar(member.aadhaar_no),
           member.mobile,
           member.monthly_income,
           member.shg.state.name,
@@ -166,6 +164,6 @@ class ShgMembersController < ApplicationController
   end
 
   def member_params
-    params.require(:shg_member).permit(:shg_id, :name, :gender, :dob, :mobile, :aadhaar_no, :loan_no, :monthly_income, :address, :active)
+    params.require(:shg_member).permit(:shg_id, :name, :gender, :dob, :mobile, :loan_no, :monthly_income, :address, :active)
   end
 end

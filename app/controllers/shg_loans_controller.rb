@@ -7,7 +7,7 @@ require "zip"
 
 class ShgLoansController < ApplicationController
   IMPORT_BATCH_SIZE = 10_000
-  ImportMemberReference = Struct.new(:id, :aadhaar_no, :shg_id, :name, keyword_init: true)
+  ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
   ImportShgReference = Struct.new(:id, :village_id, :name, :approved, keyword_init: true) do
     def approved? = approved
   end
@@ -236,7 +236,7 @@ class ShgLoansController < ApplicationController
         "CRPName", "Product", "Disbursement Date", "Loan Status",
         "Term Type", "Loan term", "Principal", "Annual Interest Percent",
         "Interest Amount", "Total Payable", "Principal Collected",
-        "Interest collected", "Paid", "Remaining", "Mobile", "Aadhaar",
+        "Interest collected", "Paid", "Remaining", "Mobile",
         "Monthly hh income"
       ]
 
@@ -264,7 +264,6 @@ class ShgLoansController < ApplicationController
           loan_paid_amount(loan),
           loan_remaining_amount(loan),
           loan.shg_member.mobile,
-          helpers.masked_aadhaar(loan.shg_member.aadhaar_no),
           loan.shg_member.monthly_income
         ]
       end
@@ -407,7 +406,6 @@ class ShgLoansController < ApplicationController
     @import_blocks = {}
     @import_villages = {}
     @import_shgs = {}
-    @import_used_aadhaars = ShgMember.where.not(aadhaar_no: nil).pluck(:aadhaar_no).to_set
     @import_products = {}
     @import_activities = {}
     @import_occupations = {}
@@ -505,9 +503,8 @@ class ShgLoansController < ApplicationController
       occupation: import_value(row, "occupation").presence || "Imported",
       gender: import_value(row, "gender"),
       dob: import_date(row, "dob", "date of birth"),
-      aadhaar_no: import_aadhaar_number(row),
-      mobile: import_digits(row, "mobile", "mobile no", "mobile_no", "phone", "phone number", "phone no", "phone_no", "contact", "contact no", "borrower phone number", indexes: [ 21, 22 ]),
-      monthly_income: import_value(row, "monthly hh income", "monthly income", "monthly_income", "income", "member income", indexes: [ 23, 24 ]),
+      mobile: import_digits(row, "mobile", "mobile no", "mobile_no", "phone", "phone number", "phone no", "phone_no", "contact", "contact no", "borrower phone number", indexes: [ 21 ]),
+      monthly_income: import_value(row, "monthly hh income", "monthly income", "monthly_income", "income", "member income", indexes: [ 22, 23, 24 ]),
       address: import_value(row, "address"),
       distribution_date: import_date(row, "disbursement date", "distribution date", "distribution_date", indexes: [ 9 ]) || Date.current,
       geography_type: import_choice(row, ShgLoan::GEOGRAPHY_TYPES, "geography", "geography type", "type of geography") || "Rural",
@@ -557,27 +554,6 @@ class ShgLoansController < ApplicationController
 
   def import_digits(row, *keys, indexes: [])
     import_value(row, *keys, indexes: indexes).gsub(/\D/, "")
-  end
-
-  def import_aadhaar_number(row)
-    value = import_value(
-      row,
-      "aadhaar", "aadhaar no", "aadhaar number", "aadhaar card", "aadhaar card no", "aadhaar card number", "aadhaar_no", "aadhaar_number",
-      "aadhar", "aadhar no", "aadhar number", "aadhar card", "aadhar card no", "aadhar card number", "aadhar_no", "aadhar_number",
-      "borrower aadhaar", "borrower aadhaar no", "borrower aadhaar number", "member aadhaar", "member aadhaar no", "member aadhaar number",
-      indexes: [ 22 ]
-    )
-    return normalized_masked_aadhaar(value) if value.to_s.match?(/x/i)
-
-    digits = normalized_import_identifier(value)
-    digits.length == 12 ? digits : nil
-  end
-
-  def normalized_masked_aadhaar(value)
-    digits = value.to_s.gsub(/\D/, "")
-    return if digits.length != 4
-
-    "XXXX-XXXX-#{digits}"
   end
 
   def normalized_import_identifier(value)
@@ -975,7 +951,6 @@ class ShgLoansController < ApplicationController
         loan_no: next_import_member_loan_number,
         gender: attrs[:gender],
         dob: attrs[:dob],
-        aadhaar_no: unique_import_aadhaar(attrs[:aadhaar_no]),
         mobile: attrs[:mobile],
         monthly_income: attrs[:monthly_income].presence,
         address: attrs[:address],
@@ -987,25 +962,15 @@ class ShgLoansController < ApplicationController
 
     return if rows.blank?
 
-    inserted = ShgMember.insert_all!(rows, returning: %w[id aadhaar_no shg_id name])
+    inserted = ShgMember.insert_all!(rows, returning: %w[id shg_id name])
     inserted.rows.each_with_index do |row, index|
       data = inserted.columns.zip(row).to_h
       processed_rows[index][:member] = ImportMemberReference.new(
         id: data.fetch("id"),
-        aadhaar_no: data["aadhaar_no"],
         shg_id: data.fetch("shg_id"),
         name: data.fetch("name")
       )
-      @import_used_aadhaars << data["aadhaar_no"] if data["aadhaar_no"].present?
     end
-  end
-
-  def unique_import_aadhaar(aadhaar_no)
-    aadhaar = aadhaar_no.presence
-    return if aadhaar.blank? || @import_used_aadhaars.include?(aadhaar)
-
-    @import_used_aadhaars << aadhaar
-    aadhaar
   end
 
   def create_imported_loan(attrs, shg, member)

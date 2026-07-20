@@ -170,7 +170,7 @@ class VisitRecordsController < ApplicationController
     CSV.generate(headers: true) do |csv|
       csv << [
         "Visit Date", "State", "District", "Block", "Village", "SHG", "Member", "Loan No",
-        "Aadhaar", "Mobile", "Product", "Purpose", "Observations", "Approval",
+        "Mobile", "Product", "Purpose", "Observations", "Approval",
         "Created By", "DC Approval", "Assistant Approval", "Remarks"
       ]
 
@@ -184,7 +184,6 @@ class VisitRecordsController < ApplicationController
           visit.shg.name,
           visit.shg_member.name,
           visit.shg_member.loan_no,
-          helpers.masked_aadhaar(visit.shg_member.aadhaar_no),
           visit.shg_member.mobile,
           visit.product&.name,
           visit.purpose,

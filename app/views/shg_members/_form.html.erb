@@ -5,7 +5,6 @@
   <label><span>Gender</span><%= form.select :gender, [ "Female", "Male", "Other" ], { prompt: "Select gender" } %></label>
   <label><span>Date of Birth</span><%= form.date_field :dob %></label>
   <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
-  <label><span>Aadhaar No</span><%= form.text_field :aadhaar_no, maxlength: 12, pattern: "\\d{12}", inputmode: "numeric", placeholder: "12 digit Aadhaar number" %></label>
   <label><span>Loan No</span><%= form.text_field :loan_no, placeholder: "Member loan number" %></label>
   <label><span>Monthly HH Income</span><%= form.number_field :monthly_income, min: 0, step: "0.01", placeholder: "Monthly HH income" %></label>
   <label class="full"><span>Address</span><%= form.text_area :address, rows: 3 %></label>

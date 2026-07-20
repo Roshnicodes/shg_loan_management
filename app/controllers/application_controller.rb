@@ -96,7 +96,7 @@ class ApplicationController < ActionController::Base
   end
 
   def require_bulk_delete_permission!
-    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to delete multiple records." unless can_bulk_delete_records?
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to disable multiple records." unless can_bulk_delete_records?
   end
 
   def require_shg_manage_permission!
