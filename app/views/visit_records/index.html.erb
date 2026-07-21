@@ -17,25 +17,23 @@
 
   <%= form_with url: visit_records_path, method: :get, class: "filter-grid visit-filter-grid", data: { controller: "location-select" } do |form| %>
     <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
-    <% if current_user&.crp? %>
-      <label><span>Month</span><%= form.month_field :month, value: params[:month].presence || Date.current.strftime("%Y-%m") %></label>
-    <% else %>
-      <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
-      <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+    <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
+    <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+    <% if can_filter_visit_state_district_crp? %>
       <% if current_user&.admin? %>
         <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
       <% end %>
-      <% if current_user&.assistant_admin? || current_user&.admin? %>
-        <label><span>District Coordinator</span><%= form.select :dc_id, options_for_select(user_filter_options(@district_coordinators), params[:dc_id]), { prompt: "All DC" }, data: { location_select_target: "dc" } %></label>
-      <% end %>
-      <% if current_user&.district_coordinator? || current_user&.assistant_admin? || current_user&.admin? %>
-        <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
-      <% end %>
+      <label><span>District Coordinator</span><%= form.select :dc_id, options_for_select(user_filter_options(@district_coordinators), params[:dc_id]), { prompt: "All DC" }, data: { location_select_target: "dc" } %></label>
+      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
     <% end %>
-    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-    <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <% if can_filter_visit_state_district_crp? %>
+      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <% end %>
     <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
     <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village" } %></label>
+    <label><span>SHG</span><%= form.collection_select :shg_id, @shgs, :id, :name, { prompt: "All SHG", selected: params[:shg_id] } %></label>
+    <label><span>Approval</span><%= form.select :approval_status, VisitRecord::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, { prompt: "All status", selected: params[:approval_status] } %></label>
     <div class="filter-actions">
       <%= link_to "Clear", visit_records_path, class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>

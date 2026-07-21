@@ -6,6 +6,8 @@ require "set"
 require "zip"
 
 class ShgLoansController < ApplicationController
+  helper_method :can_filter_loan_state_district_crp?
+
   IMPORT_BATCH_SIZE = 10_000
   ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
   ImportShgReference = Struct.new(:id, :village_id, :name, :approved, keyword_init: true) do
@@ -176,11 +178,15 @@ class ShgLoansController < ApplicationController
   end
 
   def set_filter_options
-    @states = filter_states
-    @districts = filter_districts
-    @blocks = filter_blocks
-    @villages = filter_villages
-    @crps = filter_crps
+    if can_filter_loan_state_district_crp?
+      @states = State.where(id: loan_filter_option_scope.select("shgs.state_id")).order(:name)
+      @districts = District.where(id: loan_filter_option_scope.select("shgs.district_id")).order(:name)
+      @crps = loan_filter_crps
+    end
+
+    @blocks = Block.where(id: loan_filter_option_scope.select("shgs.block_id")).order(:name)
+    @villages = Village.where(id: loan_filter_option_scope.select("shgs.village_id")).order(:name)
+    @shgs = Shg.where(id: loan_filter_option_scope.select(:shg_id)).order(:name)
   end
 
   def filtered_loans
@@ -189,13 +195,29 @@ class ShgLoansController < ApplicationController
 
     loans = loans.where(distribution_date: params[:date_from]..) if params[:date_from].present?
     loans = loans.where(distribution_date: ..params[:date_to]) if params[:date_to].present?
-    loans = loans.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
-    loans = loans.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
+    if can_filter_loan_state_district_crp?
+      loans = loans.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
+      loans = loans.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
+      loans = loans.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
+    end
     loans = loans.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     loans = loans.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
-    loans = loans.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
+    loans = loans.where(shg_id: params[:shg_id]) if params[:shg_id].present?
     loans = search_loans(loans)
     loans
+  end
+
+  def can_filter_loan_state_district_crp?
+    current_user&.admin? || current_user&.assistant_admin?
+  end
+
+  def loan_filter_option_scope
+    visible_shg_loans.joins(:shg)
+  end
+
+  def loan_filter_crps
+    crp_ids = filter_crps.map(&:id) & loan_filter_option_scope.distinct.pluck(:created_by_id)
+    User.where(id: crp_ids).includes(:user_type).order(:name)
   end
 
   def search_loans(loans)
@@ -270,7 +292,7 @@ class ShgLoansController < ApplicationController
   end
 
   def loan_crp_identifier(loan)
-    loan.source_crp_identifier.presence || loan.created_by_id
+    loan.source_crp_identifier.presence || loan.created_by&.login_id
   end
 
   def loan_crp_name(loan)

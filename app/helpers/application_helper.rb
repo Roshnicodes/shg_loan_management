@@ -17,8 +17,8 @@ module ApplicationHelper
     items += [
       [ "SHG Master", shgs_path ],
       [ "SHG Members", shg_members_path ],
-      [ "Visits", visit_records_path ],
-      [ "SHG Loans", shg_loans_path ]
+      [ "SHG Loans", shg_loans_path ],
+      [ "Visits", visit_records_path ]
     ]
 
     items

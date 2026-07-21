@@ -1,6 +1,8 @@
 require "csv"
 
 class ShgMembersController < ApplicationController
+  helper_method :can_filter_member_state_district_crp?
+
   before_action :authenticate_user!
   before_action :set_member, only: %i[show edit update destroy disable]
   before_action :require_manage_permission!, only: %i[new create]
@@ -79,12 +81,15 @@ class ShgMembersController < ApplicationController
   private
 
   def set_filter_options
-    @states = filter_states
-    @districts = filter_districts
-    @blocks = filter_blocks
-    @villages = filter_villages
-    @shgs = visible_shgs.order(:name)
-    @crps = filter_crps
+    if can_filter_member_state_district_crp?
+      @states = State.where(id: member_filter_option_scope.select("shgs.state_id")).order(:name)
+      @districts = District.where(id: member_filter_option_scope.select("shgs.district_id")).order(:name)
+      @crps = member_filter_crps
+    end
+
+    @blocks = Block.where(id: member_filter_option_scope.select("shgs.block_id")).order(:name)
+    @villages = Village.where(id: member_filter_option_scope.select("shgs.village_id")).order(:name)
+    @shgs = Shg.where(id: member_filter_option_scope.select(:shg_id)).order(:name)
   end
 
   def filtered_members
@@ -92,11 +97,13 @@ class ShgMembersController < ApplicationController
     members = members.where(created_at: params[:date_from].to_date.beginning_of_day..) if params[:date_from].present?
     members = members.where(created_at: ..params[:date_to].to_date.end_of_day) if params[:date_to].present?
     members = members.where(shg_id: params[:shg_id]) if params[:shg_id].present?
-    members = members.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
-    members = members.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
+    if can_filter_member_state_district_crp?
+      members = members.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
+      members = members.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
+      members = members.joins(:shg).where(shgs: { created_by_id: params[:crp_id] }) if params[:crp_id].present?
+    end
     members = members.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     members = members.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
-    members = members.joins(:shg).where(shgs: { created_by_id: params[:crp_id] }) if params[:crp_id].present?
     members = search_members(members)
     members
   rescue Date::Error
@@ -105,8 +112,19 @@ class ShgMembersController < ApplicationController
 
   def member_rows_scope
     visible_shg_members
-      .joins(:shg_loans)
-      .merge(visible_shg_loans.where(active: true))
+  end
+
+  def member_filter_option_scope
+    member_rows_scope.joins(:shg)
+  end
+
+  def member_filter_crps
+    crp_ids = filter_crps.map(&:id) & member_filter_option_scope.distinct.pluck("shgs.created_by_id")
+    User.where(id: crp_ids).includes(:user_type).order(:name)
+  end
+
+  def can_filter_member_state_district_crp?
+    current_user&.admin? || current_user&.assistant_admin?
   end
 
   def search_members(members)

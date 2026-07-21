@@ -1,6 +1,8 @@
 require "csv"
 
 class VisitRecordsController < ApplicationController
+  helper_method :can_filter_visit_state_district_crp?
+
   before_action :authenticate_user!
   before_action :set_visit_record, only: %i[show edit update destroy disable approve return_for_correction reject]
   before_action :require_manage_permission!, only: %i[new create]
@@ -89,13 +91,17 @@ class VisitRecordsController < ApplicationController
 
   def set_filter_options
     users = User.includes(:user_type).order(:name)
-    @crps = filter_crps
-    @district_coordinators = filter_district_coordinators
-    @assistant_admins = users.select(&:assistant_admin?)
-    @states = filter_states
-    @districts = filter_districts
-    @blocks = filter_blocks
-    @villages = filter_villages
+    if can_filter_visit_state_district_crp?
+      @crps = visit_filter_crps
+      @district_coordinators = filter_district_coordinators
+      @assistant_admins = users.select(&:assistant_admin?)
+      @states = State.where(id: visit_filter_option_scope.select("shgs.state_id")).order(:name)
+      @districts = District.where(id: visit_filter_option_scope.select("shgs.district_id")).order(:name)
+    end
+
+    @blocks = Block.where(id: visit_filter_option_scope.select("shgs.block_id")).order(:name)
+    @villages = Village.where(id: visit_filter_option_scope.select("shgs.village_id")).order(:name)
+    @shgs = Shg.where(id: visit_filter_option_scope.select(:shg_id)).order(:name)
   end
 
   def filtered_visit_records
@@ -106,13 +112,17 @@ class VisitRecordsController < ApplicationController
     visits = apply_month_filter(visits)
     visits = visits.where(visit_date: params[:date_from]..) if params[:date_from].present?
     visits = visits.where(visit_date: ..params[:date_to]) if params[:date_to].present?
-    visits = visits.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
-    visits = visits.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
+    if can_filter_visit_state_district_crp?
+      visits = visits.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
+      visits = visits.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
+      visits = visits.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
+      visits = apply_user_office_scope_to_joined_shgs(visits, User.includes(:user_type).find_by(id: params[:dc_id])) if params[:dc_id].present? && can_filter_dc?
+      visits = visits.where("visit_records.assistant_approved_by_id = :id OR visit_records.created_by_id = :id", id: params[:assistant_id]) if params[:assistant_id].present? && can_filter_assistant?
+    end
     visits = visits.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     visits = visits.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
-    visits = visits.where(created_by_id: params[:crp_id]) if params[:crp_id].present? && can_filter_crp?
-    visits = apply_user_office_scope_to_joined_shgs(visits, User.includes(:user_type).find_by(id: params[:dc_id])) if params[:dc_id].present? && can_filter_dc?
-    visits = visits.where("visit_records.assistant_approved_by_id = :id OR visit_records.created_by_id = :id", id: params[:assistant_id]) if params[:assistant_id].present? && can_filter_assistant?
+    visits = visits.where(shg_id: params[:shg_id]) if params[:shg_id].present?
+    visits = visits.where(approval_status: params[:approval_status]) if params[:approval_status].present?
     visits = search_visits(visits)
     visits
   end
@@ -154,8 +164,17 @@ class VisitRecordsController < ApplicationController
     visits
   end
 
-  def can_filter_crp?
-    current_user&.district_coordinator? || current_user&.assistant_admin? || current_user&.admin?
+  def can_filter_visit_state_district_crp?
+    current_user&.admin? || current_user&.assistant_admin?
+  end
+
+  def visit_filter_option_scope
+    visible_visit_records.joins(:shg)
+  end
+
+  def visit_filter_crps
+    crp_ids = filter_crps.map(&:id) & visit_filter_option_scope.distinct.pluck(:created_by_id)
+    User.where(id: crp_ids).includes(:user_type).order(:name)
   end
 
   def can_filter_dc?

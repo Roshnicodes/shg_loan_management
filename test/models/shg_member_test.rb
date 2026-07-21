@@ -5,8 +5,19 @@ class ShgMemberTest < ActiveSupport::TestCase
     shg = shgs(:one)
     occupation = occupations(:one)
 
-    first = ShgMember.create!(shg: shg, occupation: occupation, name: "Parwati Yadav", loan_no: "TEST-DUP-1")
-    second = ShgMember.new(shg: shg, occupation: occupation, name: first.name, loan_no: "TEST-DUP-2")
+    attrs = {
+      shg: shg,
+      occupation: occupation,
+      name: "Parwati Yadav",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543212",
+      monthly_income: 10_000,
+      address: "Test address"
+    }
+
+    first = ShgMember.create!(attrs.merge(loan_no: "TEST-DUP-1"))
+    second = ShgMember.new(attrs.merge(name: first.name, mobile: "9876543213", loan_no: "TEST-DUP-2"))
 
     assert second.valid?
   end

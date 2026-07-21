@@ -9,6 +9,7 @@ class ShgMember < ApplicationRecord
   before_validation :assign_loan_no, if: -> { loan_no.blank? }
   before_validation :normalize_contact_numbers
 
+  validates :shg, :occupation, :gender, :dob, :mobile, :monthly_income, :address, presence: true
   validates :name, presence: true
   validates :loan_no, uniqueness: { allow_blank: true }
   validates :mobile, format: { with: /\A\d{10}\z/, allow_blank: true, message: "must be 10 digits" }

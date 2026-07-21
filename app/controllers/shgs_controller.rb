@@ -1,6 +1,8 @@
 require "csv"
 
 class ShgsController < ApplicationController
+  helper_method :can_filter_shg_state_district_crp?
+
   before_action :authenticate_user!
   before_action :set_shg, only: %i[show edit update destroy disable approve return_for_correction reject]
   before_action :require_manage_permission!, only: %i[new create]
@@ -89,14 +91,16 @@ class ShgsController < ApplicationController
   private
 
   def set_filter_options
-    @states = filter_states
-    @districts = filter_districts
-    @blocks = filter_blocks
-    @villages = filter_villages
-    users = User.includes(:user_type).order(:name)
-    @crps = filter_crps
-    @district_coordinators = filter_district_coordinators
-    @assistant_admins = users.select(&:assistant_admin?)
+    if can_filter_shg_state_district_crp?
+      @states = State.where(id: shg_filter_option_scope.select(:state_id)).order(:name)
+      @districts = District.where(id: shg_filter_option_scope.select(:district_id)).order(:name)
+      @crps = shg_filter_crps
+      @district_coordinators = filter_district_coordinators
+      @assistant_admins = User.includes(:user_type).order(:name).select(&:assistant_admin?)
+    end
+
+    @blocks = Block.where(id: shg_filter_option_scope.select(:block_id)).order(:name)
+    @villages = Village.where(id: shg_filter_option_scope.select(:village_id)).order(:name)
   end
 
   def filtered_shgs
@@ -106,18 +110,33 @@ class ShgsController < ApplicationController
       .with_attached_meeting_register
     shgs = shgs.where(linkage_date: params[:date_from]..) if params[:date_from].present?
     shgs = shgs.where(linkage_date: ..params[:date_to]) if params[:date_to].present?
-    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
-    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
+    if can_filter_shg_state_district_crp?
+      shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
+      shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
+      shgs = shgs.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
+      if params[:dc_id].present?
+        shgs = apply_user_office_scope_to_shgs(shgs, User.includes(:user_type).find_by(id: params[:dc_id]))
+      end
+      shgs = shgs.where(assistant_approved_by_id: params[:assistant_id]) if params[:assistant_id].present? && current_user&.admin?
+    end
     shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
     shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
     shgs = shgs.where(approval_status: params[:approval_status]) if params[:approval_status].present?
-    shgs = shgs.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
-    if params[:dc_id].present? && (current_user&.assistant_admin? || current_user&.admin?)
-      shgs = apply_user_office_scope_to_shgs(shgs, User.includes(:user_type).find_by(id: params[:dc_id]))
-    end
-    shgs = shgs.where(assistant_approved_by_id: params[:assistant_id]) if params[:assistant_id].present? && current_user&.admin?
     shgs = search_shgs(shgs)
     shgs
+  end
+
+  def shg_filter_option_scope
+    visible_shgs
+  end
+
+  def can_filter_shg_state_district_crp?
+    current_user&.admin? || current_user&.assistant_admin?
+  end
+
+  def shg_filter_crps
+    crp_ids = filter_crps.map(&:id) & shg_filter_option_scope.distinct.pluck(:created_by_id)
+    User.where(id: crp_ids).includes(:user_type).order(:name)
   end
 
   def search_shgs(shgs)

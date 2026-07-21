@@ -19,12 +19,16 @@
     <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
-    <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-    <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <% if can_filter_member_state_district_crp? %>
+      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
+      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+    <% end %>
     <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
     <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village" } %></label>
     <label><span>SHG</span><%= form.collection_select :shg_id, @shgs, :id, :name, { prompt: "All SHG", selected: params[:shg_id] } %></label>
-    <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
+    <% if can_filter_member_state_district_crp? %>
+      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
+    <% end %>
     <div class="filter-actions">
       <%= link_to "Clear", shg_members_path, class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
