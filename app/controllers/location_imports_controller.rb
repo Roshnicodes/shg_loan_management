@@ -2,7 +2,8 @@ require "csv"
 
 class LocationImportsController < ApplicationController
   before_action :authenticate_user!
-  before_action :require_manage_permission!
+  before_action :require_user_admin_permission!
+  before_action :require_create_permission!
 
   def new; end
 

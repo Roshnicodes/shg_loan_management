@@ -10,8 +10,8 @@
         <% end %>
       <% end %>
       <%= link_to "Export Excel", export_users_path(format: :csv), class: "secondary-link" %>
-      <% if can_manage_records? %><%= link_to "Import Excel", import_users_path, class: "secondary-link" %><% end %>
-      <% if can_manage_records? %><%= link_to "Add User", new_user_path, class: "primary-link" %><% end %>
+      <% if can_create_records? %><%= link_to "Import Excel", import_users_path, class: "secondary-link" %><% end %>
+      <% if can_create_records? %><%= link_to "Add User", new_user_path, class: "primary-link" %><% end %>
       <%= server_search_box(users_path, placeholder: "Search users...") %>
     </div>
   </div>

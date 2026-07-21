@@ -10,7 +10,7 @@
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected members?" } %>
         <% end %>
       <% end %>
-      <% if can_manage_records? && visible_shgs.exists? %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
+      <% if can_create_records? && visible_shgs.exists? %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
       <%= server_search_box(shg_members_path, placeholder: "Search members...") %>
     </div>
   </div>

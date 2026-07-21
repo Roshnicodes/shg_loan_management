@@ -1,6 +1,8 @@
 class AdminRecordsController < ApplicationController
   before_action :authenticate_user!
+  before_action :require_user_admin_permission!
   before_action :set_record, only: %i[show edit update destroy disable]
+  before_action :require_create_permission!, only: %i[new create]
   before_action :require_manage_permission!, except: %i[index show]
   before_action :require_bulk_delete_permission!, only: :destroy
 

@@ -190,7 +190,7 @@
       <h2>Recent SHG Loans</h2>
     </div>
     <div class="action-row">
-      <%= link_to "New Loan", new_shg_loan_path, class: "primary-link" %>
+      <% if can_create_records? %><%= link_to "New Loan", new_shg_loan_path, class: "primary-link" %><% end %>
       <label class="header-search-box">
         <span>Search</span>
         <input type="search" placeholder="Search recent..." data-table-search-target="input" data-action="input->table-search#update">

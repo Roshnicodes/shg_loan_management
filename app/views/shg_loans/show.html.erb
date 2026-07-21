@@ -59,7 +59,7 @@
             <td><%= number_to_currency(closing_balance, unit: "₹") %></td>
             <td><span class="status <%= display_emi_status_class(emi) %>"><%= display_emi_status(emi) %></span></td>
             <td>
-              <% if can_manage_records? && emi.remaining_amount.positive? %>
+              <% if can_create_records? && emi.remaining_amount.positive? %>
                 <%= form_with url: pay_shg_loan_shg_loan_emi_path(@loan, emi), method: :patch, class: "inline-pay-form" do |form| %>
                   <%= form.number_field :paid_amount, step: "0.01", min: 1, max: emi.remaining_amount, value: emi.remaining_amount %>
                   <%= form.submit "Pay", class: "success-link" %>

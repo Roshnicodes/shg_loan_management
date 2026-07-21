@@ -13,7 +13,7 @@
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected SHGs?" } %>
         <% end %>
       <% end %>
-      <% if can_manage_records? %>
+      <% if can_create_records? %>
         <%= link_to "Add SHG", new_shg_path, class: "primary-link" %>
       <% end %>
       <%= server_search_box(shgs_path, placeholder: "Search SHGs...") %>

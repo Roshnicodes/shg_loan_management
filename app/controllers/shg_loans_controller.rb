@@ -16,7 +16,8 @@ class ShgLoansController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_loan, only: %i[show edit update destroy disable passbook]
-  before_action :require_manage_permission!, only: %i[new create edit update destroy disable]
+  before_action :require_create_permission!, only: %i[new create new_import import]
+  before_action :require_manage_permission!, only: %i[edit update destroy disable]
   before_action :require_loan_import_permission!, only: %i[new_import import]
   before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
 
@@ -114,7 +115,7 @@ class ShgLoansController < ApplicationController
   private
 
   def require_loan_import_permission!
-    redirect_back fallback_location: shg_loans_path, alert: "You do not have permission to import loan data." unless can_manage_records?
+    redirect_back fallback_location: shg_loans_path, alert: "You do not have permission to import loan data." unless can_create_records?
   end
 
   def start_async_loan_import(file)

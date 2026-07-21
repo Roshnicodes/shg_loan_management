@@ -10,7 +10,7 @@
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected visits?" } %>
         <% end %>
       <% end %>
-      <% if can_manage_records? %><%= link_to "Add Visit", new_visit_record_path, class: "primary-link" %><% end %>
+      <% if can_create_records? %><%= link_to "Add Visit", new_visit_record_path, class: "primary-link" %><% end %>
       <%= server_search_box(visit_records_path, placeholder: "Search visits...") %>
     </div>
   </div>

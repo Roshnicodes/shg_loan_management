@@ -3,6 +3,7 @@ require "csv"
 class UsersController < ApplicationController
   before_action :authenticate_user!
   before_action :require_user_admin_permission!, except: :profile
+  before_action :require_create_permission!, only: %i[new create new_import import]
   before_action :set_user, only: %i[show edit update destroy reset_password disable]
   before_action :require_manage_permission!, except: %i[index show reset_password export]
   before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]

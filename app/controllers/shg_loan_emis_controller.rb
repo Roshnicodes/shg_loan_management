@@ -1,6 +1,6 @@
 class ShgLoanEmisController < ApplicationController
   before_action :authenticate_user!
-  before_action :require_manage_permission!
+  before_action :require_create_permission!
   before_action :set_loan
   before_action :set_emi
 

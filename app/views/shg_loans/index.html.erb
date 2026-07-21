@@ -10,12 +10,12 @@
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected loans?" } %>
         <% end %>
       <% end %>
-      <% if can_manage_records? %><%= link_to "Add Loan", new_shg_loan_path, class: "primary-link" %><% end %>
+      <% if can_create_records? %><%= link_to "Add Loan", new_shg_loan_path, class: "primary-link" %><% end %>
       <%= server_search_box(shg_loans_path, placeholder: "Search loans...") %>
     </div>
   </div>
 
-  <% if can_manage_records? %>
+  <% if can_create_records? %>
     <div class="inline-import-panel">
       <%= form_with url: import_shg_loans_path, multipart: true, class: "inline-import-form" do |form| %>
         <label>

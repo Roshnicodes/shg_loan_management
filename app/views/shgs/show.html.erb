@@ -14,52 +14,84 @@
     </div>
   </div>
 
-  <div class="record-hero">
-    <div class="record-card">
+  <div class="show-summary">
+    <div class="show-title-block">
+      <span class="show-kicker">SHG</span>
       <h3><%= @shg.name %></h3>
       <p><%= [@shg.state.name, @shg.district.name, @shg.block.name, @shg.village.name].join(" / ") %></p>
     </div>
-    <div class="record-card">
-      <h3>Status</h3>
-      <p><span class="status <%= @shg.approval_status %>"><%= @shg.approval_label %></span></p>
+    <div class="show-status-block">
+      <span>Approval</span>
+      <strong><span class="status <%= @shg.approval_status %>"><%= @shg.approval_label %></span></strong>
     </div>
   </div>
 
-  <div class="record-metrics">
-    <div><small>Members</small><strong><%= @shg.shg_members.count %></strong></div>
-    <div><small>Loans</small><strong><%= @shg.shg_loans.count %></strong></div>
-    <div><small>Linkage Date</small><strong><%= @shg.linkage_date || "-" %></strong></div>
+  <div class="show-metrics">
+    <div><span>Members</span><strong><%= @shg.shg_members.count %></strong></div>
+    <div><span>Loans</span><strong><%= @shg.shg_loans.count %></strong></div>
+    <div><span>Linkage Date</span><strong><%= @shg.linkage_date || "-" %></strong></div>
   </div>
 
-  <h3 class="detail-section-title">Approval & Documents</h3>
-  <dl class="detail-list">
-    <dt>Created By</dt>
-    <dd><%= @shg.created_by&.display_name || "-" %></dd>
-    <dt>DC Approval</dt>
-    <dd><%= @shg.dc_approved_by&.display_name || "-" %><% if @shg.dc_approved_at.present? %><br><small><%= l(@shg.dc_approved_at, format: :short) %></small><% end %></dd>
-    <dt>Assistant Approval</dt>
-    <dd><%= @shg.assistant_approved_by&.display_name || "-" %><% if @shg.assistant_approved_at.present? %><br><small><%= l(@shg.assistant_approved_at, format: :short) %></small><% end %></dd>
-    <dt>Remarks</dt>
-    <dd><%= @shg.approval_remarks.presence || "-" %></dd>
-    <dt>Meeting Register</dt>
-    <dd>
-      <% if @shg.meeting_register.attached? %>
-        <%= link_to @shg.meeting_register.filename.to_s, rails_blob_path(@shg.meeting_register, disposition: "attachment") %>
-      <% else %>
-        -
-      <% end %>
-    </dd>
-    <dt>Meeting Photo</dt>
-    <dd>
-      <% if @shg.meeting_photo.attached? %>
-        <% if @shg.meeting_photo.image? %>
-          <%= link_to image_tag(@shg.meeting_photo, class: "attachment-preview", alt: "Meeting photo"), rails_blob_path(@shg.meeting_photo, disposition: "attachment") %>
+  <div class="show-section-grid">
+    <section class="show-info-section">
+      <div class="show-section-heading">
+        <span>Location</span>
+        <strong>Office Mapping</strong>
+      </div>
+      <dl class="show-detail-list">
+        <dt>State</dt><dd><%= @shg.state.name %></dd>
+        <dt>District</dt><dd><%= @shg.district.name %></dd>
+        <dt>Block</dt><dd><%= @shg.block.name %></dd>
+        <dt>Village</dt><dd><%= @shg.village.name %></dd>
+      </dl>
+    </section>
+
+    <section class="show-info-section">
+      <div class="show-section-heading">
+        <span>Approval</span>
+        <strong>Trail</strong>
+      </div>
+      <dl class="show-detail-list">
+        <dt>Created By</dt>
+        <dd><%= @shg.created_by&.display_name || "-" %></dd>
+        <dt>DC Approval</dt>
+        <dd><%= @shg.dc_approved_by&.display_name || "-" %><% if @shg.dc_approved_at.present? %><small><%= l(@shg.dc_approved_at, format: :short) %></small><% end %></dd>
+        <dt>Assistant Approval</dt>
+        <dd><%= @shg.assistant_approved_by&.display_name || "-" %><% if @shg.assistant_approved_at.present? %><small><%= l(@shg.assistant_approved_at, format: :short) %></small><% end %></dd>
+        <dt>Remarks</dt>
+        <dd><%= @shg.approval_remarks.presence || "-" %></dd>
+      </dl>
+    </section>
+  </div>
+
+  <section class="show-info-section">
+    <div class="show-section-heading">
+      <span>Documents</span>
+      <strong>Meeting Files</strong>
+    </div>
+    <div class="document-tile-grid">
+      <div class="document-tile">
+        <span>Meeting Register</span>
+        <% if @shg.meeting_register.attached? %>
+          <%= link_to @shg.meeting_register.filename.to_s, rails_blob_path(@shg.meeting_register, disposition: "attachment"), class: "secondary-link" %>
         <% else %>
-          <%= link_to @shg.meeting_photo.filename.to_s, rails_blob_path(@shg.meeting_photo, disposition: "attachment") %>
+          <strong>Not uploaded</strong>
         <% end %>
-      <% else %>
-        -
-      <% end %>
-    </dd>
-  </dl>
+      </div>
+      <div class="document-tile">
+        <span>Meeting Photo</span>
+        <% if @shg.meeting_photo.attached? %>
+          <% if @shg.meeting_photo.image? %>
+            <%= link_to rails_blob_path(@shg.meeting_photo, disposition: "attachment"), class: "document-image-link" do %>
+              <%= image_tag(@shg.meeting_photo, class: "attachment-preview", alt: "Meeting photo") %>
+            <% end %>
+          <% else %>
+            <%= link_to @shg.meeting_photo.filename.to_s, rails_blob_path(@shg.meeting_photo, disposition: "attachment"), class: "secondary-link" %>
+          <% end %>
+        <% else %>
+          <strong>Not uploaded</strong>
+        <% end %>
+      </div>
+    </div>
+  </section>
 </section>

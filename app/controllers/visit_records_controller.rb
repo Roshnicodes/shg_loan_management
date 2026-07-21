@@ -5,7 +5,7 @@ class VisitRecordsController < ApplicationController
 
   before_action :authenticate_user!
   before_action :set_visit_record, only: %i[show edit update destroy disable approve return_for_correction reject]
-  before_action :require_manage_permission!, only: %i[new create]
+  before_action :require_create_permission!, only: %i[new create]
   before_action :require_visit_manage_permission!, only: %i[edit update destroy disable]
   before_action :require_visit_approval_permission!, only: %i[approve return_for_correction reject]
   before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]

@@ -9,7 +9,7 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :logged_in?, :can_manage_records?, :can_approve_shg?, :readonly_admin?,
     :can_manage_users?, :can_manage_shg?, :can_manage_shg_member?, :can_approve_visit?, :can_manage_visit?,
-    :can_bulk_delete_records?,
+    :can_bulk_delete_records?, :can_create_records?,
     :visible_states, :visible_districts, :visible_blocks, :visible_villages, :visible_shgs,
     :manageable_shgs, :visible_shg_members, :visible_visit_records
 
@@ -35,6 +35,10 @@ class ApplicationController < ActionController::Base
 
   def can_manage_records?
     logged_in? && !readonly_admin?
+  end
+
+  def can_create_records?
+    can_manage_records? && (current_user&.crp? || current_user&.district_coordinator?)
   end
 
   def can_bulk_delete_records?
@@ -81,6 +85,10 @@ class ApplicationController < ActionController::Base
 
   def require_manage_permission!
     redirect_back fallback_location: dashboard_path, alert: "You do not have permission for this action." unless can_manage_records?
+  end
+
+  def require_create_permission!
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to add new records." unless can_create_records?
   end
 
   def require_approval_permission!
