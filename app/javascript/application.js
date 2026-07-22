@@ -18,6 +18,12 @@ function refreshBulkSelectAll(master) {
 
 document.addEventListener("turbo:load", () => {
   document.querySelectorAll("[data-bulk-select-all]").forEach(refreshBulkSelectAll)
+  document.querySelectorAll("[data-auto-hide-ms]").forEach((element) => {
+    const delay = Number.parseInt(element.dataset.autoHideMs, 10)
+    if (Number.isFinite(delay) && delay > 0) {
+      window.setTimeout(() => element.setAttribute("hidden", ""), delay)
+    }
+  })
   closeMobileMenu()
 })
 

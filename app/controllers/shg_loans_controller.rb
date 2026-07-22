@@ -23,6 +23,7 @@ class ShgLoansController < ApplicationController
 
   def index
     set_filter_options
+    @loan_imports = LoanImport.includes(:user).order(created_at: :desc).limit(5) if can_import_loan_data?
     @loans = paginate_relation(filtered_loans.order(created_at: :desc))
   end
 
@@ -131,44 +132,8 @@ class ShgLoansController < ApplicationController
     import_path = import_dir.join("#{import.id}-#{SecureRandom.hex(8)}#{File.extname(filename)}")
     FileUtils.cp(file.path, import_path)
 
-    run_loan_import_in_background(import.id, import_path.to_s, filename, current_user.id)
+    LoanImportJob.perform_later(import.id, import_path.to_s, filename, current_user.id)
     import
-  end
-
-  def run_loan_import_in_background(import_id, path, filename, user_id)
-    Thread.new do
-      Rails.application.executor.wrap do
-        ActiveRecord::Base.connection_pool.with_connection do
-          import = LoanImport.find(import_id)
-          import.update!(status: "running", started_at: Time.current)
-
-          file = Struct.new(:path, :original_filename).new(path, filename)
-          controller = self.class.new
-          controller.define_singleton_method(:current_user) { User.find(user_id) }
-          result = controller.send(:import_loans, file)
-
-          import.update!(
-            status: "completed",
-            total_rows: result[:rows],
-            total_loans: result[:loans],
-            approved_shgs: result[:approved_shgs],
-            skipped_rows: result[:skipped],
-            error_message: result[:errors].join(" | ").presence,
-            finished_at: Time.current
-          )
-        rescue StandardError => e
-          LoanImport.where(id: import_id).update_all(
-            status: "failed",
-            error_message: e.message.truncate(1000),
-            finished_at: Time.current,
-            updated_at: Time.current
-          )
-          Rails.logger.error("Loan import ##{import_id} failed: #{e.class}: #{e.message}")
-        ensure
-          FileUtils.rm_f(path)
-        end
-      end
-    end
   end
 
   def loan_selection_available?(loan)
@@ -351,7 +316,7 @@ class ShgLoansController < ApplicationController
     :loan_interest_collect, :loan_paid_amount, :loan_remaining_amount,
     :formatted_import_date
 
-  def import_loans(file)
+  def import_loans(file, progress_import: nil)
     result = { rows: 0, loans: 0, approved_shgs: 0, skipped: 0, errors: [] }
     initialize_import_context
 
@@ -379,10 +344,24 @@ class ShgLoansController < ApplicationController
 
           insert_imported_loan_batch!(loan_batch, emi_batch)
         end
+        update_import_progress(progress_import, result)
       end
     end
 
     result
+  end
+
+  def update_import_progress(import, result)
+    return unless import
+
+    import.update_columns(
+      total_rows: result[:rows],
+      total_loans: result[:loans],
+      approved_shgs: result[:approved_shgs],
+      skipped_rows: result[:skipped],
+      error_message: result[:errors].join(" | ").presence,
+      updated_at: Time.current
+    )
   end
 
   def quiet_import_logging(&block)
