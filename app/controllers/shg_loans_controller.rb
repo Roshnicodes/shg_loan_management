@@ -8,7 +8,7 @@ require "zip"
 class ShgLoansController < ApplicationController
   helper_method :can_filter_loan_state_district_crp?
 
-  IMPORT_BATCH_SIZE = 10_000
+  IMPORT_BATCH_SIZE = 2_000
   ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
   ImportShgReference = Struct.new(:id, :village_id, :name, :approved, keyword_init: true) do
     def approved? = approved
@@ -642,22 +642,30 @@ class ShgLoansController < ApplicationController
   end
 
   def xlsx_import_rows(file)
-    rows = xlsx_sheet_rows(file)
-    header_index = rows.index { |fields| fields.any?(&:present?) }
-    return [] unless header_index
+    Enumerator.new do |yielder|
+      Zip::File.open(file.path) do |xlsx|
+        shared_strings = xlsx_shared_strings(xlsx)
+        style_formats = xlsx_style_formats(xlsx)
+        sheet_entry = xlsx.glob("xl/worksheets/sheet*.xml").min_by(&:name)
+        next unless sheet_entry
 
-    headers = rows[header_index]
-    rows[(header_index + 1)..].to_a.map { |fields| SpreadsheetImportRow.new(headers, fields) }
+        headers = nil
+        xlsx_sheet_rows(sheet_entry, shared_strings, style_formats).each do |fields|
+          next if fields.blank? || fields.none?(&:present?)
+
+          if headers.nil?
+            headers = fields
+            next
+          end
+
+          yielder << SpreadsheetImportRow.new(headers, fields)
+        end
+      end
+    end
   end
 
-  def xlsx_sheet_rows(file)
-    Zip::File.open(file.path) do |xlsx|
-      shared_strings = xlsx_shared_strings(xlsx)
-      style_formats = xlsx_style_formats(xlsx)
-      sheet_entry = xlsx.glob("xl/worksheets/sheet*.xml").min_by(&:name)
-      return [] unless sheet_entry
-
-      rows = []
+  def xlsx_sheet_rows(sheet_entry, shared_strings, style_formats)
+    Enumerator.new do |yielder|
       fields = nil
       cell_column = nil
       cell_type = nil
@@ -667,7 +675,7 @@ class ShgLoansController < ApplicationController
       in_value = false
       in_text = false
 
-      Nokogiri::XML::Reader(sheet_entry.get_input_stream.read).each do |node|
+      Nokogiri::XML::Reader(sheet_entry.get_input_stream).each do |node|
         if node.node_type == Nokogiri::XML::Reader::TYPE_ELEMENT
           case node.name
           when "row"
@@ -698,13 +706,11 @@ class ShgLoansController < ApplicationController
             cell_type = nil
             cell_style = nil
           when "row"
-            rows << fields.map { |field| field.to_s.strip } if fields
+            yielder << fields.map { |field| field.to_s.strip } if fields
             fields = nil
           end
         end
       end
-
-      rows
     end
   end
 
@@ -716,7 +722,7 @@ class ShgLoansController < ApplicationController
     current = nil
     in_text = false
 
-    Nokogiri::XML::Reader(entry.get_input_stream.read).each do |node|
+    Nokogiri::XML::Reader(entry.get_input_stream).each do |node|
       if node.node_type == Nokogiri::XML::Reader::TYPE_ELEMENT
         case node.name
         when "si"

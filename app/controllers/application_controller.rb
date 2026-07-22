@@ -124,8 +124,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_states
-    return State.all if current_user&.admin? && current_user.state_id.blank?
-    return State.all if current_user&.assistant_admin? && current_user.state_id.blank?
+    return State.all if current_user&.admin? || current_user&.assistant_admin?
     return State.where(id: current_user.state_id) if current_user&.state_id.present?
     return State.joins(:districts).where(districts: { id: current_user.office_district_ids }).distinct if current_user&.office_district_ids.present?
     return State.joins(districts: :blocks).where(blocks: { id: current_user.office_block_ids }).distinct if current_user&.office_block_ids.present?
@@ -135,8 +134,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_districts
-    return District.all if current_user&.admin? && current_user.state_id.blank?
-    return District.all if current_user&.assistant_admin? && current_user.state_id.blank?
+    return District.all if current_user&.admin? || current_user&.assistant_admin?
     return District.where(id: current_user.office_district_ids) if current_user&.office_district_ids.present? && (current_user.crp? || current_user.district_coordinator?)
     return District.joins(:blocks).where(blocks: { id: current_user.office_block_ids }).distinct if current_user&.office_block_ids.present? && (current_user.crp? || current_user.district_coordinator?)
     return District.joins(blocks: :villages).where(villages: { id: current_user.office_village_ids }).distinct if current_user&.office_village_ids.present? && current_user.crp?
@@ -146,8 +144,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_blocks
-    return Block.all if current_user&.admin? && current_user.state_id.blank?
-    return Block.all if current_user&.assistant_admin? && current_user.state_id.blank?
+    return Block.all if current_user&.admin? || current_user&.assistant_admin?
     return Block.where(district_id: current_user.office_district_ids) if current_user&.district_coordinator? && current_user.office_district_ids.present?
     return Block.where(id: current_user.office_block_ids) if current_user&.office_block_ids.present? && current_user.crp?
     return Block.joins(:villages).where(villages: { id: current_user.office_village_ids }).distinct if current_user&.office_village_ids.present? && current_user.crp?
@@ -158,8 +155,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_villages
-    return Village.all if current_user&.admin? && current_user.state_id.blank?
-    return Village.all if current_user&.assistant_admin? && current_user.state_id.blank?
+    return Village.all if current_user&.admin? || current_user&.assistant_admin?
     return Village.where(id: current_user.office_village_ids) if current_user&.office_village_ids.present? && current_user.crp?
     return Village.joins(block: :district).where(districts: { id: current_user.office_district_ids }) if current_user&.district_coordinator? && current_user.office_district_ids.present?
     return Village.where(block_id: current_user.office_block_ids) if current_user&.office_block_ids.present?
@@ -178,7 +174,7 @@ class ApplicationController < ActionController::Base
       shg_scope = shg_scope.or(location_scope) if location_scope.exists?
       return relation.where(id: shg_scope.select(:id))
     end
-    return current_user.state_id.present? ? relation.where(state_id: current_user.state_id) : relation if current_user&.admin? || current_user&.assistant_admin?
+    return relation if current_user&.admin? || current_user&.assistant_admin?
     if current_user&.district_coordinator?
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
 
@@ -227,7 +223,7 @@ class ApplicationController < ActionController::Base
   def visible_visit_records
     relation = VisitRecord.includes(:village, :shg, :shg_member, :product, :created_by, :dc_approved_by, :assistant_approved_by)
     return relation.where(created_by: current_user).or(relation.where(shg_id: visible_shgs.select(:id))) if current_user&.crp?
-    return current_user.state_id.present? ? relation.joins(:shg).where(shgs: { state_id: current_user.state_id }) : relation if current_user&.admin? || current_user&.assistant_admin?
+    return relation if current_user&.admin? || current_user&.assistant_admin?
     if current_user&.district_coordinator?
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
 
