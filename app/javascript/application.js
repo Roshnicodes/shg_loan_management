@@ -18,6 +18,7 @@ function refreshBulkSelectAll(master) {
 
 document.addEventListener("turbo:load", () => {
   document.querySelectorAll("[data-bulk-select-all]").forEach(refreshBulkSelectAll)
+  closeMobileMenu()
 })
 
 document.addEventListener("change", (event) => {
@@ -35,4 +36,43 @@ document.addEventListener("change", (event) => {
     const master = document.querySelector(`[data-bulk-select-all][data-bulk-select-form="${target.getAttribute("form")}"]`)
     if (master) refreshBulkSelectAll(master)
   }
+})
+
+function closeMobileMenu() {
+  document.body.classList.remove("mobile-menu-open")
+  document.querySelectorAll("[data-mobile-menu-toggle]").forEach((button) => {
+    button.setAttribute("aria-expanded", "false")
+  })
+  document.querySelectorAll(".mobile-menu-drawer").forEach((drawer) => {
+    drawer.setAttribute("aria-hidden", "true")
+  })
+}
+
+function openMobileMenu() {
+  document.body.classList.add("mobile-menu-open")
+  document.querySelectorAll("[data-mobile-menu-toggle]").forEach((button) => {
+    button.setAttribute("aria-expanded", "true")
+  })
+  document.querySelectorAll(".mobile-menu-drawer").forEach((drawer) => {
+    drawer.setAttribute("aria-hidden", "false")
+  })
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-mobile-menu-toggle]")) {
+    if (document.body.classList.contains("mobile-menu-open")) {
+      closeMobileMenu()
+    } else {
+      openMobileMenu()
+    }
+    return
+  }
+
+  if (event.target.closest("[data-mobile-menu-close]") || event.target.closest(".mobile-menu-nav a")) {
+    closeMobileMenu()
+  }
+})
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeMobileMenu()
 })

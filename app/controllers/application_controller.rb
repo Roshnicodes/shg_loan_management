@@ -9,7 +9,7 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :logged_in?, :can_manage_records?, :can_approve_shg?, :readonly_admin?,
     :can_manage_users?, :can_manage_shg?, :can_manage_shg_member?, :can_approve_visit?, :can_manage_visit?,
-    :can_bulk_delete_records?, :can_create_records?,
+    :can_bulk_delete_records?, :can_create_records?, :can_import_loan_data?,
     :visible_states, :visible_districts, :visible_blocks, :visible_villages, :visible_shgs,
     :manageable_shgs, :visible_shg_members, :visible_visit_records
 
@@ -39,6 +39,10 @@ class ApplicationController < ActionController::Base
 
   def can_create_records?
     can_manage_records? && (current_user&.crp? || current_user&.district_coordinator?)
+  end
+
+  def can_import_loan_data?
+    can_manage_records? && (current_user&.admin? || current_user&.assistant_admin? || current_user&.district_coordinator? || current_user&.crp?)
   end
 
   def can_bulk_delete_records?

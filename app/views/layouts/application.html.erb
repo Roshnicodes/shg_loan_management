@@ -26,6 +26,22 @@
   <body>
     <% if logged_in? %>
       <div class="app-shell">
+        <header class="mobile-appbar">
+          <button type="button" class="mobile-menu-button" data-mobile-menu-toggle aria-label="Open menu" aria-controls="mobile-menu-drawer" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "mobile-app-logo" %>
+          <div class="mobile-app-title">
+            <% if content_for?(:page_title) %>
+              <strong><%= content_for(:page_title) %></strong>
+            <% else %>
+              <strong>Cash 360</strong>
+            <% end %>
+            <span><%= current_user.name %></span>
+          </div>
+        </header>
         <aside class="sidebar">
           <div class="brand">
             <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "brand-logo" %>
@@ -54,6 +70,26 @@
           <%= render "shared/flash" %>
           <%= yield %>
         </main>
+        <div class="mobile-menu-backdrop" data-mobile-menu-close></div>
+        <aside class="mobile-menu-drawer" id="mobile-menu-drawer" aria-hidden="true">
+          <div class="mobile-menu-head">
+            <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "mobile-menu-logo" %>
+            <button type="button" class="mobile-menu-close" data-mobile-menu-close aria-label="Close menu">Close</button>
+          </div>
+          <div class="mobile-menu-user">
+            <strong><%= current_user.name %></strong>
+            <span><%= current_user.user_type&.name.presence || current_user.designation %></span>
+          </div>
+          <nav class="mobile-menu-nav">
+            <% app_nav_items.each do |label, path| %>
+              <%= link_to path, class: ("active" if request.path == path) do %>
+                <span></span>
+                <strong><%= label %></strong>
+              <% end %>
+            <% end %>
+          </nav>
+          <%= button_to "Logout", logout_path, method: :delete, class: "mobile-menu-logout" %>
+        </aside>
       </div>
     <% else %>
       <%= render "shared/flash" %>

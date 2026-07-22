@@ -15,7 +15,7 @@
     </div>
   </div>
 
-  <% if can_create_records? %>
+  <% if can_import_loan_data? %>
     <div class="inline-import-panel">
       <%= form_with url: import_shg_loans_path, multipart: true, class: "inline-import-form" do |form| %>
         <label>
