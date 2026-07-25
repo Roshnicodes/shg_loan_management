@@ -39,6 +39,8 @@ export default class extends Controller {
     } else {
       this.memberTarget.value = ""
     }
+
+    this.memberTarget.dispatchEvent(new CustomEvent("searchable-select:refresh"))
   }
 
   update() {

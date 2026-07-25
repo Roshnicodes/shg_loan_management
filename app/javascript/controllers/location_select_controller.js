@@ -72,6 +72,8 @@ export default class extends Controller {
     if (Array.from(select.options).some((option) => option.value === selectedValue)) {
       select.value = selectedValue
     }
+
+    this.refreshSearchableSelect(select)
   }
 
   restoreSelect(select, originalOptions) {
@@ -84,6 +86,8 @@ export default class extends Controller {
     if (Array.from(select.options).some((option) => option.value === selectedValue)) {
       select.value = selectedValue
     }
+
+    this.refreshSearchableSelect(select)
   }
 
   filterUserSelect(select, originalOptions) {
@@ -101,6 +105,8 @@ export default class extends Controller {
     if (Array.from(select.options).some((option) => option.value === selectedValue)) {
       select.value = selectedValue
     }
+
+    this.refreshSearchableSelect(select)
   }
 
   optionMatchesLocation(option) {
@@ -118,5 +124,9 @@ export default class extends Controller {
   matchesIds(ids, selectedId) {
     if (!selectedId) return true
     return (ids || "").split(" ").includes(selectedId)
+  }
+
+  refreshSearchableSelect(select) {
+    select.dispatchEvent(new CustomEvent("searchable-select:refresh"))
   }
 }

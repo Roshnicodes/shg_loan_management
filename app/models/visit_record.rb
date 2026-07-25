@@ -1,4 +1,6 @@
 class VisitRecord < ApplicationRecord
+  attr_writer :block_id
+
   belongs_to :village
   belongs_to :shg
   belongs_to :shg_member
@@ -13,6 +15,7 @@ class VisitRecord < ApplicationRecord
   APPROVAL_STATUSES = [ "pending_dc", "pending_assistant", "approved", "rejected" ].freeze
 
   before_validation :set_default_status, on: :create
+  before_validation :set_product_from_member_loan, if: -> { product.blank? && shg_member.present? }
 
   validates :visit_date, presence: true
   validates :approval_status, inclusion: { in: APPROVAL_STATUSES }
@@ -25,6 +28,7 @@ class VisitRecord < ApplicationRecord
   def pending_assistant? = approval_status == "pending_assistant"
   def approved? = approval_status == "approved"
   def approval_label = approval_status.to_s.titleize
+  def block_id = @block_id.presence || village&.block_id || shg&.block_id
 
   def approve!(user)
     raise ActiveRecord::RecordInvalid, self unless approvable_by?(user)
@@ -98,6 +102,10 @@ class VisitRecord < ApplicationRecord
     else
       self.approval_status ||= "pending_dc"
     end
+  end
+
+  def set_product_from_member_loan
+    self.product = shg_member.shg_loans.order(active: :desc, distribution_date: :desc, created_at: :desc).first&.product
   end
 
   def member_belongs_to_shg

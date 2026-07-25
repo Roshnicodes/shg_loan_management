@@ -1,21 +1,31 @@
 <%= render "shared/errors", record: @visit_record %>
-<% shg_options = Shg.order(:name).map { |shg| [shg.name, shg.id, { data: { village_id: shg.village_id } }] } %>
-<% member_options = ShgMember.order(:name).map { |member| [member.name, member.id, { data: { shg_id: member.shg_id } }] } %>
+<% villages = visible_villages.order(:name) %>
+<% blocks = Block.where(id: villages.select(:block_id)).order(:name) %>
+<% shgs = visible_shgs.where(active: true).order(:name) %>
+<% members = visible_shg_members.where(active: true).includes(:shg).order(:name) %>
+<% latest_member_loans = ShgLoan.where(shg_member_id: members.select(:id)).includes(:product).order(active: :desc, distribution_date: :desc, created_at: :desc).each_with_object({}) { |loan, indexed| indexed[loan.shg_member_id] ||= loan } %>
+<% village_options = villages.map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
+<% shg_options = shgs.map { |shg| [shg.name, shg.id, { data: { block_id: shg.block_id, village_id: shg.village_id } }] } %>
+<% member_options = members.map { |member| [member.name, member.id, { data: { shg_id: member.shg_id, product_id: latest_member_loans[member.id]&.product_id } }] } %>
 
 <%= form_with model: @visit_record, class: "form-grid", data: { controller: "visit-select" } do |form| %>
   <label>
+    <span>Block</span>
+    <%= form.select :block_id, options_for_select(blocks.map { |block| [block.name, block.id] }, @visit_record.block_id), { prompt: "Select block" }, required: true, data: { controller: "searchable-select", visit_select_target: "block", action: "visit-select#blockChanged" } %>
+  </label>
+  <label>
     <span>Village Name</span>
-    <%= form.collection_select :village_id, Village.order(:name), :id, :name, { prompt: "Select village" }, required: true, data: { visit_select_target: "village", action: "visit-select#villageChanged" } %>
+    <%= form.select :village_id, options_for_select(village_options, @visit_record.village_id), { prompt: "Select village" }, required: true, data: { controller: "searchable-select", visit_select_target: "village", action: "visit-select#villageChanged" } %>
   </label>
   <label>
     <span>SHG Name</span>
-    <%= form.select :shg_id, options_for_select(shg_options, @visit_record.shg_id), { prompt: "Select SHG" }, required: true, data: { visit_select_target: "shg", action: "visit-select#shgChanged" } %>
+    <%= form.select :shg_id, options_for_select(shg_options, @visit_record.shg_id), { prompt: "Select SHG" }, required: true, data: { controller: "searchable-select", visit_select_target: "shg", action: "visit-select#shgChanged" } %>
   </label>
   <label>
     <span>SHG Member</span>
-    <%= form.select :shg_member_id, options_for_select(member_options, @visit_record.shg_member_id), { prompt: "Select member" }, required: true, data: { visit_select_target: "member" } %>
+    <%= form.select :shg_member_id, options_for_select(member_options, @visit_record.shg_member_id), { prompt: "Select member" }, required: true, data: { controller: "searchable-select", visit_select_target: "member", action: "visit-select#memberChanged" } %>
   </label>
-  <label><span>Product</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true %></label>
+  <label><span>Product</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true, data: { controller: "searchable-select", visit_select_target: "product" } %></label>
   <label><span>Visit Date</span><%= form.date_field :visit_date, required: true %></label>
   <label><span>Photo / Document</span><%= form.file_field :photo, accept: ".pdf,image/png,image/jpeg,image/webp" %><small>Max 5 MB</small></label>
   <label class="full"><span>Purpose</span><%= form.text_area :purpose, rows: 2 %></label>

@@ -222,6 +222,6 @@ class VisitRecordsController < ApplicationController
   end
 
   def visit_record_params
-    params.require(:visit_record).permit(:village_id, :shg_id, :shg_member_id, :product_id, :visit_date, :purpose, :observations, :photo, :active)
+    params.require(:visit_record).permit(:block_id, :village_id, :shg_id, :shg_member_id, :product_id, :visit_date, :purpose, :observations, :photo, :active)
   end
 end

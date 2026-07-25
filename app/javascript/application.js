@@ -2,6 +2,15 @@
 import "@hotwired/turbo-rails"
 import "controllers"
 
+function enhanceSearchableSelects() {
+  document.querySelectorAll("select:not([multiple]):not([data-searchable-select-skip])").forEach((select) => {
+    const controllers = (select.dataset.controller || "").split(/\s+/).filter(Boolean)
+    if (!controllers.includes("searchable-select")) {
+      select.dataset.controller = [...controllers, "searchable-select"].join(" ")
+    }
+  })
+}
+
 function bulkCheckboxes(formId) {
   return Array.from(document.querySelectorAll(`input[type="checkbox"][name="ids[]"][form="${formId}"]`))
     .filter((checkbox) => !checkbox.disabled)
@@ -17,6 +26,7 @@ function refreshBulkSelectAll(master) {
 }
 
 document.addEventListener("turbo:load", () => {
+  enhanceSearchableSelects()
   document.querySelectorAll("[data-bulk-select-all]").forEach(refreshBulkSelectAll)
   document.querySelectorAll("[data-auto-hide-ms]").forEach((element) => {
     const delay = Number.parseInt(element.dataset.autoHideMs, 10)
@@ -26,6 +36,8 @@ document.addEventListener("turbo:load", () => {
   })
   closeMobileMenu()
 })
+
+document.addEventListener("turbo:frame-load", enhanceSearchableSelects)
 
 document.addEventListener("change", (event) => {
   const target = event.target
