@@ -11,6 +11,7 @@ class ShgMembersController < ApplicationController
 
   def index
     set_filter_options
+    @can_add_member = can_create_records? && visible_shgs.exists?
     @members = paginate_relation(filtered_members.order(created_at: :desc))
   end
 
@@ -80,12 +81,12 @@ class ShgMembersController < ApplicationController
   def set_filter_options
     if can_filter_member_state_district_crp?
       @states = filter_states
-      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
       @crps = limited_user_filter_records(filter_crps, params[:crp_id])
     end
 
-    @blocks = limited_filter_records(filter_blocks, params[:block_id])
-    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
+    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
     @shgs = limited_filter_records(member_filter_shgs, params[:shg_id])
   end
 

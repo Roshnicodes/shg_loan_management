@@ -154,16 +154,22 @@ class UsersController < ApplicationController
 
     location_clauses = []
     location_params = {}
-    {
-      mapped_district_ids: District.where("LOWER(name) LIKE ?", pattern).pluck(:id),
-      mapped_block_ids: Block.where("LOWER(name) LIKE ?", pattern).pluck(:id),
-      mapped_village_ids: Village.where("LOWER(name) LIKE ?", pattern).pluck(:id)
-    }.each do |column, ids|
-      next if ids.blank?
+    matching_district_ids = District.where("LOWER(name) LIKE ?", pattern).pluck(:id)
+    if matching_district_ids.present?
+      location_clauses << "users.mapped_district_ids && ARRAY[:mapped_district_ids_matches]::integer[]"
+      location_params[:mapped_district_ids_matches] = matching_district_ids
+    end
 
-      key = "#{column}_matches".to_sym
-      location_clauses << "users.#{column} && ARRAY[:#{key}]::integer[]"
-      location_params[key] = ids
+    matching_block_ids = Block.where("LOWER(name) LIKE ?", pattern).pluck(:id)
+    if matching_block_ids.present?
+      location_clauses << "users.mapped_block_ids && ARRAY[:mapped_block_ids_matches]::integer[]"
+      location_params[:mapped_block_ids_matches] = matching_block_ids
+    end
+
+    matching_village_ids = Village.where("LOWER(name) LIKE ?", pattern).pluck(:id)
+    if matching_village_ids.present?
+      location_clauses << "users.mapped_village_ids && ARRAY[:mapped_village_ids_matches]::integer[]"
+      location_params[:mapped_village_ids_matches] = matching_village_ids
     end
 
     clauses = [

@@ -12,11 +12,13 @@ class ShgsController < ApplicationController
 
   def index
     set_filter_options
-    @shgs = paginate_relation(filtered_shgs.order(created_at: :desc))
+    shgs = filtered_shgs
+    @meeting_attachment_counts = meeting_attachment_counts_for(shgs)
+    @shgs = paginate_relation(shgs.order(created_at: :desc))
   end
 
   def export
-    stream_shgs_csv(filtered_shgs(include_attachments: false).order(created_at: :desc))
+    stream_shgs_csv(filtered_shgs.order(created_at: :desc))
   end
 
   def show; end
@@ -90,14 +92,14 @@ class ShgsController < ApplicationController
   def set_filter_options
     if can_filter_shg_state_district_crp?
       @states = filter_states
-      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
       @crps = limited_user_filter_records(filter_crps, params[:crp_id])
       @district_coordinators = limited_user_filter_records(filter_district_coordinators, params[:dc_id])
       @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), params[:assistant_id])
     end
 
-    @blocks = limited_filter_records(filter_blocks, params[:block_id])
-    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
+    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
   end
 
   def filtered_shgs(include_attachments: true)
@@ -166,7 +168,9 @@ class ShgsController < ApplicationController
     stream_csv("shg-master-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
         "SHG", "State", "District", "Block", "Village", "Linkage Date",
-        "Approval", "Created By", "DC Approval", "Assistant Approval", "Remarks"
+        "Approval", "Meeting Photo Uploaded", "Meeting Register Uploaded",
+        "Meeting Photo Download", "Meeting Register Download",
+        "Created By", "DC Approval", "Assistant Approval", "Remarks"
       ])
 
       shgs.reorder(nil).find_each(batch_size: 1_000) do |shg|
@@ -178,6 +182,10 @@ class ShgsController < ApplicationController
           shg.village.name,
           shg.linkage_date,
           shg.approval_label,
+          shg.meeting_photo.attached? ? "Yes" : "No",
+          shg.meeting_register.attached? ? "Yes" : "No",
+          attachment_download_url(shg.meeting_photo),
+          attachment_download_url(shg.meeting_register),
           shg.created_by&.name,
           shg.dc_approved_by&.name,
           shg.assistant_approved_by&.name,
@@ -185,6 +193,31 @@ class ShgsController < ApplicationController
         ])
       end
     end
+  end
+
+  def attachment_download_url(attachment)
+    return nil unless attachment.attached?
+
+    rails_blob_url(
+      attachment,
+      disposition: "attachment",
+      host: request.host_with_port,
+      protocol: request.protocol
+    )
+  end
+
+  def meeting_attachment_counts_for(shgs)
+    total = shgs.reselect(:id).distinct.count
+    photo_uploaded = shgs.joins(:meeting_photo_attachment).reselect(:id).distinct.count
+    register_uploaded = shgs.joins(:meeting_register_attachment).reselect(:id).distinct.count
+
+    {
+      total: total,
+      photo_uploaded: photo_uploaded,
+      photo_missing: total - photo_uploaded,
+      register_uploaded: register_uploaded,
+      register_missing: total - register_uploaded
+    }
   end
 
   def set_shg

@@ -85,6 +85,7 @@
           <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_loans", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-loans" }, aria: { label: "Select all loans on this page" } %></th><% end %>
           <th>SHG</th>
           <th>Member</th>
+          <th>Loan No</th>
           <th>State</th>
           <th>District</th>
           <th>Block</th>
@@ -116,6 +117,7 @@
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", loan.id, false, form: "bulk-disable-loans", disabled: !loan.active? %></td><% end %>
             <td><%= loan.shg.name %></td>
             <td><%= link_to loan.shg_member.name, loan %></td>
+            <td><%= loan.shg_member.loan_no.presence || "-" %></td>
             <td><%= loan.shg.state.name %></td>
             <td><%= loan.shg.district.name %></td>
             <td><%= loan.shg.block.name %></td>

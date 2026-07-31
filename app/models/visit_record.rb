@@ -105,7 +105,7 @@ class VisitRecord < ApplicationRecord
   end
 
   def set_product_from_member_loan
-    self.product = shg_member.shg_loans.order(active: :desc, distribution_date: :desc, created_at: :desc).first&.product
+    self.product = shg_member.shg_loans.order(active: :desc, id: :asc).first&.product
   end
 
   def member_belongs_to_shg

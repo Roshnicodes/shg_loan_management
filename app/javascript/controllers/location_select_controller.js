@@ -64,13 +64,15 @@ export default class extends Controller {
     select.innerHTML = ""
 
     originalOptions.forEach((option) => {
-      if (option.value === "" || (parentValue && option.dataset[parentKey] === parentValue)) {
+      if (option.value === "" || !parentValue || option.dataset[parentKey] === parentValue) {
         select.appendChild(option.cloneNode(true))
       }
     })
 
     if (Array.from(select.options).some((option) => option.value === selectedValue)) {
       select.value = selectedValue
+    } else {
+      select.value = ""
     }
 
     this.refreshSearchableSelect(select)
@@ -85,6 +87,8 @@ export default class extends Controller {
 
     if (Array.from(select.options).some((option) => option.value === selectedValue)) {
       select.value = selectedValue
+    } else {
+      select.value = ""
     }
 
     this.refreshSearchableSelect(select)
@@ -110,20 +114,54 @@ export default class extends Controller {
   }
 
   optionMatchesLocation(option) {
-    const stateId = this.hasStateTarget ? this.stateTarget.value : ""
-    const districtId = this.hasDistrictTarget ? this.districtTarget.value : ""
-    const blockId = this.hasBlockTarget ? this.blockTarget.value : ""
-    const villageId = this.hasVillageTarget ? this.villageTarget.value : ""
+    const selected = this.selectedLocation()
+    const stateIds = this.optionIdSet(option.dataset.stateIds)
+    const districtIds = this.optionIdSet(option.dataset.districtIds)
+    const blockIds = this.optionIdSet(option.dataset.blockIds)
+    const villageIds = this.optionIdSet(option.dataset.villageIds)
 
-    return this.matchesIds(option.dataset.stateIds, stateId) &&
-      this.matchesIds(option.dataset.districtIds, districtId) &&
-      this.matchesIds(option.dataset.blockIds, blockId) &&
-      this.matchesIds(option.dataset.villageIds, villageId)
+    if (selected.villageId) {
+      return stateIds.has(selected.stateId) ||
+        districtIds.has(selected.districtId) ||
+        blockIds.has(selected.blockId) ||
+        villageIds.has(selected.villageId)
+    }
+
+    if (selected.blockId) {
+      return stateIds.has(selected.stateId) ||
+        districtIds.has(selected.districtId) ||
+        blockIds.has(selected.blockId)
+    }
+
+    if (selected.districtId) {
+      return stateIds.has(selected.stateId) ||
+        districtIds.has(selected.districtId)
+    }
+
+    if (selected.stateId) return stateIds.has(selected.stateId)
+    return true
   }
 
-  matchesIds(ids, selectedId) {
-    if (!selectedId) return true
-    return (ids || "").split(" ").includes(selectedId)
+  selectedLocation() {
+    const districtOption = this.selectedOption(this.hasDistrictTarget ? this.districtTarget : null)
+    const blockOption = this.selectedOption(this.hasBlockTarget ? this.blockTarget : null)
+    const villageOption = this.selectedOption(this.hasVillageTarget ? this.villageTarget : null)
+
+    return {
+      stateId: (this.hasStateTarget && this.stateTarget.value) || districtOption?.dataset.stateId || blockOption?.dataset.stateId || villageOption?.dataset.stateId || "",
+      districtId: (this.hasDistrictTarget && this.districtTarget.value) || blockOption?.dataset.districtId || villageOption?.dataset.districtId || "",
+      blockId: (this.hasBlockTarget && this.blockTarget.value) || villageOption?.dataset.blockId || "",
+      villageId: this.hasVillageTarget ? this.villageTarget.value : ""
+    }
+  }
+
+  selectedOption(select) {
+    if (!select || !select.value) return null
+    return select.selectedOptions[0]
+  }
+
+  optionIdSet(ids) {
+    return new Set((ids || "").split(" ").filter(Boolean))
   }
 
   refreshSearchableSelect(select) {

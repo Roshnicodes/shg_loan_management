@@ -3,10 +3,10 @@
 <% blocks = Block.where(id: villages.select(:block_id)).order(:name) %>
 <% shgs = visible_shgs.where(active: true).order(:name) %>
 <% members = visible_shg_members.where(active: true).includes(:shg).order(:name) %>
-<% latest_member_loans = ShgLoan.where(shg_member_id: members.select(:id)).includes(:product).order(active: :desc, distribution_date: :desc, created_at: :desc).each_with_object({}) { |loan, indexed| indexed[loan.shg_member_id] ||= loan } %>
+<% member_loans = ShgLoan.where(shg_member_id: members.select(:id)).includes(:product).order(active: :desc, id: :asc).each_with_object({}) { |loan, indexed| indexed[loan.shg_member_id] ||= loan } %>
 <% village_options = villages.map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
 <% shg_options = shgs.map { |shg| [shg.name, shg.id, { data: { block_id: shg.block_id, village_id: shg.village_id } }] } %>
-<% member_options = members.map { |member| [member.name, member.id, { data: { shg_id: member.shg_id, product_id: latest_member_loans[member.id]&.product_id } }] } %>
+<% member_options = members.map { |member| [member.name, member.id, { data: { shg_id: member.shg_id, product_id: member_loans[member.id]&.product_id } }] } %>
 
 <%= form_with model: @visit_record, class: "form-grid", data: { controller: "visit-select" } do |form| %>
   <label>

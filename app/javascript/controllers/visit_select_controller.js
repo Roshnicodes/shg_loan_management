@@ -14,6 +14,7 @@ export default class extends Controller {
     this.villageTarget.value = ""
     this.shgTarget.value = ""
     this.memberTarget.value = ""
+    this.clearProduct()
     this.filterAll()
   }
 
@@ -21,11 +22,13 @@ export default class extends Controller {
     this.syncBlockFromVillage()
     this.shgTarget.value = ""
     this.memberTarget.value = ""
+    this.clearProduct()
     this.filterAll()
   }
 
   shgChanged() {
     this.memberTarget.value = ""
+    this.clearProduct()
     this.filterAll()
   }
 
@@ -35,10 +38,23 @@ export default class extends Controller {
   }
 
   filterAll() {
-    this.filterSelect(this.villageTarget, this.villageOptions, "blockId", this.blockTarget.value)
-    this.filterShgs()
-    this.filterSelect(this.memberTarget, this.memberOptions, "shgId", this.shgTarget.value)
+    if (!this.filterSelect(this.villageTarget, this.villageOptions, "blockId", this.blockTarget.value)) {
+      this.shgTarget.value = ""
+      this.memberTarget.value = ""
+      this.clearProduct()
+    }
+
+    if (!this.filterShgs()) {
+      this.memberTarget.value = ""
+      this.clearProduct()
+    }
+
+    if (!this.filterSelect(this.memberTarget, this.memberOptions, "shgId", this.shgTarget.value)) {
+      this.clearProduct()
+    }
+
     this.mapProductFromMember()
+    this.updateDependentStates()
   }
 
   cloneOptions(select) {
@@ -50,29 +66,31 @@ export default class extends Controller {
     select.innerHTML = ""
 
     originalOptions.forEach((option) => {
-      if (option.value === "" || !parentValue || option.dataset[parentKey] === parentValue) {
+      if (option.value === "" || (parentValue && option.dataset[parentKey] === parentValue)) {
         select.appendChild(option.cloneNode(true))
       }
     })
 
     if (Array.from(select.options).some((option) => option.value === selectedValue)) {
       select.value = selectedValue
+      this.refreshSearchableSelect(select)
+      return true
+    } else {
+      select.value = ""
+      this.refreshSearchableSelect(select)
+      return false
     }
-
-    this.refreshSearchableSelect(select)
   }
 
   filterShgs() {
     const selectedValue = this.shgTarget.value
-    const blockId = this.blockTarget.value
     const villageId = this.villageTarget.value
 
     this.shgTarget.innerHTML = ""
     this.shgOptions.forEach((option) => {
       if (
         option.value === "" ||
-        ((blockId === "" || option.dataset.blockId === blockId) &&
-          (villageId === "" || option.dataset.villageId === villageId))
+        (villageId && option.dataset.villageId === villageId)
       ) {
         this.shgTarget.appendChild(option.cloneNode(true))
       }
@@ -80,9 +98,13 @@ export default class extends Controller {
 
     if (Array.from(this.shgTarget.options).some((option) => option.value === selectedValue)) {
       this.shgTarget.value = selectedValue
+      this.refreshSearchableSelect(this.shgTarget)
+      return true
+    } else {
+      this.shgTarget.value = ""
+      this.refreshSearchableSelect(this.shgTarget)
+      return false
     }
-
-    this.refreshSearchableSelect(this.shgTarget)
   }
 
   syncBlockFromVillage() {
@@ -97,14 +119,39 @@ export default class extends Controller {
   }
 
   mapProductFromMember(force = false) {
-    if (!this.hasProductTarget || !this.memberTarget.value) return
+    if (!this.hasProductTarget) return
+    if (!this.memberTarget.value) {
+      this.clearProduct()
+      return
+    }
     if (!force && this.productTarget.value) return
 
     const productId = this.memberTarget.selectedOptions[0]?.dataset.productId
     if (productId && Array.from(this.productTarget.options).some((option) => option.value === productId)) {
       this.productTarget.value = productId
+      this.productTarget.dispatchEvent(new Event("change", { bubbles: true }))
       this.refreshSearchableSelect(this.productTarget)
+    } else if (force) {
+      this.clearProduct()
     }
+  }
+
+  clearProduct() {
+    if (!this.hasProductTarget) return
+
+    this.productTarget.value = ""
+    this.productTarget.dispatchEvent(new Event("change", { bubbles: true }))
+    this.refreshSearchableSelect(this.productTarget)
+  }
+
+  updateDependentStates() {
+    this.villageTarget.disabled = !this.blockTarget.value
+    this.shgTarget.disabled = !this.villageTarget.value
+    this.memberTarget.disabled = !this.shgTarget.value
+
+    this.refreshSearchableSelect(this.villageTarget)
+    this.refreshSearchableSelect(this.shgTarget)
+    this.refreshSearchableSelect(this.memberTarget)
   }
 
   refreshSearchableSelect(select) {

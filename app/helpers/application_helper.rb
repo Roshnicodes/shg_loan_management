@@ -33,11 +33,15 @@ module ApplicationHelper
   end
 
   def block_filter_options(blocks)
-    blocks.map { |block| [ block.name, block.id, { data: { district_id: block.district_id } } ] }
+    blocks.map { |block| [ block.name, block.id, { data: { district_id: block.district_id, state_id: district_state_ids_by_id[block.district_id] } } ] }
   end
 
   def village_filter_options(villages)
-    villages.map { |village| [ village.name, village.id, { data: { block_id: village.block_id } } ] }
+    villages.map do |village|
+      block_id = village.block_id
+      district_id = block_district_ids_by_id[block_id]
+      [ village.name, village.id, { data: { block_id: block_id, district_id: district_id, state_id: district_state_ids_by_id[district_id] } } ]
+    end
   end
 
   def user_filter_options(users)
@@ -45,23 +49,18 @@ module ApplicationHelper
   end
 
   def user_location_filter_data(user)
-    district_ids = user.office_district_ids
-    block_ids = user.office_block_ids
-    village_ids = user.office_village_ids
+    district_ids = user.office_district_ids.dup
+    block_ids = user.office_block_ids.dup
+    village_ids = user.office_village_ids.dup
 
-    state_ids = user.office_state_ids
-    state_ids += District.where(id: district_ids).pluck(:state_id) if district_ids.present?
-    state_ids += Block.joins(:district).where(id: block_ids).pluck("districts.state_id") if block_ids.present?
-    state_ids += Village.joins(block: :district).where(id: village_ids).pluck("districts.state_id") if village_ids.present?
+    state_ids = user.office_state_ids.dup
+    state_ids += district_ids.filter_map { |id| district_state_ids_by_id[id] }
+    state_ids += block_ids.filter_map { |id| block_state_ids_by_id[id] }
+    state_ids += village_ids.filter_map { |id| village_state_ids_by_id[id] }
 
-    district_ids += Block.where(id: block_ids).pluck(:district_id) if block_ids.present?
-    district_ids += Village.joins(:block).where(id: village_ids).pluck("blocks.district_id") if village_ids.present?
-    district_ids = District.where(state_id: user.office_state_ids).pluck(:id) if district_ids.blank? && user.office_state_ids.present?
-
-    if block_ids.blank?
-      block_ids = village_ids.present? ? Village.where(id: village_ids).pluck(:block_id) : Block.where(district_id: district_ids).pluck(:id)
-    end
-    village_ids = Village.where(block_id: block_ids).pluck(:id) if village_ids.blank? && block_ids.present?
+    district_ids += block_ids.filter_map { |id| block_district_ids_by_id[id] }
+    district_ids += village_ids.filter_map { |id| village_district_ids_by_id[id] }
+    block_ids += village_ids.filter_map { |id| village_block_ids_by_id[id] }
 
     {
       state_ids: state_ids.uniq.join(" "),
@@ -69,6 +68,30 @@ module ApplicationHelper
       block_ids: block_ids.uniq.join(" "),
       village_ids: village_ids.uniq.join(" ")
     }
+  end
+
+  def district_state_ids_by_id
+    @district_state_ids_by_id ||= District.pluck(:id, :state_id).to_h
+  end
+
+  def block_district_ids_by_id
+    @block_district_ids_by_id ||= Block.pluck(:id, :district_id).to_h
+  end
+
+  def village_block_ids_by_id
+    @village_block_ids_by_id ||= Village.pluck(:id, :block_id).to_h
+  end
+
+  def block_state_ids_by_id
+    @block_state_ids_by_id ||= block_district_ids_by_id.transform_values { |district_id| district_state_ids_by_id[district_id] }
+  end
+
+  def village_district_ids_by_id
+    @village_district_ids_by_id ||= village_block_ids_by_id.transform_values { |block_id| block_district_ids_by_id[block_id] }
+  end
+
+  def village_state_ids_by_id
+    @village_state_ids_by_id ||= village_district_ids_by_id.transform_values { |district_id| district_state_ids_by_id[district_id] }
   end
 
   def record_field_value(record, field)

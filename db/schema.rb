@@ -10,9 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_043000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pg_trgm"
 
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
@@ -47,6 +48,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_activities_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_activities_on_active_and_created_at"
     t.index ["name"], name: "index_activities_on_name"
   end
 
@@ -57,6 +60,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.bigint "district_id", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_blocks_on_lower_code_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_blocks_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_blocks_on_active_and_created_at"
     t.index ["district_id", "name"], name: "index_blocks_on_district_id_and_name"
     t.index ["district_id"], name: "index_blocks_on_district_id"
   end
@@ -68,6 +74,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.string "name", null: false
     t.bigint "state_id", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_districts_on_lower_code_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_districts_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_districts_on_active_and_created_at"
     t.index ["state_id", "name"], name: "index_districts_on_state_id_and_name"
     t.index ["state_id"], name: "index_districts_on_state_id"
   end
@@ -95,6 +104,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_loan_statuses_on_lower_code_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_loan_statuses_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_loan_statuses_on_active_and_created_at"
     t.index ["code"], name: "index_loan_statuses_on_code"
     t.index ["name"], name: "index_loan_statuses_on_name"
   end
@@ -104,6 +116,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_occupations_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_occupations_on_active_and_created_at"
     t.index ["name"], name: "index_occupations_on_name"
   end
 
@@ -113,6 +127,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_products_on_lower_code_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_products_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_products_on_active_and_created_at"
     t.index ["name"], name: "index_products_on_name"
   end
 
@@ -159,15 +176,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.decimal "source_total_payable", precision: 12, scale: 2
     t.decimal "total_payable", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((source_crp_identifier)::text) gin_trgm_ops", name: "index_shg_loans_on_lower_source_crp_identifier_trgm", using: :gin
     t.index "lower((source_crp_identifier)::text)", name: "index_shg_loans_on_lower_source_crp_identifier"
+    t.index "lower((source_crp_name)::text) gin_trgm_ops", name: "index_shg_loans_on_lower_source_crp_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_shg_loans_on_active_and_created_at"
+    t.index ["active", "distribution_date", "loan_status_id"], name: "index_shg_loans_on_active_date_status"
+    t.index ["active", "distribution_date", "product_id"], name: "index_shg_loans_on_active_date_product"
+    t.index ["active", "distribution_date"], name: "index_shg_loans_on_active_and_distribution_date"
+    t.index ["active", "loan_status_id"], name: "index_shg_loans_on_active_and_loan_status_id"
+    t.index ["active", "product_id"], name: "index_shg_loans_on_active_and_product_id"
+    t.index ["active", "shg_id"], name: "index_shg_loans_on_active_and_shg_id"
+    t.index ["active", "shg_member_id"], name: "index_shg_loans_on_active_and_shg_member_id"
     t.index ["activity_id"], name: "index_shg_loans_on_activity_id"
     t.index ["created_by_id", "distribution_date"], name: "index_shg_loans_on_created_by_id_and_distribution_date"
     t.index ["created_by_id"], name: "index_shg_loans_on_created_by_id"
     t.index ["distribution_date"], name: "index_shg_loans_on_distribution_date"
+    t.index ["loan_status_id", "created_at"], name: "index_shg_loans_on_loan_status_id_and_created_at"
     t.index ["loan_status_id"], name: "index_shg_loans_on_loan_status_id"
+    t.index ["product_id", "created_at"], name: "index_shg_loans_on_product_id_and_created_at"
     t.index ["product_id"], name: "index_shg_loans_on_product_id"
     t.index ["shg_id", "distribution_date"], name: "index_shg_loans_on_shg_id_and_distribution_date"
     t.index ["shg_id"], name: "index_shg_loans_on_shg_id"
+    t.index ["shg_member_id", "created_at"], name: "index_shg_loans_on_shg_member_id_and_created_at"
     t.index ["shg_member_id"], name: "index_shg_loans_on_shg_member_id"
   end
 
@@ -184,8 +214,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.bigint "occupation_id", null: false
     t.bigint "shg_id", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((loan_no)::text) gin_trgm_ops", name: "index_shg_members_on_lower_loan_no_trgm", using: :gin
+    t.index "lower((mobile)::text) gin_trgm_ops", name: "index_shg_members_on_lower_mobile_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_shg_members_on_lower_name_trgm", using: :gin
+    t.index ["created_at"], name: "index_shg_members_on_created_at"
     t.index ["loan_no"], name: "index_shg_members_on_loan_no", unique: true
     t.index ["occupation_id"], name: "index_shg_members_on_occupation_id"
+    t.index ["shg_id", "created_at"], name: "index_shg_members_on_shg_id_and_created_at"
     t.index ["shg_id", "name"], name: "index_shg_members_on_shg_id_and_name"
     t.index ["shg_id"], name: "index_shg_members_on_shg_id"
   end
@@ -210,15 +245,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.bigint "state_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "village_id", null: false
+    t.index "lower((approval_status)::text) gin_trgm_ops", name: "index_shgs_on_lower_approval_status_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_shgs_on_lower_name_trgm", using: :gin
+    t.index "lower((shg_code)::text) gin_trgm_ops", name: "index_shgs_on_lower_shg_code_trgm", using: :gin
+    t.index ["active", "approval_status", "created_at"], name: "index_shgs_on_active_approval_and_created_at"
+    t.index ["active", "created_at"], name: "index_shgs_on_active_and_created_at"
     t.index ["approval_status"], name: "index_shgs_on_approval_status"
     t.index ["approved_by_id"], name: "index_shgs_on_approved_by_id"
     t.index ["assistant_approved_by_id"], name: "index_shgs_on_assistant_approved_by_id"
+    t.index ["block_id", "created_at"], name: "index_shgs_on_block_id_and_created_at"
     t.index ["block_id"], name: "index_shgs_on_block_id"
+    t.index ["created_by_id", "created_at"], name: "index_shgs_on_created_by_id_and_created_at"
     t.index ["created_by_id"], name: "index_shgs_on_created_by_id"
     t.index ["dc_approved_by_id"], name: "index_shgs_on_dc_approved_by_id"
+    t.index ["district_id", "created_at"], name: "index_shgs_on_district_id_and_created_at"
     t.index ["district_id"], name: "index_shgs_on_district_id"
+    t.index ["linkage_date", "created_at"], name: "index_shgs_on_linkage_date_and_created_at"
     t.index ["shg_code"], name: "index_shgs_on_shg_code", unique: true
+    t.index ["state_id", "created_at"], name: "index_shgs_on_state_id_and_created_at"
     t.index ["state_id"], name: "index_shgs_on_state_id"
+    t.index ["village_id", "created_at"], name: "index_shgs_on_village_id_and_created_at"
     t.index ["village_id", "name"], name: "index_shgs_on_village_id_and_name"
     t.index ["village_id"], name: "index_shgs_on_village_id"
   end
@@ -229,6 +275,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_states_on_lower_code_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_states_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_states_on_active_and_created_at"
     t.index ["code"], name: "index_states_on_code"
     t.index ["name"], name: "index_states_on_name"
   end
@@ -240,6 +289,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.string "level", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_user_types_on_lower_code_trgm", using: :gin
+    t.index "lower((level)::text) gin_trgm_ops", name: "index_user_types_on_lower_level_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_user_types_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_user_types_on_active_and_created_at"
   end
 
   create_table "users", force: :cascade do |t|
@@ -260,10 +313,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "updated_at", null: false
     t.bigint "user_type_id", null: false
     t.bigint "village_id"
+    t.index "lower((designation)::text) gin_trgm_ops", name: "index_users_on_lower_designation_trgm", using: :gin
+    t.index "lower((email)::text) gin_trgm_ops", name: "index_users_on_lower_email_trgm", using: :gin
     t.index "lower((email)::text)", name: "index_active_users_on_lower_email", unique: true, where: "(active = true)"
+    t.index "lower((login_id)::text) gin_trgm_ops", name: "index_users_on_lower_login_id_trgm", using: :gin
     t.index "lower((login_id)::text)", name: "index_active_users_on_lower_login_id", unique: true, where: "(active = true)"
+    t.index "lower((mobile)::text) gin_trgm_ops", name: "index_users_on_lower_mobile_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_users_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_users_on_active_and_created_at"
     t.index ["block_id"], name: "index_users_on_block_id"
     t.index ["district_id"], name: "index_users_on_district_id"
+    t.index ["mapped_block_ids"], name: "index_users_on_mapped_block_ids_gin", using: :gin
+    t.index ["mapped_district_ids"], name: "index_users_on_mapped_district_ids_gin", using: :gin
+    t.index ["mapped_village_ids"], name: "index_users_on_mapped_village_ids_gin", using: :gin
     t.index ["name"], name: "index_users_on_name"
     t.index ["state_id"], name: "index_users_on_state_id"
     t.index ["user_type_id"], name: "index_users_on_user_type_id"
@@ -277,6 +339,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.index "lower((code)::text) gin_trgm_ops", name: "index_villages_on_lower_code_trgm", using: :gin
+    t.index "lower((name)::text) gin_trgm_ops", name: "index_villages_on_lower_name_trgm", using: :gin
+    t.index ["active", "created_at"], name: "index_villages_on_active_and_created_at"
     t.index ["block_id", "name"], name: "index_villages_on_block_id_and_name"
     t.index ["block_id"], name: "index_villages_on_block_id"
   end
@@ -301,6 +366,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.datetime "updated_at", null: false
     t.bigint "village_id", null: false
     t.date "visit_date", null: false
+    t.index "lower((approval_status)::text) gin_trgm_ops", name: "index_visit_records_on_lower_approval_status_trgm", using: :gin
+    t.index "lower(observations) gin_trgm_ops", name: "index_visit_records_on_lower_observations_trgm", using: :gin
+    t.index "lower(purpose) gin_trgm_ops", name: "index_visit_records_on_lower_purpose_trgm", using: :gin
+    t.index ["active", "approval_status"], name: "index_visit_records_on_active_and_approval_status"
+    t.index ["active", "visit_date", "created_at"], name: "index_visit_records_on_active_visit_date_created_at"
     t.index ["approval_status", "visit_date"], name: "index_visit_records_on_approval_status_and_visit_date"
     t.index ["approval_status"], name: "index_visit_records_on_approval_status"
     t.index ["approved_by_id"], name: "index_visit_records_on_approved_by_id"
@@ -308,10 +378,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_20_093000) do
     t.index ["created_by_id", "visit_date"], name: "index_visit_records_on_created_by_id_and_visit_date"
     t.index ["created_by_id"], name: "index_visit_records_on_created_by_id"
     t.index ["dc_approved_by_id"], name: "index_visit_records_on_dc_approved_by_id"
+    t.index ["product_id", "visit_date"], name: "index_visit_records_on_product_id_and_visit_date"
     t.index ["product_id"], name: "index_visit_records_on_product_id"
     t.index ["shg_id", "visit_date"], name: "index_visit_records_on_shg_id_and_visit_date"
     t.index ["shg_id"], name: "index_visit_records_on_shg_id"
     t.index ["shg_member_id"], name: "index_visit_records_on_shg_member_id"
+    t.index ["village_id", "visit_date", "created_at"], name: "index_visit_records_on_village_visit_date_created_at"
     t.index ["village_id"], name: "index_visit_records_on_village_id"
     t.index ["visit_date"], name: "index_visit_records_on_visit_date"
   end

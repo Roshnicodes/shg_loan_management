@@ -93,17 +93,17 @@ class VisitRecordsController < ApplicationController
       @district_coordinators = limited_user_filter_records(filter_district_coordinators, params[:dc_id])
       @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), params[:assistant_id])
       @states = filter_states
-      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
     end
 
-    @blocks = limited_filter_records(filter_blocks, params[:block_id])
-    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
+    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
     @shgs = limited_filter_records(visit_filter_shgs, params[:shg_id])
   end
 
   def filtered_visit_records(include_attachments: true)
     visits = visible_visit_records
-      .includes(:product, :created_by, :dc_approved_by, :assistant_approved_by, shg: [ :state, :district, :block, :village ])
+      .includes(:product, :shg_member, :created_by, :dc_approved_by, :assistant_approved_by, shg: [ :state, :district, :block, :village ])
     visits = visits.with_attached_photo if include_attachments
 
     visits = apply_month_filter(visits)

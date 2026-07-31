@@ -145,12 +145,12 @@ class ShgLoansController < ApplicationController
   def set_filter_options
     if can_filter_loan_state_district_crp?
       @states = filter_states
-      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
       @crps = limited_user_filter_records(filter_crps, params[:crp_id])
     end
 
-    @blocks = limited_filter_records(filter_blocks, params[:block_id])
-    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
+    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
     @shgs = limited_filter_records(loan_filter_shgs, params[:shg_id])
   end
 
@@ -228,7 +228,7 @@ class ShgLoansController < ApplicationController
   def stream_loans_csv(loans)
     stream_csv("shg-loans-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
-        "SHG Name", "Member", "State", "District", "Block", "Village", "CRP ID",
+        "SHG Name", "Member", "Loan No", "State", "District", "Block", "Village", "CRP ID",
         "CRPName", "Product", "Disbursement Date", "Loan Status",
         "Term Type", "Loan term", "Principal", "Annual Interest Percent",
         "Interest Amount", "Total Payable", "Principal Collected",
@@ -247,6 +247,7 @@ class ShgLoansController < ApplicationController
           stream << CSV.generate_line([
             loan.shg.name,
             loan.shg_member.name,
+            loan.shg_member.loan_no,
             loan.shg.state.name,
             loan.shg.district.name,
             loan.shg.block.name,

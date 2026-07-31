@@ -13,7 +13,8 @@ class ApplicationController < ActionController::Base
     :visible_states, :visible_districts, :visible_blocks, :visible_villages, :visible_shgs,
     :manageable_shgs, :visible_shg_members, :visible_visit_records
 
-  DEFAULT_PAGE_SIZE = 50
+  DEFAULT_PAGE_SIZE = 30
+  FILTER_OPTION_LIMIT = 250
 
   private
 
@@ -255,6 +256,31 @@ class ApplicationController < ActionController::Base
     visible_villages.order(:name)
   end
 
+  def filter_districts_for_params
+    districts = filter_districts
+    districts = districts.where(state_id: params[:state_id]) if params[:state_id].present?
+    districts
+  end
+
+  def filter_blocks_for_params
+    blocks = filter_blocks
+    blocks = blocks.joins(:district).where(districts: { state_id: params[:state_id] }) if params[:state_id].present?
+    blocks = blocks.where(district_id: params[:district_id]) if params[:district_id].present?
+    blocks
+  end
+
+  def filter_villages_for_params
+    villages = filter_villages
+    if params[:block_id].present?
+      villages = villages.where(block_id: params[:block_id])
+    elsif params[:district_id].present?
+      villages = villages.joins(:block).where(blocks: { district_id: params[:district_id] })
+    elsif params[:state_id].present?
+      villages = villages.joins(block: :district).where(districts: { state_id: params[:state_id] })
+    end
+    villages
+  end
+
   def filter_crps
     return User.where(id: current_user.id).includes(:user_type).order(:name) if current_user&.crp?
 
@@ -390,7 +416,7 @@ class ApplicationController < ActionController::Base
     end
   end
 
-  def limited_filter_records(relation, selected_id = nil, limit: 500)
+  def limited_filter_records(relation, selected_id = nil, limit: FILTER_OPTION_LIMIT)
     records = relation.limit(limit).to_a
     return records if selected_id.blank? || records.any? { |record| record.id.to_s == selected_id.to_s }
 
@@ -398,7 +424,7 @@ class ApplicationController < ActionController::Base
     selected ? records + [ selected ] : records
   end
 
-  def limited_user_filter_records(users, selected_id = nil, limit: 500)
+  def limited_user_filter_records(users, selected_id = nil, limit: FILTER_OPTION_LIMIT)
     records = users.first(limit)
     return records if selected_id.blank? || records.any? { |user| user.id.to_s == selected_id.to_s }
 
