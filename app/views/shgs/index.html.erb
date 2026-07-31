@@ -78,7 +78,7 @@
                   <span>Photo</span>
                   <% if shg.meeting_photo.attached? %>
                     <% if shg.meeting_photo.image? %>
-                      <%= link_to image_tag(shg.meeting_photo, class: "table-photo", alt: "Meeting photo"), rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
+                      <%= link_to image_tag(shg.meeting_photo.variant(resize_to_limit: [96, 96]), class: "table-photo", alt: "Meeting photo"), rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
                     <% else %>
                       <%= link_to "Download", rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
                     <% end %>
@@ -90,7 +90,7 @@
                   <span>Register</span>
                   <% if shg.meeting_register.attached? %>
                     <% if shg.meeting_register.image? %>
-                      <%= link_to image_tag(shg.meeting_register, class: "table-photo", alt: "Meeting register"), rails_blob_path(shg.meeting_register, disposition: "attachment") %>
+                      <%= link_to image_tag(shg.meeting_register.variant(resize_to_limit: [96, 96]), class: "table-photo", alt: "Meeting register"), rails_blob_path(shg.meeting_register, disposition: "attachment") %>
                     <% else %>
                       <%= link_to "Download", rails_blob_path(shg.meeting_register, disposition: "attachment") %>
                     <% end %>

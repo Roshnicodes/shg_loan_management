@@ -62,7 +62,7 @@ class AdminRecordsController < ApplicationController
     pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
     clauses = [ "CAST(#{record_class.table_name}.id AS TEXT) ILIKE :query" ]
     searchable_columns.each do |column|
-      clauses << "LOWER(COALESCE(#{record_class.table_name}.#{column}, '')) LIKE :query"
+      clauses << "LOWER(#{record_class.table_name}.#{column}) LIKE :query"
     end
 
     records.where(clauses.join(" OR "), query: pattern)

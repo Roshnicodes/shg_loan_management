@@ -115,11 +115,17 @@ module ApplicationHelper
   end
 
   def pagination_controls(label = "records")
-    return unless defined?(@total_count) && @total_count
+    return unless defined?(@page) && @page
 
-    first_item = @total_count.zero? ? 0 : ((@page - 1) * @per_page) + 1
-    last_item = [ @page * @per_page, @total_count ].min
-    summary = content_tag(:span, "Showing #{first_item}-#{last_item} of #{@total_count} #{label}", class: "pagination-summary")
+    first_item = ((@page - 1) * @per_page) + 1
+    last_item = @page_item_count.to_i.zero? ? 0 : first_item + @page_item_count.to_i - 1
+    summary = if @page_item_count.to_i.zero?
+      content_tag(:span, "No #{label} found", class: "pagination-summary")
+    elsif @total_count.present?
+      content_tag(:span, "Showing #{first_item}-#{last_item} of #{@total_count} #{label}", class: "pagination-summary")
+    else
+      content_tag(:span, "Showing #{first_item}-#{last_item} #{label}", class: "pagination-summary")
+    end
 
     links = []
     if @page > 1
@@ -128,9 +134,9 @@ module ApplicationHelper
       links << content_tag(:span, "Previous", class: "secondary-link compact-button disabled")
     end
 
-    links << content_tag(:span, "Page #{@page} of #{[@total_pages, 1].max}", class: "pagination-page")
+    links << content_tag(:span, "Page #{@page}", class: "pagination-page")
 
-    if @total_pages.to_i > @page
+    if @has_next_page
       links << link_to("Next", url_for(request.query_parameters.merge(page: @page + 1)), class: "secondary-link compact-button")
     else
       links << content_tag(:span, "Next", class: "secondary-link compact-button disabled")

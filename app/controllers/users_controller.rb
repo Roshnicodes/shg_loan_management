@@ -87,10 +87,11 @@ class UsersController < ApplicationController
   end
 
   def export
-    csv = CSV.generate(headers: true) do |rows|
-      rows << [ "ID", "Name", "Login ID", "Email", "Mobile", "Designation", "Role", "State", "Districts", "Blocks", "Villages", "Active", "Password" ]
-      User.includes(:user_type, :state, :district, :block, :village).order(:id).find_each do |user|
-        rows << [
+    stream_csv("cash360-users-#{Date.current.strftime('%Y%m%d')}.csv") do |stream|
+      stream << CSV.generate_line([ "ID", "Name", "Login ID", "Email", "Mobile", "Designation", "Role", "State", "Districts", "Blocks", "Villages", "Active", "Password" ])
+
+      User.includes(:user_type, :state, :district, :block, :village).find_each(batch_size: 1_000) do |user|
+        stream << CSV.generate_line([
           user.id,
           user.name,
           user.login_id,
@@ -104,11 +105,9 @@ class UsersController < ApplicationController
           user.office_village_names.join(", "),
           user.active? ? "Yes" : "No",
           "Use Reset Password"
-        ]
+        ])
       end
     end
-
-    send_data csv, filename: "cash360-users-#{Date.current.strftime('%Y%m%d')}.csv", type: "text/csv"
   end
 
   def new_import; end
@@ -172,8 +171,8 @@ class UsersController < ApplicationController
       "LOWER(users.name) LIKE :query",
       "LOWER(users.login_id) LIKE :query",
       "LOWER(users.email) LIKE :query",
-      "LOWER(COALESCE(users.mobile, '')) LIKE :query",
-      "LOWER(COALESCE(users.designation, '')) LIKE :query",
+      "LOWER(users.mobile) LIKE :query",
+      "LOWER(users.designation) LIKE :query",
       "LOWER(user_types.name) LIKE :query",
       "LOWER(states.name) LIKE :query",
       "LOWER(districts.name) LIKE :query",

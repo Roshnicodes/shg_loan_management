@@ -15,10 +15,7 @@ class ShgMembersController < ApplicationController
   end
 
   def export
-    set_filter_options
-    send_data members_csv(filtered_members.order(created_at: :desc)),
-      filename: "shg-members-#{Date.current}.csv",
-      type: "text/csv; charset=utf-8"
+    stream_members_csv(filtered_members.order(created_at: :desc))
   end
 
   def show; end
@@ -82,14 +79,14 @@ class ShgMembersController < ApplicationController
 
   def set_filter_options
     if can_filter_member_state_district_crp?
-      @states = State.where(id: member_filter_option_scope.select("shgs.state_id")).order(:name)
-      @districts = District.where(id: member_filter_option_scope.select("shgs.district_id")).order(:name)
-      @crps = member_filter_crps
+      @states = filter_states
+      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
     end
 
-    @blocks = Block.where(id: member_filter_option_scope.select("shgs.block_id")).order(:name)
-    @villages = Village.where(id: member_filter_option_scope.select("shgs.village_id")).order(:name)
-    @shgs = Shg.where(id: member_filter_option_scope.select(:shg_id)).order(:name)
+    @blocks = limited_filter_records(filter_blocks, params[:block_id])
+    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @shgs = limited_filter_records(member_filter_shgs, params[:shg_id])
   end
 
   def filtered_members
@@ -120,7 +117,16 @@ class ShgMembersController < ApplicationController
 
   def member_filter_crps
     crp_ids = filter_crps.map(&:id) & member_filter_option_scope.distinct.pluck("shgs.created_by_id")
-    User.where(id: crp_ids).includes(:user_type).order(:name)
+    limited_filter_records(User.where(id: crp_ids).includes(:user_type).order(:name), params[:crp_id])
+  end
+
+  def member_filter_shgs
+    shgs = visible_shgs
+    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
+    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
+    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
+    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    shgs.order(:name)
   end
 
   def can_filter_member_state_district_crp?
@@ -137,8 +143,8 @@ class ShgMembersController < ApplicationController
         [
           "CAST(shg_members.id AS TEXT) ILIKE :query",
           "LOWER(shg_members.name) LIKE :query",
-          "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
-          "LOWER(COALESCE(shg_members.mobile, '')) LIKE :query",
+          "LOWER(shg_members.loan_no) LIKE :query",
+          "LOWER(shg_members.mobile) LIKE :query",
           "LOWER(shgs.name) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
@@ -149,15 +155,15 @@ class ShgMembersController < ApplicationController
       ).distinct
   end
 
-  def members_csv(members)
-    CSV.generate(headers: true) do |csv|
-      csv << [
+  def stream_members_csv(members)
+    stream_csv("shg-members-#{Date.current}.csv") do |stream|
+      stream << CSV.generate_line([
         "Member", "SHG", "Loan No", "Mobile", "Monthly HH Income",
         "State", "District", "Block", "Village", "Created At"
-      ]
+      ])
 
-      members.each do |member|
-        csv << [
+      members.reorder(nil).find_each(batch_size: 1_000) do |member|
+        stream << CSV.generate_line([
           member.name,
           member.shg.name,
           member.loan_no,
@@ -168,7 +174,7 @@ class ShgMembersController < ApplicationController
           member.shg.block.name,
           member.shg.village.name,
           member.created_at
-        ]
+        ])
       end
     end
   end

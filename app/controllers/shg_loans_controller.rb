@@ -24,13 +24,12 @@ class ShgLoansController < ApplicationController
   def index
     set_filter_options
     @loan_imports = LoanImport.includes(:user).order(created_at: :desc).limit(5) if can_import_loan_data?
-    @loans = paginate_relation(filtered_loans.order(created_at: :desc))
+    @loans = paginate_relation(filtered_loans(preload_emis: false).order(created_at: :desc))
+    @loan_emi_totals = emi_totals_by_loan_id(@loans.map(&:id))
   end
 
   def export
-    send_data loans_csv(filtered_loans.order(created_at: :desc)),
-      filename: "shg-loans-#{Date.current}.csv",
-      type: "text/csv; charset=utf-8"
+    stream_loans_csv(filtered_loans(preload_emis: false).order(created_at: :desc))
   end
 
   def new_import
@@ -145,19 +144,20 @@ class ShgLoansController < ApplicationController
 
   def set_filter_options
     if can_filter_loan_state_district_crp?
-      @states = State.where(id: loan_filter_option_scope.select("shgs.state_id")).order(:name)
-      @districts = District.where(id: loan_filter_option_scope.select("shgs.district_id")).order(:name)
-      @crps = loan_filter_crps
+      @states = filter_states
+      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
     end
 
-    @blocks = Block.where(id: loan_filter_option_scope.select("shgs.block_id")).order(:name)
-    @villages = Village.where(id: loan_filter_option_scope.select("shgs.village_id")).order(:name)
-    @shgs = Shg.where(id: loan_filter_option_scope.select(:shg_id)).order(:name)
+    @blocks = limited_filter_records(filter_blocks, params[:block_id])
+    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @shgs = limited_filter_records(loan_filter_shgs, params[:shg_id])
   end
 
-  def filtered_loans
+  def filtered_loans(preload_emis: true)
     loans = visible_shg_loans
-      .includes(:created_by, :loan_status, :product, :shg_loan_emis, :shg_member, shg: [ :state, :district, :block, :village ])
+      .includes(:created_by, :loan_status, :product, :shg_member, shg: [ :state, :district, :block, :village ])
+    loans = loans.includes(:shg_loan_emis) if preload_emis
 
     loans = loans.where(distribution_date: params[:date_from]..) if params[:date_from].present?
     loans = loans.where(distribution_date: ..params[:date_to]) if params[:date_to].present?
@@ -183,7 +183,16 @@ class ShgLoansController < ApplicationController
 
   def loan_filter_crps
     crp_ids = filter_crps.map(&:id) & loan_filter_option_scope.distinct.pluck(:created_by_id)
-    User.where(id: crp_ids).includes(:user_type).order(:name)
+    limited_filter_records(User.where(id: crp_ids).includes(:user_type).order(:name), params[:crp_id])
+  end
+
+  def loan_filter_shgs
+    shgs = visible_shgs
+    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
+    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
+    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
+    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    shgs.order(:name)
   end
 
   def search_loans(loans)
@@ -197,64 +206,94 @@ class ShgLoansController < ApplicationController
           "CAST(shg_loans.id AS TEXT) ILIKE :query",
           "CAST(shg_loans.principal_amount AS TEXT) ILIKE :query",
           "CAST(shg_loans.total_payable AS TEXT) ILIKE :query",
-          "LOWER(COALESCE(shg_loans.source_crp_identifier, '')) LIKE :query",
-          "LOWER(COALESCE(shg_loans.source_crp_name, '')) LIKE :query",
+          "LOWER(shg_loans.source_crp_identifier) LIKE :query",
+          "LOWER(shg_loans.source_crp_name) LIKE :query",
           "LOWER(shgs.name) LIKE :query",
           "LOWER(shg_members.name) LIKE :query",
-          "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
-          "LOWER(COALESCE(shg_members.mobile, '')) LIKE :query",
+          "LOWER(shg_members.loan_no) LIKE :query",
+          "LOWER(shg_members.mobile) LIKE :query",
           "LOWER(products.name) LIKE :query",
           "LOWER(loan_statuses.name) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
           "LOWER(blocks.name) LIKE :query",
           "LOWER(villages.name) LIKE :query",
-          "LOWER(COALESCE(users.name, '')) LIKE :query",
-          "LOWER(COALESCE(users.login_id, '')) LIKE :query"
+          "LOWER(users.name) LIKE :query",
+          "LOWER(users.login_id) LIKE :query"
         ].join(" OR "),
         query: pattern
       ).distinct
   end
 
-  def loans_csv(loans)
-    CSV.generate(headers: true) do |csv|
-      csv << [
+  def stream_loans_csv(loans)
+    stream_csv("shg-loans-#{Date.current}.csv") do |stream|
+      stream << CSV.generate_line([
         "SHG Name", "Member", "State", "District", "Block", "Village", "CRP ID",
         "CRPName", "Product", "Disbursement Date", "Loan Status",
         "Term Type", "Loan term", "Principal", "Annual Interest Percent",
         "Interest Amount", "Total Payable", "Principal Collected",
         "Interest collected", "Paid", "Remaining", "Mobile",
         "Monthly hh income"
-      ]
+      ])
 
-      loans.each do |loan|
-        csv << [
-          loan.shg.name,
-          loan.shg_member.name,
-          loan.shg.state.name,
-          loan.shg.district.name,
-          loan.shg.block.name,
-          loan.shg.village.name,
-          loan_crp_identifier(loan),
-          loan_crp_name(loan),
-          loan.product.name,
-          formatted_import_date(loan.distribution_date),
-          loan_status_label(loan),
-          loan.loan_term_type,
-          loan.loan_term,
-          loan.principal_amount,
-          loan.interest_percent,
-          loan_interest_amount(loan),
-          loan_total_payable(loan),
-          loan_principal_collect(loan),
-          loan_interest_collect(loan),
-          loan_paid_amount(loan),
-          loan_remaining_amount(loan),
-          loan.shg_member.mobile,
-          loan.shg_member.monthly_income
-        ]
+      loans.reorder(nil).find_in_batches(batch_size: 1_000) do |batch|
+        emi_totals = emi_totals_by_loan_id(batch.map(&:id))
+
+        batch.each do |loan|
+          totals = emi_totals.fetch(loan.id, default_emi_totals)
+          paid_amount = source_import_loan?(loan) ? loan_paid_amount(loan) : totals[:paid_amount]
+          total_payable = loan_total_payable(loan)
+
+          stream << CSV.generate_line([
+            loan.shg.name,
+            loan.shg_member.name,
+            loan.shg.state.name,
+            loan.shg.district.name,
+            loan.shg.block.name,
+            loan.shg.village.name,
+            loan_crp_identifier(loan),
+            loan_crp_name(loan),
+            loan.product.name,
+            formatted_import_date(loan.distribution_date),
+            loan_status_label(loan),
+            loan.loan_term_type,
+            loan.loan_term,
+            loan.principal_amount,
+            loan.interest_percent,
+            loan_interest_amount(loan),
+            total_payable,
+            source_import_loan?(loan) ? loan_principal_collect(loan) : totals[:principal_collected],
+            source_import_loan?(loan) ? loan_interest_collect(loan) : totals[:interest_collected],
+            paid_amount,
+            source_import_loan?(loan) ? loan_remaining_amount(loan) : total_payable.to_d - paid_amount.to_d,
+            loan.shg_member.mobile,
+            loan.shg_member.monthly_income
+          ])
+        end
       end
     end
+  end
+
+  def emi_totals_by_loan_id(loan_ids)
+    ShgLoanEmi.where(shg_loan_id: loan_ids)
+      .group(:shg_loan_id)
+      .pluck(
+        :shg_loan_id,
+        Arel.sql("COALESCE(SUM(paid_amount), 0)"),
+        Arel.sql("COALESCE(SUM(LEAST(paid_amount, interest_amount)), 0)"),
+        Arel.sql("COALESCE(SUM(LEAST(GREATEST(paid_amount - LEAST(paid_amount, interest_amount), 0), principal_amount)), 0)")
+      )
+      .each_with_object({}) do |(loan_id, paid, interest, principal), totals|
+        totals[loan_id] = {
+          paid_amount: paid.to_d,
+          interest_collected: interest.to_d,
+          principal_collected: principal.to_d
+        }
+      end
+  end
+
+  def default_emi_totals
+    { paid_amount: 0.to_d, interest_collected: 0.to_d, principal_collected: 0.to_d }
   end
 
   def loan_crp_identifier(loan)
@@ -284,19 +323,23 @@ class ShgLoansController < ApplicationController
   end
 
   def loan_principal_collect(loan)
-    loan.source_principal_collect.presence || loan.cumulative_principal_collected
+    loan.source_principal_collect.presence || loan_emi_totals_for(loan)[:principal_collected] || loan.cumulative_principal_collected
   end
 
   def loan_interest_collect(loan)
-    loan.source_interest_collect.presence || loan.cumulative_interest_collected
+    loan.source_interest_collect.presence || loan_emi_totals_for(loan)[:interest_collected] || loan.cumulative_interest_collected
   end
 
   def loan_paid_amount(loan)
-    loan.source_paid.presence || loan.total_paid
+    loan.source_paid.presence || loan_emi_totals_for(loan)[:paid_amount] || loan.total_paid
   end
 
   def loan_remaining_amount(loan)
-    loan.source_remaining.presence || loan.remaining_amount
+    loan.source_remaining.presence || loan_total_payable(loan).to_d - loan_paid_amount(loan).to_d
+  end
+
+  def loan_emi_totals_for(loan)
+    @loan_emi_totals&.fetch(loan.id, default_emi_totals) || {}
   end
 
   def formatted_import_date(date)
@@ -411,7 +454,7 @@ class ShgLoansController < ApplicationController
     @import_activities = {}
     @import_occupations = {}
     @import_crps = {}
-    @import_crp_users_by_name = User.includes(:user_type).select(&:crp?).index_by { |user| user.name.to_s.downcase }
+    @import_crp_users_by_name = users_with_role_codes("CRP").index_by { |user| user.name.to_s.downcase }
     @import_loan_statuses = {}
     @next_import_shg_code_no = Shg.maximum(:id).to_i + 1
     @next_import_member_loan_no = next_import_member_loan_no
@@ -480,8 +523,10 @@ class ShgLoansController < ApplicationController
     if excel_import_file?(file)
       xlsx_import_rows(file)
     else
-      CSV.parse(import_file_content(file), headers: true).map do |row|
-        SpreadsheetImportRow.new(row.headers, row.fields)
+      Enumerator.new do |yielder|
+        CSV.foreach(file.path, headers: true, encoding: "bom|utf-8:utf-8") do |row|
+          yielder << SpreadsheetImportRow.new(row.headers, row.fields)
+        end
       end
     end
   end

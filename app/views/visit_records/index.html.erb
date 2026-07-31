@@ -73,7 +73,7 @@
             <td>
               <% if visit.photo.attached? %>
                 <% if visit.photo.image? %>
-                  <%= image_tag visit.photo, class: "table-photo", alt: "Visit photo" %>
+                  <%= image_tag visit.photo.variant(resize_to_limit: [96, 96]), class: "table-photo", alt: "Visit photo" %>
                 <% end %>
                 <%= link_to "Open", url_for(visit.photo), target: "_blank", rel: "noopener" %>
                 <%= link_to "Download", rails_blob_path(visit.photo, disposition: "attachment") %>
@@ -113,7 +113,7 @@
                       <div class="visit-review-media">
                         <% if visit.photo.attached? %>
                           <% if visit.photo.image? %>
-                            <%= image_tag visit.photo, class: "visit-review-photo", alt: "Visit photo" %>
+                            <%= image_tag visit.photo.variant(resize_to_limit: [900, 700]), class: "visit-review-photo", alt: "Visit photo" %>
                           <% else %>
                             <div class="document-preview">
                               <strong><%= visit.photo.filename.to_s %></strong>

@@ -16,10 +16,7 @@ class ShgsController < ApplicationController
   end
 
   def export
-    set_filter_options
-    send_data shgs_csv(filtered_shgs.order(created_at: :desc)),
-      filename: "shg-master-#{Date.current}.csv",
-      type: "text/csv; charset=utf-8"
+    stream_shgs_csv(filtered_shgs(include_attachments: false).order(created_at: :desc))
   end
 
   def show; end
@@ -92,22 +89,25 @@ class ShgsController < ApplicationController
 
   def set_filter_options
     if can_filter_shg_state_district_crp?
-      @states = State.where(id: shg_filter_option_scope.select(:state_id)).order(:name)
-      @districts = District.where(id: shg_filter_option_scope.select(:district_id)).order(:name)
-      @crps = shg_filter_crps
-      @district_coordinators = filter_district_coordinators
-      @assistant_admins = User.includes(:user_type).order(:name).select(&:assistant_admin?)
+      @states = filter_states
+      @districts = limited_filter_records(filter_districts, params[:district_id])
+      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
+      @district_coordinators = limited_user_filter_records(filter_district_coordinators, params[:dc_id])
+      @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), params[:assistant_id])
     end
 
-    @blocks = Block.where(id: shg_filter_option_scope.select(:block_id)).order(:name)
-    @villages = Village.where(id: shg_filter_option_scope.select(:village_id)).order(:name)
+    @blocks = limited_filter_records(filter_blocks, params[:block_id])
+    @villages = limited_filter_records(filter_villages, params[:village_id])
   end
 
-  def filtered_shgs
+  def filtered_shgs(include_attachments: true)
     shgs = visible_shgs
       .includes(:created_by, :dc_approved_by, :assistant_approved_by, :state, :district, :block, :village)
-      .with_attached_meeting_photo
-      .with_attached_meeting_register
+    if include_attachments
+      shgs = shgs
+        .with_attached_meeting_photo
+        .with_attached_meeting_register
+    end
     shgs = shgs.where(linkage_date: params[:date_from]..) if params[:date_from].present?
     shgs = shgs.where(linkage_date: ..params[:date_to]) if params[:date_to].present?
     if can_filter_shg_state_district_crp?
@@ -136,7 +136,7 @@ class ShgsController < ApplicationController
 
   def shg_filter_crps
     crp_ids = filter_crps.map(&:id) & shg_filter_option_scope.distinct.pluck(:created_by_id)
-    User.where(id: crp_ids).includes(:user_type).order(:name)
+    limited_filter_records(User.where(id: crp_ids).includes(:user_type).order(:name), params[:crp_id])
   end
 
   def search_shgs(shgs)
@@ -149,28 +149,28 @@ class ShgsController < ApplicationController
         [
           "CAST(shgs.id AS TEXT) ILIKE :query",
           "LOWER(shgs.name) LIKE :query",
-          "LOWER(COALESCE(shgs.shg_code, '')) LIKE :query",
+          "LOWER(shgs.shg_code) LIKE :query",
           "LOWER(shgs.approval_status) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
           "LOWER(blocks.name) LIKE :query",
           "LOWER(villages.name) LIKE :query",
-          "LOWER(COALESCE(users.name, '')) LIKE :query",
-          "LOWER(COALESCE(users.login_id, '')) LIKE :query"
+          "LOWER(users.name) LIKE :query",
+          "LOWER(users.login_id) LIKE :query"
         ].join(" OR "),
         query: pattern
       ).distinct
   end
 
-  def shgs_csv(shgs)
-    CSV.generate(headers: true) do |csv|
-      csv << [
+  def stream_shgs_csv(shgs)
+    stream_csv("shg-master-#{Date.current}.csv") do |stream|
+      stream << CSV.generate_line([
         "SHG", "State", "District", "Block", "Village", "Linkage Date",
         "Approval", "Created By", "DC Approval", "Assistant Approval", "Remarks"
-      ]
+      ])
 
-      shgs.each do |shg|
-        csv << [
+      shgs.reorder(nil).find_each(batch_size: 1_000) do |shg|
+        stream << CSV.generate_line([
           shg.name,
           shg.state.name,
           shg.district.name,
@@ -182,7 +182,7 @@ class ShgsController < ApplicationController
           shg.dc_approved_by&.name,
           shg.assistant_approved_by&.name,
           shg.approval_remarks
-        ]
+        ])
       end
     end
   end

@@ -258,12 +258,12 @@ class ApplicationController < ActionController::Base
   def filter_crps
     return User.where(id: current_user.id).includes(:user_type).order(:name) if current_user&.crp?
 
-    users = User.includes(:user_type).order(:name).select(&:crp?)
+    users = users_with_role_codes("CRP")
     users =
       if current_user&.admin? || current_user&.assistant_admin?
         users
       else
-        users.select do |user|
+        users.to_a.select do |user|
           (user.office_district_ids & visible_districts.pluck(:id)).present? ||
             (user.office_block_ids & visible_blocks.pluck(:id)).present? ||
             (user.office_village_ids & visible_villages.pluck(:id)).present?
@@ -274,8 +274,15 @@ class ApplicationController < ActionController::Base
   end
 
   def filter_district_coordinators
-    users = User.includes(:user_type).order(:name).select(&:district_coordinator?)
+    users = users_with_role_codes("DIST_COORDINATOR", "DISTRICT_COORDINATOR")
     filter_users_by_selected_location(users)
+  end
+
+  def users_with_role_codes(*codes)
+    User.joins(:user_type)
+      .includes(:user_type)
+      .where("UPPER(user_types.code) IN (?)", codes.map(&:upcase))
+      .order(:name)
   end
 
   def apply_user_office_scope_to_shgs(relation, user)
@@ -356,11 +363,47 @@ class ApplicationController < ActionController::Base
     @page = params[:page].to_i
     @page = 1 if @page < 1
     @per_page = per_page
-    @total_count = relation.count
-    @total_pages = (@total_count.to_f / @per_page).ceil
-    @page = @total_pages if @total_pages.positive? && @page > @total_pages
+    @total_count = nil
+    @total_pages = nil
 
-    relation.offset((@page - 1) * @per_page).limit(@per_page)
+    records = relation.offset((@page - 1) * @per_page).limit(@per_page + 1).to_a
+    @has_next_page = records.size > @per_page
+    page_records = records.first(@per_page)
+    @page_item_count = page_records.size
+    page_records
+  end
+
+  def stream_csv(filename)
+    headers["Content-Type"] = "text/csv; charset=utf-8"
+    headers["Content-Disposition"] = ActionDispatch::Http::ContentDisposition.format(
+      disposition: "attachment",
+      filename: filename
+    )
+    headers["Cache-Control"] = "no-cache"
+    headers["X-Accel-Buffering"] = "no"
+    headers.delete("Content-Length")
+
+    self.response_body = Enumerator.new do |stream|
+      yield stream
+    ensure
+      stream.close if stream.respond_to?(:close)
+    end
+  end
+
+  def limited_filter_records(relation, selected_id = nil, limit: 500)
+    records = relation.limit(limit).to_a
+    return records if selected_id.blank? || records.any? { |record| record.id.to_s == selected_id.to_s }
+
+    selected = relation.klass.find_by(id: selected_id)
+    selected ? records + [ selected ] : records
+  end
+
+  def limited_user_filter_records(users, selected_id = nil, limit: 500)
+    records = users.first(limit)
+    return records if selected_id.blank? || records.any? { |user| user.id.to_s == selected_id.to_s }
+
+    selected = User.includes(:user_type).find_by(id: selected_id)
+    selected ? records + [ selected ] : records
   end
 
   def filter_users_by_selected_location(users)

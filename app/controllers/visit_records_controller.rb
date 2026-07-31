@@ -16,9 +16,7 @@ class VisitRecordsController < ApplicationController
   end
 
   def export
-    send_data visits_csv(filtered_visit_records.order(visit_date: :desc, created_at: :desc)),
-      filename: "visit-records-#{Date.current}.csv",
-      type: "text/csv; charset=utf-8"
+    stream_visits_csv(filtered_visit_records(include_attachments: false).order(visit_date: :desc, created_at: :desc))
   end
 
   def show; end
@@ -90,24 +88,23 @@ class VisitRecordsController < ApplicationController
   private
 
   def set_filter_options
-    users = User.includes(:user_type).order(:name)
     if can_filter_visit_state_district_crp?
-      @crps = visit_filter_crps
-      @district_coordinators = filter_district_coordinators
-      @assistant_admins = users.select(&:assistant_admin?)
-      @states = State.where(id: visit_filter_option_scope.select("shgs.state_id")).order(:name)
-      @districts = District.where(id: visit_filter_option_scope.select("shgs.district_id")).order(:name)
+      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
+      @district_coordinators = limited_user_filter_records(filter_district_coordinators, params[:dc_id])
+      @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), params[:assistant_id])
+      @states = filter_states
+      @districts = limited_filter_records(filter_districts, params[:district_id])
     end
 
-    @blocks = Block.where(id: visit_filter_option_scope.select("shgs.block_id")).order(:name)
-    @villages = Village.where(id: visit_filter_option_scope.select("shgs.village_id")).order(:name)
-    @shgs = Shg.where(id: visit_filter_option_scope.select(:shg_id)).order(:name)
+    @blocks = limited_filter_records(filter_blocks, params[:block_id])
+    @villages = limited_filter_records(filter_villages, params[:village_id])
+    @shgs = limited_filter_records(visit_filter_shgs, params[:shg_id])
   end
 
-  def filtered_visit_records
+  def filtered_visit_records(include_attachments: true)
     visits = visible_visit_records
       .includes(:product, :created_by, :dc_approved_by, :assistant_approved_by, shg: [ :state, :district, :block, :village ])
-      .with_attached_photo
+    visits = visits.with_attached_photo if include_attachments
 
     visits = apply_month_filter(visits)
     visits = visits.where(visit_date: params[:date_from]..) if params[:date_from].present?
@@ -137,19 +134,19 @@ class VisitRecordsController < ApplicationController
         [
           "CAST(visit_records.id AS TEXT) ILIKE :query",
           "CAST(visit_records.visit_date AS TEXT) ILIKE :query",
-          "LOWER(COALESCE(visit_records.purpose, '')) LIKE :query",
-          "LOWER(COALESCE(visit_records.observations, '')) LIKE :query",
+          "LOWER(visit_records.purpose) LIKE :query",
+          "LOWER(visit_records.observations) LIKE :query",
           "LOWER(visit_records.approval_status) LIKE :query",
           "LOWER(shgs.name) LIKE :query",
           "LOWER(shg_members.name) LIKE :query",
-          "LOWER(COALESCE(shg_members.loan_no, '')) LIKE :query",
+          "LOWER(shg_members.loan_no) LIKE :query",
           "LOWER(products.name) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
           "LOWER(blocks.name) LIKE :query",
           "LOWER(villages.name) LIKE :query",
-          "LOWER(COALESCE(users.name, '')) LIKE :query",
-          "LOWER(COALESCE(users.login_id, '')) LIKE :query"
+          "LOWER(users.name) LIKE :query",
+          "LOWER(users.login_id) LIKE :query"
         ].join(" OR "),
         query: pattern
       ).distinct
@@ -174,7 +171,16 @@ class VisitRecordsController < ApplicationController
 
   def visit_filter_crps
     crp_ids = filter_crps.map(&:id) & visit_filter_option_scope.distinct.pluck(:created_by_id)
-    User.where(id: crp_ids).includes(:user_type).order(:name)
+    limited_filter_records(User.where(id: crp_ids).includes(:user_type).order(:name), params[:crp_id])
+  end
+
+  def visit_filter_shgs
+    shgs = visible_shgs
+    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
+    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
+    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
+    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    shgs.order(:name)
   end
 
   def can_filter_dc?
@@ -185,16 +191,16 @@ class VisitRecordsController < ApplicationController
     current_user&.admin?
   end
 
-  def visits_csv(visits)
-    CSV.generate(headers: true) do |csv|
-      csv << [
+  def stream_visits_csv(visits)
+    stream_csv("visit-records-#{Date.current}.csv") do |stream|
+      stream << CSV.generate_line([
         "Visit Date", "State", "District", "Block", "Village", "SHG", "Member", "Loan No",
         "Mobile", "Product", "Purpose", "Observations", "Approval",
         "Created By", "DC Approval", "Assistant Approval", "Remarks"
-      ]
+      ])
 
-      visits.each do |visit|
-        csv << [
+      visits.reorder(nil).find_each(batch_size: 1_000) do |visit|
+        stream << CSV.generate_line([
           visit.visit_date,
           visit.shg.state.name,
           visit.shg.district.name,
@@ -212,7 +218,7 @@ class VisitRecordsController < ApplicationController
           visit.dc_approved_by&.name,
           visit.assistant_approved_by&.name,
           visit.approval_remarks
-        ]
+        ])
       end
     end
   end
