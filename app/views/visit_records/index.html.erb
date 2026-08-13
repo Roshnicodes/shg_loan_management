@@ -1,4 +1,5 @@
 <% content_for :page_title, "Visit Work" %>
+<% index_params = request.query_parameters %>
 
 <section class="panel">
   <div class="panel-header">
@@ -10,7 +11,7 @@
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected visits?" } %>
         <% end %>
       <% end %>
-      <% if can_create_records? %><%= link_to "Add Visit", new_visit_record_path, class: "primary-link" %><% end %>
+      <% if can_create_records? %><%= link_to "Add Visit", new_visit_record_path(index_params), class: "primary-link" %><% end %>
       <%= server_search_box(visit_records_path, placeholder: "Search visits...") %>
     </div>
   </div>
@@ -90,10 +91,10 @@
               <div class="action-row" data-controller="visit-review">
                 <button type="button" class="secondary-link compact-button" data-action="visit-review#open">Review</button>
                 <% if can_manage_visit?(visit) %>
-                  <%= link_to "Edit", edit_visit_record_path(visit) %>
+                  <%= link_to "Edit", edit_visit_record_path(visit, index_params) %>
                 <% end %>
                 <% if can_bulk_delete_records? && visit.active? %>
-                  <%= button_to "Disable", disable_visit_record_path(visit), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this visit?" } } %>
+                  <%= button_to "Disable", disable_visit_record_path(visit, index_params), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this visit?" } } %>
                 <% elsif !visit.active? %>
                   <span class="muted-cell">Disabled</span>
                 <% end %>
@@ -171,12 +172,12 @@
 
                     <% if can_approve_visit?(visit) %>
                       <div class="modal-approval-bar">
-                        <%= button_to "Approve", approve_visit_record_path(visit), method: :patch, class: "success-link" %>
-                        <%= form_with url: return_for_correction_visit_record_path(visit), method: :patch, class: "modal-approval-form" do |form| %>
+                        <%= button_to "Approve", approve_visit_record_path(visit, index_params), method: :patch, class: "success-link" %>
+                        <%= form_with url: return_for_correction_visit_record_path(visit, index_params), method: :patch, class: "modal-approval-form" do |form| %>
                           <%= form.text_field :approval_remarks, placeholder: "Return remarks" %>
                           <%= form.submit "Return", class: "warning-link" %>
                         <% end %>
-                        <%= form_with url: reject_visit_record_path(visit), method: :patch, class: "modal-approval-form" do |form| %>
+                        <%= form_with url: reject_visit_record_path(visit, index_params), method: :patch, class: "modal-approval-form" do |form| %>
                           <%= form.text_field :approval_remarks, placeholder: "Reject remarks" %>
                           <%= form.submit "Reject", class: "danger-link" %>
                         <% end %>

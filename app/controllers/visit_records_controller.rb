@@ -1,6 +1,11 @@
 require "csv"
 
 class VisitRecordsController < ApplicationController
+  VISIT_INDEX_PARAMS = %i[
+    page q date_from date_to assistant_id dc_id crp_id
+    state_id district_id block_id village_id shg_id approval_status month
+  ].freeze
+
   helper_method :can_filter_visit_state_district_crp?
 
   before_action :authenticate_user!
@@ -30,7 +35,7 @@ class VisitRecordsController < ApplicationController
     @visit_record.created_by = current_user
 
     if @visit_record.save
-      redirect_to visit_records_path, notice: "Visit entry saved successfully."
+      redirect_to visit_records_path(visit_records_return_params), notice: "Visit entry saved successfully."
     else
       render :new, status: :unprocessable_entity
     end
@@ -40,7 +45,7 @@ class VisitRecordsController < ApplicationController
 
   def update
     if @visit_record.update(visit_record_params)
-      redirect_to visit_records_path, notice: "Visit entry updated successfully."
+      redirect_to visit_records_path(visit_records_return_params), notice: "Visit entry updated successfully."
     else
       render :edit, status: :unprocessable_entity
     end
@@ -56,33 +61,33 @@ class VisitRecordsController < ApplicationController
 
   def disable
     @visit_record.update_columns(active: false, updated_at: Time.current)
-    redirect_to visit_records_path, notice: "Visit entry disabled successfully."
+    redirect_to visit_records_path(visit_records_return_params), notice: "Visit entry disabled successfully."
   end
 
   def bulk_disable
     result = disable_records(filtered_visit_records, params[:ids])
-    redirect_to visit_records_path, notice: "Visits disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
+    redirect_to visit_records_path(visit_records_return_params), notice: "Visits disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   def approve
-    return redirect_to(visit_records_path, alert: "This visit is not pending at your approval level.") unless @visit_record.approvable_by?(current_user)
+    return redirect_to(visit_records_path(visit_records_return_params), alert: "This visit is not pending at your approval level.") unless @visit_record.approvable_by?(current_user)
 
     @visit_record.approve!(current_user)
-    redirect_to visit_records_path, notice: @visit_record.approved? ? "Visit approved successfully." : "Visit sent to Assistant Admin approval."
+    redirect_to visit_records_path(visit_records_return_params), notice: @visit_record.approved? ? "Visit approved successfully." : "Visit sent to Assistant Admin approval."
   end
 
   def return_for_correction
-    return redirect_to(visit_records_path, alert: "This visit is not pending at your approval level.") unless @visit_record.returnable_by?(current_user)
+    return redirect_to(visit_records_path(visit_records_return_params), alert: "This visit is not pending at your approval level.") unless @visit_record.returnable_by?(current_user)
 
     @visit_record.return_for_correction!(current_user, params[:approval_remarks])
-    redirect_to visit_records_path, notice: "Visit returned for correction."
+    redirect_to visit_records_path(visit_records_return_params), notice: "Visit returned for correction."
   end
 
   def reject
-    return redirect_to(visit_records_path, alert: "This visit is not pending at your approval level.") unless @visit_record.rejectable_by?(current_user)
+    return redirect_to(visit_records_path(visit_records_return_params), alert: "This visit is not pending at your approval level.") unless @visit_record.rejectable_by?(current_user)
 
     @visit_record.reject!(current_user, params[:approval_remarks])
-    redirect_to visit_records_path, notice: "Visit rejected successfully."
+    redirect_to visit_records_path(visit_records_return_params), notice: "Visit rejected successfully."
   end
 
   private
@@ -229,5 +234,9 @@ class VisitRecordsController < ApplicationController
 
   def visit_record_params
     params.require(:visit_record).permit(:block_id, :village_id, :shg_id, :shg_member_id, :product_id, :visit_date, :purpose, :observations, :photo, :active)
+  end
+
+  def visit_records_return_params
+    params.permit(*VISIT_INDEX_PARAMS).to_h
   end
 end

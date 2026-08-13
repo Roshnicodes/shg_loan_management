@@ -7,8 +7,10 @@
 <% village_options = villages.map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
 <% shg_options = shgs.map { |shg| [shg.name, shg.id, { data: { block_id: shg.block_id, village_id: shg.village_id } }] } %>
 <% member_options = members.map { |member| [member.name, member.id, { data: { shg_id: member.shg_id, product_id: member_loans[member.id]&.product_id } }] } %>
+<% return_params = request.query_parameters.slice(*VisitRecordsController::VISIT_INDEX_PARAMS.map(&:to_s)) %>
+<% form_url = @visit_record.persisted? ? visit_record_path(@visit_record, return_params) : visit_records_path(return_params) %>
 
-<%= form_with model: @visit_record, class: "form-grid", data: { controller: "visit-select" } do |form| %>
+<%= form_with model: @visit_record, url: form_url, class: "form-grid", data: { controller: "visit-select" } do |form| %>
   <label>
     <span>Block</span>
     <%= form.select :block_id, options_for_select(blocks.map { |block| [block.name, block.id] }, @visit_record.block_id), { prompt: "Select block" }, required: true, data: { controller: "searchable-select", visit_select_target: "block", action: "visit-select#blockChanged" } %>
@@ -32,7 +34,7 @@
   <label class="full"><span>Observations</span><%= form.text_area :observations, rows: 3 %></label>
 
   <div class="form-actions">
-    <%= link_to "Cancel", visit_records_path, class: "secondary-link" %>
+    <%= link_to "Cancel", visit_records_path(return_params), class: "secondary-link" %>
     <%= form.submit "Save Visit", class: "primary-button" %>
   </div>
 <% end %>
