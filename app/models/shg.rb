@@ -19,6 +19,7 @@ class Shg < ApplicationRecord
   before_validation :set_default_approval_status
 
   validates :name, :shg_code, presence: true
+  validates :name, uniqueness: { case_sensitive: false }
   validates :shg_code, uniqueness: true
   validates :approval_status, inclusion: { in: APPROVAL_STATUSES }
   validate :meeting_register_file_type
@@ -26,7 +27,7 @@ class Shg < ApplicationRecord
   validate :meeting_register_file_size
   validate :meeting_photo_file_size
 
-  def display_name = name
+  def display_name = "#{name} / #{id} / #{village&.name}".squeeze(" ").strip
   def draft? = approval_status == "draft"
   def pending_approval? = pending_dc? || pending_assistant?
   def pending_dc? = approval_status == "pending_dc"

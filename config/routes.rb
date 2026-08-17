@@ -14,7 +14,12 @@ Rails.application.routes.draw do
   post "login", to: "sessions#create"
   delete "logout", to: "sessions#destroy"
   get "dashboard", to: "dashboard#index"
+  get "reports", to: "reports#index"
+  get "reports/export", to: "reports#export", as: :export_reports
   get "profile", to: "users#profile", as: :profile
+  get "location_options/villages", to: "location_options#villages"
+  get "location_options/shgs", to: "location_options#shgs"
+  get "location_options/members", to: "location_options#members"
   resource :location_import, only: %i[new create]
   resource :location_export, only: :show
 
@@ -46,11 +51,13 @@ Rails.application.routes.draw do
   resources :shgs do
     collection do
       get :export
+      patch :bulk_activate
       patch :bulk_disable
       delete :bulk_destroy
     end
 
     member do
+      patch :activate
       patch :disable
       patch :approve
       patch :return_for_correction
@@ -60,11 +67,13 @@ Rails.application.routes.draw do
   resources :shg_members do
     collection do
       get :export
+      patch :bulk_activate
       patch :bulk_disable
       delete :bulk_destroy
     end
 
     member do
+      patch :activate
       patch :disable
     end
   end

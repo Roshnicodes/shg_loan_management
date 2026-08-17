@@ -2,6 +2,10 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   connect() {
+    this.element.classList.remove("searchable-select-native")
+    this.element.removeAttribute("tabindex")
+    return
+
     this.element.classList.add("searchable-select-native")
     this.element.tabIndex = -1
 
@@ -18,8 +22,9 @@ export default class extends Controller {
     this.menu.className = "searchable-select-menu"
     this.menu.hidden = true
 
-    this.wrapper.append(this.input, this.menu)
+    this.wrapper.append(this.input)
     this.element.after(this.wrapper)
+    document.body.append(this.menu)
 
     this.onInput = () => this.renderOptions()
     this.onFocus = () => this.open()
@@ -27,8 +32,9 @@ export default class extends Controller {
     this.onSelectChange = () => this.syncInput()
     this.onRefresh = () => this.refresh()
     this.onInvalid = () => this.input.focus()
+    this.onReposition = () => this.positionMenu()
     this.onDocumentClick = (event) => {
-      if (!this.wrapper.contains(event.target)) this.close()
+      if (!this.wrapper.contains(event.target) && !this.menu.contains(event.target)) this.close()
     }
 
     this.input.addEventListener("input", this.onInput)
@@ -38,6 +44,8 @@ export default class extends Controller {
     this.element.addEventListener("searchable-select:refresh", this.onRefresh)
     this.element.addEventListener("invalid", this.onInvalid)
     document.addEventListener("click", this.onDocumentClick)
+    window.addEventListener("scroll", this.onReposition, true)
+    window.addEventListener("resize", this.onReposition)
 
     this.syncState()
     this.syncInput()
@@ -45,6 +53,8 @@ export default class extends Controller {
 
   disconnect() {
     document.removeEventListener("click", this.onDocumentClick)
+    window.removeEventListener("scroll", this.onReposition, true)
+    window.removeEventListener("resize", this.onReposition)
     this.input?.removeEventListener("input", this.onInput)
     this.input?.removeEventListener("focus", this.onFocus)
     this.input?.removeEventListener("keydown", this.onKeydown)
@@ -58,6 +68,7 @@ export default class extends Controller {
 
   open() {
     this.renderOptions()
+    this.positionMenu()
     this.menu.hidden = false
   }
 
@@ -69,7 +80,10 @@ export default class extends Controller {
   refresh() {
     this.syncState()
     this.syncInput()
-    if (!this.menu.hidden) this.renderOptions()
+    if (!this.menu.hidden) {
+      this.renderOptions()
+      this.positionMenu()
+    }
   }
 
   syncState() {
@@ -108,6 +122,23 @@ export default class extends Controller {
       item.addEventListener("click", () => this.choose(option.value))
       this.menu.appendChild(item)
     })
+  }
+
+  positionMenu() {
+    if (!this.menu) return
+
+    const rect = this.wrapper.getBoundingClientRect()
+    const gap = 6
+    const availableBelow = window.innerHeight - rect.bottom - gap
+    const availableAbove = rect.top - gap
+    const openAbove = availableBelow < 180 && availableAbove > availableBelow
+    const maxHeight = Math.max(160, Math.min(280, openAbove ? availableAbove : availableBelow))
+
+    this.menu.style.left = `${rect.left}px`
+    this.menu.style.width = `${rect.width}px`
+    this.menu.style.maxHeight = `${maxHeight}px`
+    this.menu.style.top = openAbove ? "" : `${rect.bottom + gap}px`
+    this.menu.style.bottom = openAbove ? `${window.innerHeight - rect.top + gap}px` : ""
   }
 
   choose(value) {

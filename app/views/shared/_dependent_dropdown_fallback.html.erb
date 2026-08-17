@@ -1,0 +1,138 @@
+<script>
+  (() => {
+    const formSelector = "form[data-dependent-dropdown-fallback='true']"
+
+    const dataValue = (option, key) => {
+      if (!option) return ""
+      if (option.dataset[key] !== undefined) return option.dataset[key]
+
+      const dashedKey = key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+      return option.getAttribute(`data-${dashedKey}`) || ""
+    }
+
+    const originalOptions = (select) => {
+      if (!select) return []
+      if (!select._dependentDropdownOptions) {
+        select._dependentDropdownOptions = Array.from(select.options).map((option) => option.cloneNode(true))
+      }
+      return select._dependentDropdownOptions
+    }
+
+    const replaceOptions = (select, predicate) => {
+      if (!select) return
+
+      const selectedValue = select.value
+      select.innerHTML = ""
+
+      originalOptions(select).forEach((option) => {
+        if (option.value === "" || predicate(option)) select.appendChild(option.cloneNode(true))
+      })
+
+      select.value = Array.from(select.options).some((option) => option.value === selectedValue) ? selectedValue : ""
+      select.dispatchEvent(new CustomEvent("searchable-select:refresh"))
+    }
+
+    const clearSelect = (select) => {
+      if (!select) return
+      const prompt = originalOptions(select).find((option) => option.value === "")
+      select.innerHTML = ""
+      if (prompt) select.appendChild(prompt.cloneNode(true))
+      select.value = ""
+      select.dispatchEvent(new CustomEvent("searchable-select:refresh"))
+    }
+
+    const targetsFor = (form) => ({
+      block: form.querySelector("select[name$='[block_id]']"),
+      village: form.querySelector("select[name$='[village_id]']"),
+      shg: form.querySelector("select[name$='[shg_id]']"),
+      member: form.querySelector("select[name$='[shg_member_id]']")
+    })
+
+    const filterForm = (form) => {
+      const targets = targetsFor(form)
+      const blockId = targets.block?.value || ""
+      const villageId = targets.village?.value || ""
+      const shgId = targets.shg?.value || ""
+
+      replaceOptions(targets.village, (option) => !blockId || dataValue(option, "blockId") === blockId)
+      replaceOptions(targets.shg, (option) => {
+        if (villageId) return dataValue(option, "villageId") === villageId
+        if (blockId) return dataValue(option, "blockId") === blockId
+        return true
+      })
+      replaceOptions(targets.member, (option) => {
+        const blockMatches = !blockId || dataValue(option, "blockId") === blockId
+        const villageMatches = !villageId || dataValue(option, "villageId") === villageId
+        const shgMatches = !shgId || dataValue(option, "shgId") === shgId
+        return blockMatches && villageMatches && shgMatches
+      })
+    }
+
+    const updateLoanSummary = (form) => {
+      const targets = targetsFor(form)
+      if (!targets.member) return
+
+      const option = targets.member.selectedOptions[0]
+      const fieldValue = (name) => dataValue(option, name) || ""
+      const setValue = (target, value) => {
+        const element = form.querySelector(`[data-loan-member-details-target='${target}']`)
+        if (element) element.value = value
+      }
+
+      setValue("group", fieldValue("group"))
+      setValue("gender", fieldValue("gender"))
+      setValue("dob", fieldValue("dob"))
+      setValue("address", fieldValue("address"))
+    }
+
+    const setupForm = (form) => {
+      if (form._dependentDropdownFallbackReady) return
+      form._dependentDropdownFallbackReady = true
+
+      const targets = targetsFor(form)
+      Object.values(targets).forEach(originalOptions)
+
+      targets.block?.addEventListener("change", () => {
+        clearSelect(targets.village)
+        clearSelect(targets.shg)
+        clearSelect(targets.member)
+        filterForm(form)
+        updateLoanSummary(form)
+      })
+
+      targets.village?.addEventListener("change", () => {
+        clearSelect(targets.shg)
+        clearSelect(targets.member)
+        filterForm(form)
+        updateLoanSummary(form)
+      })
+
+      targets.shg?.addEventListener("change", () => {
+        clearSelect(targets.member)
+        filterForm(form)
+        updateLoanSummary(form)
+      })
+
+      targets.member?.addEventListener("change", () => updateLoanSummary(form))
+
+      ;["focus", "pointerdown", "mousedown", "click"].forEach((eventName) => {
+        targets.village?.addEventListener(eventName, () => filterForm(form))
+        targets.shg?.addEventListener(eventName, () => filterForm(form))
+        targets.member?.addEventListener(eventName, () => filterForm(form))
+      })
+
+      filterForm(form)
+      updateLoanSummary(form)
+      window.setTimeout(() => filterForm(form), 0)
+      window.setTimeout(() => filterForm(form), 150)
+      window.setTimeout(() => filterForm(form), 500)
+    }
+
+    const setupAll = () => document.querySelectorAll(formSelector).forEach(setupForm)
+
+    setupAll()
+    document.addEventListener("DOMContentLoaded", setupAll)
+    document.addEventListener("turbo:load", setupAll)
+    document.addEventListener("turbo:frame-load", setupAll)
+  })()
+</script>

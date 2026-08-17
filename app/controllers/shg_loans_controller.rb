@@ -1290,6 +1290,7 @@ class ShgLoansController < ApplicationController
 
   def loan_params
     params.require(:shg_loan)
+      .except(:block_id, :village_id)
       .permit(:shg_id, :shg_member_id, :product_id, :loan_status_id, :geography_type, :distribution_date, :loan_term_type, :loan_term, :principal_amount, :interest_percent)
       .merge(activity_id: default_import_activity.id)
   end

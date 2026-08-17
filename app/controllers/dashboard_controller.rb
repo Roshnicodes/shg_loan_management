@@ -7,13 +7,15 @@ class DashboardController < ApplicationController
     visits = dashboard_visits(shgs)
     emis = ShgLoanEmi.where(shg_loan_id: loans.select(:id))
     year_loans = dashboard_year_loans(loans)
+    location_counts = dashboard_location_counts(loans)
 
-    @summary_counts = {
+    @summary_counts = location_counts.merge(
       "SHG Total" => loans.select(:shg_id).distinct.count,
       "SHG Members" => loans.select(:shg_member_id).count,
+      "SHG Loan Linkages" => loans.count,
       "Total Loan" => helpers.number_to_currency(loans.sum(:principal_amount), unit: "₹"),
       "Collection" => helpers.number_to_currency(emis.sum(:paid_amount), unit: "₹")
-    }
+    )
 
     @shg_approval_counts = approval_counts_for(shgs)
     @visit_approval_counts = approval_counts_for(visits)
@@ -41,6 +43,34 @@ class DashboardController < ApplicationController
     return visible_visit_records.where(active: true, shg_id: shgs.select(:id)) if current_user&.crp?
 
     visible_visit_records.where(active: true)
+  end
+
+  def dashboard_location_counts(loans)
+    linked_shgs = Shg.where(id: loans.select(:shg_id))
+
+    if current_user&.crp?
+      {
+        "Working Villages" => linked_shgs.select(:village_id).distinct.count
+      }
+    elsif current_user&.district_coordinator?
+      {
+        "Working Blocks" => linked_shgs.select(:block_id).distinct.count,
+        "Working Villages" => linked_shgs.select(:village_id).distinct.count
+      }
+    elsif current_user&.assistant_admin?
+      {
+        "Working Districts" => linked_shgs.select(:district_id).distinct.count,
+        "Working Blocks" => linked_shgs.select(:block_id).distinct.count,
+        "Working Villages" => linked_shgs.select(:village_id).distinct.count
+      }
+    else
+      {
+        "Working States" => linked_shgs.select(:state_id).distinct.count,
+        "Working Districts" => linked_shgs.select(:district_id).distinct.count,
+        "Working Blocks" => linked_shgs.select(:block_id).distinct.count,
+        "Working Villages" => linked_shgs.select(:village_id).distinct.count
+      }
+    end
   end
 
   def approval_counts_for(relation)

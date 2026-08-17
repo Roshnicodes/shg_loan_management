@@ -21,7 +21,7 @@
     <label><span>District</span><%= form.select :district_id, options_for_select(district_options, @shg.district_id), { prompt: "Select district" }, required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
   <% end %>
   <label><span>Block</span><%= form.select :block_id, options_for_select(block_options, @shg.block_id), { prompt: "Select block" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
-  <label><span>Village</span><%= form.select :village_id, options_for_select(village_options, @shg.village_id), { prompt: "Select village" }, required: true, data: { location_select_target: "village" } %></label>
+  <label><span>Village</span><%= form.select :village_id, options_for_select(village_options, @shg.village_id), { prompt: "Select village" }, required: true, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
   <label><span>SHG Name</span><%= form.text_field :name, required: true %></label>
   <label><span>Linkage Date</span><%= form.date_field :linkage_date %></label>
   <label><span>Meeting Register</span><%= form.file_field :meeting_register, accept: ".pdf,image/png,image/jpeg,image/webp" %></label>

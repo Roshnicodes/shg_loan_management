@@ -1,13 +1,24 @@
 <%= render "shared/errors", record: @member %>
-<%= form_with model: @member, class: "form-grid" do |form| %>
-  <label><span>SHG Name</span><%= form.collection_select :shg_id, visible_shgs.where(active: true).order(:name), :id, :display_name, { prompt: "Select SHG" }, required: true %></label>
+<% blocks = visible_blocks.order(:name) %>
+<% villages = visible_villages.order(:name) %>
+<% shgs = visible_shgs.where(active: true).order(:name) %>
+<% selected_block_id = params.dig(:shg_member, :block_id).presence || @member.shg&.block_id %>
+<% selected_village_id = params.dig(:shg_member, :village_id).presence || @member.shg&.village_id %>
+
+<%= form_with model: @member, class: "form-grid", data: { controller: "location-select", location_select_remote_value: true, dependent_dropdown_fallback: true } do |form| %>
+  <label><span>Block</span><%= select_tag "shg_member[block_id]", options_for_select(block_filter_options(blocks), selected_block_id), prompt: "Select block", required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
+  <label><span>Village</span><%= select_tag "shg_member[village_id]", options_for_select(village_filter_options(villages), selected_village_id), prompt: "Select village", required: true, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
+  <label><span>SHG / ID / Village</span><%= form.select :shg_id, options_for_select(shg_filter_options(shgs), @member.shg_id), { prompt: "Select SHG" }, required: true, data: { location_select_target: "shg", action: "location-select#shgChanged" } %></label>
   <label><span>Member Name</span><%= form.text_field :name, required: true %></label>
   <label><span>Gender</span><%= form.select :gender, [ "Female", "Male", "Other" ], { prompt: "Select gender" }, required: true %></label>
   <label><span>Date of Birth</span><%= form.date_field :dob, required: true %></label>
   <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number", required: true %></label>
-  <label><span>Loan No</span><%= form.text_field :loan_no, placeholder: "Member loan number", required: true %></label>
+  <% if @member.loan_no.present? %>
+    <label><span>Loan No</span><input type="text" value="<%= @member.loan_no %>" readonly></label>
+  <% end %>
   <label><span>Monthly HH Income</span><%= form.number_field :monthly_income, min: 0, step: "0.01", placeholder: "Monthly HH income", required: true %></label>
   <label class="full"><span>Address</span><%= form.text_area :address, rows: 3, required: true %></label>
   <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
   <div class="form-actions"><%= link_to "Cancel", shg_members_path, class: "secondary-link" %><%= form.submit "Save Member", class: "primary-button" %></div>
 <% end %>
+<%= render "shared/dependent_dropdown_fallback" %>

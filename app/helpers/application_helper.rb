@@ -18,7 +18,8 @@ module ApplicationHelper
       [ "SHG Master", shgs_path ],
       [ "SHG Members", shg_members_path ],
       [ "SHG Loans", shg_loans_path ],
-      [ "Visits", visit_records_path ]
+      [ "Visits", visit_records_path ],
+      [ "Reports", reports_path ]
     ]
 
     items
@@ -41,6 +42,46 @@ module ApplicationHelper
       block_id = village.block_id
       district_id = block_district_ids_by_id[block_id]
       [ village.name, village.id, { data: { block_id: block_id, district_id: district_id, state_id: district_state_ids_by_id[district_id] } } ]
+    end
+  end
+
+  def shg_filter_options(shgs)
+    shgs.map do |shg|
+      [ shg.display_name, shg.id, { data: {
+        state_id: shg.state_id,
+        district_id: shg.district_id,
+        block_id: shg.block_id,
+        village_id: shg.village_id,
+        user_ids: Array(@shg_user_ids_by_id&.[](shg.id)).uniq.join(" ")
+      } } ]
+    end
+  end
+
+  def member_filter_options(members)
+    members.map do |member|
+      [ "#{member.name} / #{member.loan_no.presence || member.id}", member.id, { data: {
+        state_id: member.shg.state_id,
+        district_id: member.shg.district_id,
+        block_id: member.shg.block_id,
+        village_id: member.shg.village_id,
+        shg_id: member.shg_id,
+        user_ids: Array(@member_user_ids_by_id&.[](member.id)).uniq.join(" ")
+      } } ]
+    end
+  end
+
+  def loan_filter_options(loans)
+    loans.map do |loan|
+      label = "#{loan.shg_member.loan_no.presence || loan.id} / #{loan.shg_member.name}"
+      [ label, loan.id, { data: {
+        state_id: loan.shg.state_id,
+        district_id: loan.shg.district_id,
+        block_id: loan.shg.block_id,
+        village_id: loan.shg.village_id,
+        shg_id: loan.shg_id,
+        member_id: loan.shg_member_id,
+        user_ids: Array(@loan_user_ids_by_id&.[](loan.id)).uniq.join(" ")
+      } } ]
     end
   end
 
@@ -169,7 +210,7 @@ module ApplicationHelper
   end
 
   def server_search_box(path, placeholder:)
-    preserved_params = request.query_parameters.except(:q, :page, :commit)
+    preserved_params = request.query_parameters.except(:q, :page, :commit, :refresh_filters)
 
     form_with url: path, method: :get, class: "header-search-box server-search-box" do |form|
       fields = preserved_params.map do |key, value|

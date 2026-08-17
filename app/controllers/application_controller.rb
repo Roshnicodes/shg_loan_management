@@ -385,6 +385,25 @@ class ApplicationController < ActionController::Base
     { disabled: disabled, skipped: skipped }
   end
 
+  def activate_records(relation, ids)
+    records = relation.where(id: Array(ids).compact_blank)
+    activated = 0
+    skipped = 0
+
+    records.find_each do |record|
+      if record.respond_to?(:active=)
+        record.update_columns(active: true, updated_at: Time.current)
+        activated += 1
+      else
+        skipped += 1
+      end
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotSaved
+      skipped += 1
+    end
+
+    { activated: activated, skipped: skipped }
+  end
+
   def paginate_relation(relation, per_page: DEFAULT_PAGE_SIZE)
     @page = params[:page].to_i
     @page = 1 if @page < 1

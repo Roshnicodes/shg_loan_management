@@ -9,6 +9,9 @@
         <%= form_with url: bulk_disable_shg_members_path(request.query_parameters), method: :patch, id: "bulk-disable-members" do |form| %>
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected members?" } %>
         <% end %>
+        <%= form_with url: bulk_activate_shg_members_path(request.query_parameters), method: :patch, id: "bulk-activate-members" do |form| %>
+          <%= form.submit "Activate Selected", class: "success-link", data: { turbo_confirm: "Activate selected members?" } %>
+        <% end %>
       <% end %>
       <% if @can_add_member %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
       <%= server_search_box(shg_members_path, placeholder: "Search members...") %>
@@ -24,10 +27,10 @@
       <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
     <% end %>
     <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
-    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village" } %></label>
-    <label><span>SHG</span><%= form.collection_select :shg_id, @shgs, :id, :name, { prompt: "All SHG", selected: params[:shg_id] } %></label>
+    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
+    <label><span>SHG</span><%= form.select :shg_id, options_for_select(shg_filter_options(@shgs), params[:shg_id]), { prompt: "All SHG" }, data: { location_select_target: "shg", action: "location-select#shgChanged" } %></label>
     <% if can_filter_member_state_district_crp? %>
-      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp" } %></label>
+      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp", action: "location-select#userChanged" } %></label>
     <% end %>
     <div class="filter-actions">
       <%= link_to "Clear", shg_members_path, class: "secondary-link" %>
@@ -39,18 +42,18 @@
     <% if @members.blank? %><div class="table-empty-state">No matching members found.</div><% end %>
     <div class="table-wrap">
     <table>
-      <thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_members", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-members" }, aria: { label: "Select all members on this page" } %></th><% end %><th>Name</th><th>SHG</th><th>Loan No</th><th>Status</th><th>Monthly HH Income</th><th>Mobile</th><th>Action</th></tr></thead>
+      <thead><tr><% if can_bulk_delete_records? %><th class="select-column"><div class="action-row"><%= check_box_tag "select_all_members_disable", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-members" }, aria: { label: "Select all active members on this page" } %><%= check_box_tag "select_all_members_activate", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-activate-members" }, aria: { label: "Select all inactive members on this page" } %></div></th><% end %><th>Name</th><th>SHG</th><th>Loan No</th><th>Status</th><th>Monthly HH Income</th><th>Mobile</th><th>Action</th></tr></thead>
       <tbody>
         <% @members.each do |member| %>
           <tr>
-            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", member.id, false, form: "bulk-disable-members", disabled: !member.active? %></td><% end %>
+            <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", member.id, false, form: (member.active? ? "bulk-disable-members" : "bulk-activate-members") %></td><% end %>
             <td><%= link_to member.name, member %></td>
-            <td><%= member.shg.name %></td>
+            <td><%= member.shg.display_name %></td>
             <td><%= member.loan_no.presence || "-" %></td>
             <td><span class="status <%= member.active? ? "approved" : "rejected" %>"><%= member.active? ? "Active" : "Inactive" %></span></td>
             <td><%= member.monthly_income.present? ? number_to_currency(member.monthly_income, unit: "₹") : "-" %></td>
             <td><%= member.mobile %></td>
-            <td><div class="action-row"><%= link_to "Details", member %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member) %><% end %><% if can_bulk_delete_records? && member.active? %><%= button_to "Disable", disable_shg_member_path(member), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this member?" } } %><% elsif !member.active? %><span class="muted-cell">Disabled</span><% end %></div></td>
+            <td><div class="action-row"><%= link_to "Details", member %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member) %><% end %><% if can_bulk_delete_records? && member.active? %><%= button_to "Disable", disable_shg_member_path(member), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this member?" } } %><% elsif can_bulk_delete_records? %><%= button_to "Activate", activate_shg_member_path(member), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this member?" } } %><% elsif !member.active? %><span class="muted-cell">Disabled</span><% end %></div></td>
           </tr>
         <% end %>
       </tbody>

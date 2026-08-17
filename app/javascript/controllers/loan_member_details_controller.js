@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = [
-    "shg", "member", "group", "gender", "dob", "address",
+    "block", "village", "shg", "member", "group", "gender", "dob", "address",
     "distributionDate", "termType", "term", "principal", "interestPercent",
     "principalOut", "interestOut", "totalOut", "paidOut", "remainingOut",
     "emiOut", "scheduleLabel", "scheduleOut"
@@ -13,34 +13,205 @@ export default class extends Controller {
   }
 
   connect() {
+    this.villageOptions = this.hasVillageTarget ? this.cloneOptions(this.villageTarget) : []
+    this.shgOptions = this.cloneOptions(this.shgTarget)
     this.memberOptions = Array.from(this.memberTarget.options).map((option) => option.cloneNode(true))
-    this.filterMembers()
+    this.filterLocation()
+    this.refreshRemoteOptions()
     this.update()
     this.calculate()
   }
 
-  shgChanged() {
-    this.filterMembers()
+  blockChanged() {
+    if (this.hasVillageTarget) this.villageTarget.value = ""
+    this.shgTarget.value = ""
+    this.memberTarget.value = ""
+    this.clearSelect(this.villageTarget, "Select village")
+    this.clearSelect(this.shgTarget, "Select SHG")
+    this.clearSelect(this.memberTarget, "Select member")
+    if (this.hasBlockTarget && this.blockTarget.value) {
+      this.loadRemoteVillages()
+      this.loadRemoteShgs()
+    }
     this.update()
   }
 
+  villageChanged() {
+    this.shgTarget.value = ""
+    this.memberTarget.value = ""
+    this.clearSelect(this.shgTarget, "Select SHG")
+    this.clearSelect(this.memberTarget, "Select member")
+    if (this.hasVillageTarget && this.villageTarget.value) this.loadRemoteShgs()
+    this.update()
+  }
+
+  shgChanged() {
+    this.memberTarget.value = ""
+    this.clearSelect(this.memberTarget, "Select member")
+    if (this.shgTarget.value) this.loadRemoteMembers()
+    this.update()
+  }
+
+  memberChanged() {
+    this.update()
+  }
+
+  filterLocation() {
+    this.filterVillages()
+    this.filterShgs()
+    this.filterMembers()
+  }
+
+  filterChildrenFrom(parent) {
+    if (parent === "block") this.filterVillages()
+    this.filterShgs()
+    this.filterMembers()
+  }
+
+  filterVillages() {
+    if (!this.hasVillageTarget) return
+
+    const selectedBlockId = this.hasBlockTarget ? this.blockTarget.value : ""
+    this.replaceOptions(this.villageTarget, this.villageOptions, (option) => (
+      !selectedBlockId || this.dataValue(option, "blockId") === selectedBlockId
+    ))
+  }
+
+  filterShgs() {
+    const selectedBlockId = this.hasBlockTarget ? this.blockTarget.value : ""
+    const selectedVillageId = this.hasVillageTarget ? this.villageTarget.value : ""
+
+    this.replaceOptions(this.shgTarget, this.shgOptions, (option) => {
+      const matchesBlock = !selectedBlockId || this.dataValue(option, "blockId") === selectedBlockId
+      const matchesVillage = !selectedVillageId || this.dataValue(option, "villageId") === selectedVillageId
+      return matchesBlock && matchesVillage
+    })
+  }
+
   filterMembers() {
+    const selectedBlockId = this.hasBlockTarget ? this.blockTarget.value : ""
+    const selectedVillageId = this.hasVillageTarget ? this.villageTarget.value : ""
     const selectedShgId = this.shgTarget.value
-    const selectedMemberId = this.memberTarget.value
-    const prompt = this.memberOptions.find((option) => option.value === "")?.cloneNode(true)
-    const matchingOptions = this.memberOptions
-      .filter((option) => option.value !== "" && (!selectedShgId || option.dataset.shgId === selectedShgId))
-      .map((option) => option.cloneNode(true))
 
-    this.memberTarget.replaceChildren(...[prompt, ...matchingOptions].filter(Boolean))
+    this.replaceOptions(this.memberTarget, this.memberOptions, (option) => {
+      const matchesBlock = !selectedBlockId || this.dataValue(option, "blockId") === selectedBlockId
+      const matchesVillage = !selectedVillageId || this.dataValue(option, "villageId") === selectedVillageId
+      const matchesShg = !selectedShgId || this.dataValue(option, "shgId") === selectedShgId
+      return matchesBlock && matchesVillage && matchesShg
+    })
+  }
 
-    if (matchingOptions.some((option) => option.value === selectedMemberId)) {
-      this.memberTarget.value = selectedMemberId
+  dataValue(option, key) {
+    if (!option) return ""
+
+    const datasetValue = option.dataset[key]
+    if (datasetValue !== undefined) return datasetValue
+
+    const dashedKey = key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+    return option.getAttribute(`data-${dashedKey}`) || ""
+  }
+
+  cloneOptions(select) {
+    return Array.from(select.options).map((option) => option.cloneNode(true))
+  }
+
+  replaceOptions(select, originalOptions, predicate) {
+    const selectedValue = select.value
+    select.innerHTML = ""
+
+    originalOptions.forEach((option) => {
+      if (option.value === "" || predicate(option)) select.appendChild(option.cloneNode(true))
+    })
+
+    if (Array.from(select.options).some((option) => option.value === selectedValue)) {
+      select.value = selectedValue
     } else {
-      this.memberTarget.value = ""
+      select.value = ""
     }
 
-    this.memberTarget.dispatchEvent(new CustomEvent("searchable-select:refresh"))
+    select.dispatchEvent(new CustomEvent("searchable-select:refresh"))
+  }
+
+  refreshRemoteOptions() {
+    if (!this.hasBlockTarget || !this.blockTarget.value) {
+      if (this.hasVillageTarget) this.clearSelect(this.villageTarget, "Select village")
+      this.clearSelect(this.shgTarget, "Select SHG")
+      this.clearSelect(this.memberTarget, "Select member")
+      return
+    }
+
+    this.loadRemoteVillages()
+    this.loadRemoteShgs()
+    if (this.shgTarget.value) this.loadRemoteMembers()
+  }
+
+  async loadRemoteVillages() {
+    if (!this.hasVillageTarget) return
+
+    const options = await this.fetchRemoteOptions("/location_options/villages", { block_id: this.blockTarget.value })
+    this.replaceRemoteOptions(this.villageTarget, options, "Select village")
+  }
+
+  async loadRemoteShgs() {
+    const options = await this.fetchRemoteOptions("/location_options/shgs", {
+      block_id: this.hasBlockTarget ? this.blockTarget.value : "",
+      village_id: this.hasVillageTarget ? this.villageTarget.value : ""
+    })
+    this.replaceRemoteOptions(this.shgTarget, options, "Select SHG")
+  }
+
+  async loadRemoteMembers() {
+    const options = await this.fetchRemoteOptions("/location_options/members", {
+      block_id: this.hasBlockTarget ? this.blockTarget.value : "",
+      village_id: this.hasVillageTarget ? this.villageTarget.value : "",
+      shg_id: this.shgTarget.value
+    })
+    this.replaceRemoteOptions(this.memberTarget, options, "Select member")
+    this.update()
+  }
+
+  async fetchRemoteOptions(path, params) {
+    const query = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) query.set(key, value)
+    })
+
+    const response = await fetch(`${path}?${query.toString()}`, { headers: { Accept: "application/json" } })
+    if (!response.ok) return []
+
+    return response.json()
+  }
+
+  replaceRemoteOptions(select, options, prompt) {
+    const selectedValue = select.value
+    select.innerHTML = ""
+    select.appendChild(new Option(prompt, ""))
+
+    options.forEach((option) => {
+      const element = new Option(option.text, option.id)
+      Object.entries(option).forEach(([key, value]) => {
+        if (key !== "id" && key !== "text" && value !== null && value !== undefined) {
+          element.dataset[this.camelize(key)] = value
+        }
+      })
+      select.appendChild(element)
+    })
+
+    select.value = Array.from(select.options).some((option) => option.value === selectedValue) ? selectedValue : ""
+    select.dispatchEvent(new CustomEvent("searchable-select:refresh"))
+  }
+
+  clearSelect(select, prompt) {
+    if (!select) return
+
+    select.innerHTML = ""
+    select.appendChild(new Option(prompt, ""))
+    select.value = ""
+    select.dispatchEvent(new CustomEvent("searchable-select:refresh"))
+  }
+
+  camelize(value) {
+    return value.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
   }
 
   update() {

@@ -4,11 +4,11 @@ class ShgsController < ApplicationController
   helper_method :can_filter_shg_state_district_crp?
 
   before_action :authenticate_user!
-  before_action :set_shg, only: %i[show edit update destroy disable approve return_for_correction reject]
+  before_action :set_shg, only: %i[show edit update destroy activate disable approve return_for_correction reject]
   before_action :require_create_permission!, only: %i[new create]
-  before_action :require_shg_manage_permission!, only: %i[edit update destroy disable]
+  before_action :require_shg_manage_permission!, only: %i[edit update destroy activate disable]
   before_action :require_approval_permission!, only: %i[approve return_for_correction reject]
-  before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
+  before_action :require_bulk_delete_permission!, only: %i[destroy activate disable bulk_destroy bulk_activate bulk_disable]
 
   def index
     set_filter_options
@@ -56,9 +56,19 @@ class ShgsController < ApplicationController
     bulk_disable
   end
 
+  def activate
+    @shg.update_columns(active: true, updated_at: Time.current)
+    redirect_to shgs_path, notice: "SHG activated successfully."
+  end
+
   def disable
     @shg.update_columns(active: false, updated_at: Time.current)
     redirect_to shgs_path, notice: "SHG disabled successfully."
+  end
+
+  def bulk_activate
+    result = activate_records(visible_shgs, params[:ids])
+    redirect_to shgs_path, notice: "SHGs activated: #{result[:activated]}, skipped: #{result[:skipped]}."
   end
 
   def bulk_disable

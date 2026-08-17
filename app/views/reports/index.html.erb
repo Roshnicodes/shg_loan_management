@@ -1,0 +1,99 @@
+<% content_for :page_title, "Reports" %>
+
+<section class="panel report-panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Reports</p>
+      <h2>Loan Collection Report</h2>
+    </div>
+    <div class="action-row">
+      <%= link_to "Download Excel", export_reports_path(request.query_parameters.except(:commit, :refresh_filters, :page)), class: "secondary-link" %>
+      <%= server_search_box(reports_path, placeholder: "Search report...") %>
+    </div>
+  </div>
+
+  <% refresh_on_change = "const p=new URLSearchParams(new FormData(this.form));p.delete('commit');p.delete('q');p.delete('page');p.set('refresh_filters','1');window.location=this.form.action+'?'+p.toString();" %>
+  <%= form_with url: reports_path, method: :get, class: "filter-grid report-filter-grid", data: { controller: "location-select", location_select_auto_submit_value: true } do |form| %>
+    <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
+    <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
+    <% if show_report_state_filter? %>
+      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: @selected_state_id }, data: { searchable_select_skip: true, location_select_target: "state", action: "location-select#stateChanged" }, onchange: refresh_on_change %></label>
+    <% end %>
+    <% if show_report_district_filter? %>
+      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), @selected_district_id), { prompt: "All districts" }, data: { searchable_select_skip: true, location_select_target: "district", action: "location-select#districtChanged" }, onchange: refresh_on_change %></label>
+    <% end %>
+    <% if show_report_block_filter? %>
+      <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), @selected_block_id), { prompt: "All blocks" }, data: { searchable_select_skip: true, location_select_target: "block", action: "location-select#blockChanged" }, onchange: refresh_on_change %></label>
+    <% end %>
+    <% if show_report_village_filter? %>
+      <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), @selected_village_id), { prompt: "All villages" }, data: { searchable_select_skip: true, location_select_target: "village", action: "location-select#villageChanged" }, onchange: refresh_on_change %></label>
+    <% end %>
+    <% if show_report_user_filter? %>
+      <label><span>CRP</span><%= form.select :user_id, options_for_select(user_filter_options(@crps), @selected_user_id), { prompt: "All CRPs" }, data: { searchable_select_skip: true, location_select_target: "crp", action: "location-select#userChanged" }, onchange: refresh_on_change %></label>
+    <% end %>
+    <label><span>SHG / ID / Village</span><%= form.select :shg_id, options_for_select(shg_filter_options(@shgs), @selected_shg_id), { prompt: "All SHG" }, data: { searchable_select_skip: true, location_select_target: "shg", action: "location-select#shgChanged" }, onchange: refresh_on_change %></label>
+    <label><span>SHG Member</span><%= form.select :member_id, options_for_select(member_filter_options(@members), @selected_member_id), { prompt: "All members" }, data: { searchable_select_skip: true, location_select_target: "member", action: "location-select#memberChanged" }, onchange: refresh_on_change %></label>
+    <label><span>Loan</span><%= form.select :loan_id, options_for_select(loan_filter_options(@loan_filter_records), @selected_loan_id), { prompt: "All loans" }, data: { searchable_select_skip: true, location_select_target: "loan" }, onchange: refresh_on_change %></label>
+    <label><span>Loan Status</span><%= form.collection_select :loan_status_id, @loan_statuses, :id, :name, { prompt: "All loan status", selected: params[:loan_status_id] }, data: { searchable_select_skip: true } %></label>
+    <label><span>Collection</span><%= form.select :collection_status, options_for_select([ [ "All", "" ], [ "Pending", "pending" ], [ "Closed", "closed" ], [ "Paid Installment", "paid_installment" ] ], params[:collection_status]), {}, data: { searchable_select_skip: true } %></label>
+    <div class="filter-actions">
+      <%= link_to "Clear", reports_path, class: "secondary-link" %>
+      <%= form.submit "Apply", class: "primary-button" %>
+    </div>
+  <% end %>
+
+  <% if @report_ready %>
+    <div class="searchable-table compact-search-results">
+      <% if @loans.blank? %><div class="table-empty-state">No matching report records found.</div><% end %>
+      <div class="table-wrap">
+        <table class="loan-import-table">
+          <thead>
+            <tr>
+              <% if show_report_state_filter? %><th>State</th><% end %>
+              <% if show_report_district_filter? %><th>District</th><% end %>
+              <% if show_report_block_filter? %><th>Block</th><% end %>
+              <th>Village</th>
+              <% if show_report_user_filter? %><th>CRP</th><% end %>
+              <th>SHG / ID / Village</th>
+              <th>Member</th>
+              <th>Loan No</th>
+              <th>Status</th>
+              <th>Collection</th>
+              <th>Total</th>
+              <th>Paid</th>
+              <th>Pending</th>
+              <th>Installment Paid</th>
+              <th>Installment Pending</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @loans.each do |loan| %>
+              <% amount = @loan_amounts.fetch(loan.id) %>
+              <tr>
+                <% if show_report_state_filter? %><td><%= loan.shg.state.name %></td><% end %>
+                <% if show_report_district_filter? %><td><%= loan.shg.district.name %></td><% end %>
+                <% if show_report_block_filter? %><td><%= loan.shg.block.name %></td><% end %>
+                <td><%= loan.shg.village.name %></td>
+                <% if show_report_user_filter? %><td><%= loan.source_crp_name.presence || loan.created_by&.name || "-" %></td><% end %>
+                <td><%= loan.shg.display_name %></td>
+                <td><%= loan.shg_member.name %></td>
+                <td><%= loan.shg_member.loan_no.presence || "-" %></td>
+                <td><span class="status"><%= report_loan_status(loan, amount) %></span></td>
+                <td><span class="status"><%= report_collection_status(amount) %></span></td>
+                <td><%= number_to_currency(amount[:total_payable], unit: "₹") %></td>
+                <td><%= number_to_currency(amount[:paid_amount], unit: "₹") %></td>
+                <td><%= number_to_currency(amount[:pending_amount], unit: "₹") %></td>
+                <td><%= amount[:paid_installments] %></td>
+                <td><%= amount[:pending_installments] %></td>
+                <td><%= link_to "Details", shg_loan_path(loan) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <%= pagination_controls("report records") %>
+  <% end %>
+</section>
