@@ -35,6 +35,7 @@ Rails.application.routes.draw do
   resources :users do
     member do
       patch :reset_password
+      patch :activate
       patch :disable
     end
 
@@ -42,6 +43,7 @@ Rails.application.routes.draw do
       get :export
       get :import, action: :new_import
       post :import
+      patch :bulk_activate
       patch :bulk_disable
       delete :bulk_destroy
     end

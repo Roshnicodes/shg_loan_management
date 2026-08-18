@@ -4,9 +4,9 @@ class UsersController < ApplicationController
   before_action :authenticate_user!
   before_action :require_user_admin_permission!, except: :profile
   before_action :require_create_permission!, only: %i[new create new_import import]
-  before_action :set_user, only: %i[show edit update destroy reset_password disable]
+  before_action :set_user, only: %i[show edit update destroy reset_password activate disable]
   before_action :require_manage_permission!, except: %i[index show reset_password export]
-  before_action :require_bulk_delete_permission!, only: %i[destroy bulk_destroy]
+  before_action :require_bulk_delete_permission!, only: %i[destroy activate disable bulk_destroy bulk_activate bulk_disable]
 
   def index
     @users = paginate_relation(searched_users.order(created_at: :desc))
@@ -60,6 +60,11 @@ class UsersController < ApplicationController
     redirect_to users_path, notice: "Users disabled: #{disabled}."
   end
 
+  def activate
+    @user.update!(active: true)
+    redirect_to users_path, notice: "#{@user.name} activated successfully."
+  end
+
   def disable
     if @user == current_user
       redirect_to users_path, alert: "You cannot disable your own login."
@@ -68,6 +73,22 @@ class UsersController < ApplicationController
 
     @user.update!(active: false)
     redirect_to users_path, notice: "#{@user.name} disabled successfully."
+  end
+
+  def bulk_activate
+    ids = Array(params[:ids]).compact_blank
+    activated = 0
+    skipped = 0
+
+    User.where(id: ids).find_each do |user|
+      if user.update(active: true)
+        activated += 1
+      else
+        skipped += 1
+      end
+    end
+
+    redirect_to users_path, notice: "Users activated: #{activated}, skipped: #{skipped}."
   end
 
   def bulk_disable

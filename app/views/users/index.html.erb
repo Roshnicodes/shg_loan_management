@@ -8,6 +8,9 @@
         <%= form_with url: bulk_disable_users_path, method: :patch, id: "bulk-disable-users" do |form| %>
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected users?" } %>
         <% end %>
+        <%= form_with url: bulk_activate_users_path, method: :patch, id: "bulk-activate-users" do |form| %>
+          <%= form.submit "Activate Selected", class: "success-link", data: { turbo_confirm: "Activate selected users?" } %>
+        <% end %>
       <% end %>
       <%= link_to "Export Excel", export_users_path(format: :csv), class: "secondary-link" %>
       <% if can_create_records? %><%= link_to "Import Excel", import_users_path, class: "secondary-link" %><% end %>
@@ -17,10 +20,10 @@
   </div>
   <div class="searchable-table compact-search-results">
     <% if @users.blank? %><div class="table-empty-state">No matching users found.</div><% end %>
-  <div class="table-wrap"><table class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
+  <div class="table-wrap"><table class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><div class="action-row"><%= check_box_tag "select_all_users_disable", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-users" }, aria: { label: "Select all active users on this page" } %><%= check_box_tag "select_all_users_activate", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-activate-users" }, aria: { label: "Select all inactive users on this page" } %></div></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
     <% @users.each do |user| %>
       <tr>
-        <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: "bulk-disable-users", disabled: user == current_user %></td><% end %>
+        <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: (user.active? ? "bulk-disable-users" : "bulk-activate-users"), disabled: user == current_user %></td><% end %>
         <td><%= user.id %></td>
         <td><%= link_to user.name, user %></td>
         <td><%= user.login_id %></td>
@@ -41,7 +44,11 @@
                 <%= button_to "Reset Password", reset_password_user_path(user), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Generate a new temporary password for this user?" } } %>
               <% end %>
               <% if can_bulk_delete_records? && user != current_user %>
-                <%= button_to "Disable", disable_user_path(user), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this user?" } } %>
+                <% if user.active? %>
+                  <%= button_to "Disable", disable_user_path(user), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this user?" } } %>
+                <% else %>
+                  <%= button_to "Activate", activate_user_path(user), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this user?" } } %>
+                <% end %>
               <% end %>
             <% end %>
           </div>
