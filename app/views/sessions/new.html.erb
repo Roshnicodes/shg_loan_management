@@ -1,4 +1,4 @@
-<% content_for :title, "Login - Cash 360" %>
+<% content_for :title, "Login - Wash360" %>
 
 <section class="login-page">
   <div class="login-card">
@@ -26,7 +26,7 @@
     <div class="login-panel">
       <div class="login-panel-inner">
         <div class="login-panel-kicker">Secure Access</div>
-        <%= image_tag "cash360-logo.png", alt: "Cash 360", class: "login-logo" %>
+        <%= app_wordmark(class_name: "login-logo") %>
         <h2>Welcome Back!</h2>
         <p>Please sign in to continue.</p>
         <%= form_with url: login_path, class: "login-form" do |form| %>

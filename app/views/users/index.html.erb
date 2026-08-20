@@ -20,7 +20,7 @@
   </div>
   <div class="searchable-table compact-search-results">
     <% if @users.blank? %><div class="table-empty-state">No matching users found.</div><% end %>
-  <div class="table-wrap"><table class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><div class="action-row"><%= check_box_tag "select_all_users_disable", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-users" }, aria: { label: "Select all active users on this page" } %><%= check_box_tag "select_all_users_activate", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-activate-users" }, aria: { label: "Select all inactive users on this page" } %></div></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
+  <div class="table-wrap"><table class="users-table"><thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_users", "1", false, data: { bulk_select_all: true, bulk_select_forms: "bulk-disable-users bulk-activate-users" }, aria: { label: "Select all users on this page" } %></th><% end %><th>ID</th><th>Name</th><th>Username</th><th>Password</th><th>Email</th><th>Role</th><th>State</th><th>District</th><th>Block</th><th>Village</th><th>Active</th><th></th></tr></thead><tbody>
     <% @users.each do |user| %>
       <tr>
         <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", user.id, false, form: (user.active? ? "bulk-disable-users" : "bulk-activate-users"), disabled: user == current_user %></td><% end %>

@@ -147,8 +147,7 @@ class ApplicationController < ActionController::Base
   def visible_blocks
     return Block.all if current_user&.admin? || current_user&.assistant_admin?
     return Block.where(district_id: current_user.office_district_ids) if current_user&.district_coordinator? && current_user.office_district_ids.present?
-    return Block.where(id: current_user.office_block_ids) if current_user&.office_block_ids.present? && current_user.crp?
-    return Block.joins(:villages).where(villages: { id: current_user.office_village_ids }).distinct if current_user&.office_village_ids.present? && current_user.crp?
+    return crp_visible_blocks if current_user&.crp?
     return Block.where(district_id: current_user.office_district_ids) if current_user&.office_district_ids.present?
     return Block.joins(:district).where(districts: { state_id: current_user.state_id }) if current_user&.state_id.present?
 
@@ -157,7 +156,7 @@ class ApplicationController < ActionController::Base
 
   def visible_villages
     return Village.all if current_user&.admin? || current_user&.assistant_admin?
-    return Village.where(id: current_user.office_village_ids) if current_user&.office_village_ids.present? && current_user.crp?
+    return crp_visible_villages if current_user&.crp?
     return Village.joins(block: :district).where(districts: { id: current_user.office_district_ids }) if current_user&.district_coordinator? && current_user.office_district_ids.present?
     return Village.where(block_id: current_user.office_block_ids) if current_user&.office_block_ids.present?
     return Village.joins(block: :district).where(districts: { id: current_user.office_district_ids }) if current_user&.office_district_ids.present?
@@ -169,11 +168,7 @@ class ApplicationController < ActionController::Base
   def visible_shgs
     relation = Shg.includes(:state, :district, :block, :village)
     if current_user&.crp?
-      loan_shg_ids = crp_visible_loan_scope.select(:shg_id)
-      shg_scope = Shg.where(created_by: current_user).or(Shg.where(id: loan_shg_ids))
-      location_scope = crp_visible_location_shgs
-      shg_scope = shg_scope.or(location_scope) if location_scope.exists?
-      return relation.where(id: shg_scope.select(:id))
+      return relation.where(id: crp_visible_shg_scope.select(:id))
     end
     return relation if current_user&.admin? || current_user&.assistant_admin?
     if current_user&.district_coordinator?
@@ -314,7 +309,9 @@ class ApplicationController < ActionController::Base
   def apply_user_office_scope_to_shgs(relation, user)
     return relation.none unless user
 
-    if user.district_coordinator? && user.office_district_ids.present?
+    if user.crp?
+      relation.where(id: crp_visible_shg_scope_for(user).select(:id))
+    elsif user.district_coordinator? && user.office_district_ids.present?
       relation.where(district_id: user.office_district_ids)
     elsif user.office_village_ids.present?
       relation.where(village_id: user.office_village_ids)
@@ -333,7 +330,9 @@ class ApplicationController < ActionController::Base
     return relation.none unless user
 
     relation = relation.joins(:shg)
-    if user.district_coordinator? && user.office_district_ids.present?
+    if user.crp?
+      relation.where(shgs: { id: crp_visible_shg_scope_for(user).select(:id) })
+    elsif user.district_coordinator? && user.office_district_ids.present?
       relation.where(shgs: { district_id: user.office_district_ids })
     elsif user.office_village_ids.present?
       relation.where(shgs: { village_id: user.office_village_ids })
@@ -351,12 +350,55 @@ class ApplicationController < ActionController::Base
   def crp_visible_location_shgs
     return Shg.none unless current_user&.crp?
 
-    if current_user.office_village_ids.present?
-      Shg.where(village_id: current_user.office_village_ids)
-    elsif current_user.office_block_ids.present?
-      Shg.where(block_id: current_user.office_block_ids)
-    elsif current_user.office_district_ids.present?
-      Shg.where(district_id: current_user.office_district_ids)
+    crp_visible_location_shgs_for(current_user)
+  end
+
+  def crp_visible_shg_scope
+    return Shg.none unless current_user&.crp?
+
+    crp_visible_shg_scope_for(current_user)
+  end
+
+  def crp_visible_shg_scope_for(user)
+    return Shg.none unless user&.crp?
+
+    login_id = user.login_id.to_s.downcase
+    loan_shg_ids = ShgLoan
+      .where(created_by: user)
+      .or(ShgLoan.where("LOWER(source_crp_identifier) = ?", login_id))
+      .where.not(shg_id: nil)
+      .select(:shg_id)
+
+    Shg.where(created_by: user)
+      .or(Shg.where(id: loan_shg_ids))
+      .or(crp_visible_location_shgs_for(user))
+  end
+
+  def crp_visible_blocks
+    shg_block_ids = crp_visible_shg_scope.where.not(block_id: nil).select(:block_id)
+    mapped_village_block_ids = Village.where(id: current_user.office_village_ids).select(:block_id)
+
+    Block.where(id: shg_block_ids)
+      .or(Block.where(id: current_user.office_block_ids))
+      .or(Block.where(id: mapped_village_block_ids))
+      .distinct
+  end
+
+  def crp_visible_villages
+    shg_village_ids = crp_visible_shg_scope.where.not(village_id: nil).select(:village_id)
+    Village.where(id: shg_village_ids)
+      .or(Village.where(id: current_user.office_village_ids))
+      .or(Village.where(block_id: current_user.office_block_ids))
+      .distinct
+  end
+
+  def crp_visible_location_shgs_for(user)
+    return Shg.none unless user&.crp?
+
+    if user.office_village_ids.present?
+      Shg.where(village_id: user.office_village_ids)
+    elsif user.office_block_ids.present?
+      Shg.where(block_id: user.office_block_ids)
     else
       Shg.none
     end

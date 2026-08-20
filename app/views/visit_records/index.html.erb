@@ -49,6 +49,7 @@
         <tr>
           <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_visits", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-visits" }, aria: { label: "Select all visits on this page" } %></th><% end %>
           <th>Visit Date</th>
+          <th>Visit No.</th>
           <th>Village / SHG / Member</th>
           <th>Product</th>
           <th>Photo</th>
@@ -65,6 +66,7 @@
           <tr>
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", visit.id, false, form: "bulk-disable-visits", disabled: !visit.active? %></td><% end %>
             <td><%= visit.visit_date %></td>
+            <td><%= visit.visit_label %></td>
             <td>
               <strong><%= visit.village.name %></strong><br>
               <%= link_to visit.shg.name, visit.shg %><br>
@@ -114,6 +116,11 @@
                       <div class="visit-review-media">
                         <% if visit.photo.attached? %>
                           <% if visit.photo.image? %>
+                            <div class="visit-photo-tools" aria-label="Photo rotation controls">
+                              <button type="button" class="secondary-link compact-button" data-action="visit-review#rotateLeft">Rotate Left</button>
+                              <button type="button" class="secondary-link compact-button" data-action="visit-review#rotateRight">Rotate Right</button>
+                              <button type="button" class="secondary-link compact-button" data-action="visit-review#resetRotation">Reset</button>
+                            </div>
                             <%= tag.img class: "visit-review-photo", alt: "Visit photo", data: { visit_review_target: "image", src: url_for(visit.photo) } %>
                           <% else %>
                             <div class="document-preview">
@@ -134,6 +141,7 @@
                           <h4>Location</h4>
                           <dl class="compact-detail-list">
                             <dt>Visit Date</dt><dd><%= visit.visit_date %></dd>
+                            <dt>Visit No.</dt><dd><%= visit.visit_label %></dd>
                             <dt>Product</dt><dd><%= visit.product&.name || "-" %></dd>
                             <dt>Village</dt><dd><%= visit.village.name %></dd>
                             <dt>SHG</dt><dd><%= visit.shg.name %></dd>

@@ -71,6 +71,53 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
     assert_redirected_to visit_records_path(page: 2, month: "2026-08")
   end
 
+  test "duplicate visit submit reuses existing record" do
+    login_as(@dc)
+
+    assert_no_difference -> { VisitRecord.count } do
+      post visit_records_path, params: {
+        visit_record: {
+          block_id: @block.id,
+          village_id: @village.id,
+          shg_id: @shg.id,
+          shg_member_id: @member.id,
+          product_id: @product.id,
+          visit_date: @visit.visit_date,
+          purpose: "Pagination check",
+          observations: "Keep page params"
+        }
+      }
+    end
+
+    assert_redirected_to visit_records_path
+    assert_equal 1, @visit.reload.visit_number
+  end
+
+  test "second visit updates existing record and increments visit number" do
+    login_as(@dc)
+
+    assert_no_difference -> { VisitRecord.count } do
+      post visit_records_path, params: {
+        visit_record: {
+          block_id: @block.id,
+          village_id: @village.id,
+          shg_id: @shg.id,
+          shg_member_id: @member.id,
+          product_id: @product.id,
+          visit_date: @visit.visit_date + 1.day,
+          purpose: "Second visit",
+          observations: "Updated on second visit"
+        }
+      }
+    end
+
+    @visit.reload
+    assert_redirected_to visit_records_path
+    assert_equal 2, @visit.visit_number
+    assert_equal "Second visit", @visit.purpose
+    assert_equal "Updated on second visit", @visit.observations
+  end
+
   private
 
   def build_user(login_id, user_type)

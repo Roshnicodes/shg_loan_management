@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_043000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_20_093000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -366,6 +366,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_043000) do
     t.datetime "updated_at", null: false
     t.bigint "village_id", null: false
     t.date "visit_date", null: false
+    t.integer "visit_number", default: 1, null: false
     t.index "lower((approval_status)::text) gin_trgm_ops", name: "index_visit_records_on_lower_approval_status_trgm", using: :gin
     t.index "lower(observations) gin_trgm_ops", name: "index_visit_records_on_lower_observations_trgm", using: :gin
     t.index "lower(purpose) gin_trgm_ops", name: "index_visit_records_on_lower_purpose_trgm", using: :gin

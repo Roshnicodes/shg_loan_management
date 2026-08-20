@@ -57,8 +57,7 @@
       replaceOptions(targets.village, (option) => !blockId || dataValue(option, "blockId") === blockId)
       replaceOptions(targets.shg, (option) => {
         if (villageId) return dataValue(option, "villageId") === villageId
-        if (blockId) return dataValue(option, "blockId") === blockId
-        return true
+        return false
       })
       replaceOptions(targets.member, (option) => {
         const blockMatches = !blockId || dataValue(option, "blockId") === blockId
@@ -86,6 +85,9 @@
     }
 
     const setupForm = (form) => {
+      const controller = form.dataset.controller || ""
+      if (form.dataset.locationSelectRemoteValue === "true" || controller.includes("loan-member-details")) return
+
       if (form._dependentDropdownFallbackReady) return
       form._dependentDropdownFallbackReady = true
 

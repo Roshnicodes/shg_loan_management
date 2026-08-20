@@ -7,7 +7,7 @@
       <h2>Dashboard Summary</h2>
     </div>
   </div>
-  <div class="metrics-grid summary-grid">
+  <div class="metrics-grid summary-grid summary-count-<%= @summary_counts.size %>">
     <% @summary_counts.each do |label, value| %>
       <div class="metric metric-<%= label.to_s.parameterize %>">
         <span><%= label %></span>

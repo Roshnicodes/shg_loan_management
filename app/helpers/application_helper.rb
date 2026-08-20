@@ -1,4 +1,12 @@
 module ApplicationHelper
+  def app_name
+    "Wash360"
+  end
+
+  def app_wordmark(class_name: nil)
+    image_tag "wash360-logo.png", alt: app_name, class: class_name
+  end
+
   def app_nav_items
     items = [ [ "Dashboard", dashboard_path ] ]
     if can_manage_users?

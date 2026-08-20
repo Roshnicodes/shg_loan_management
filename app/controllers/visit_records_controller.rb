@@ -34,6 +34,12 @@ class VisitRecordsController < ApplicationController
     @visit_record = VisitRecord.new(visit_record_params)
     @visit_record.created_by = current_user
 
+    if @visit_record.valid? && (existing_visit = duplicate_visit_for(@visit_record))
+      existing_visit.merge_submission!(@visit_record, current_user)
+      attach_duplicate_photo(existing_visit, @visit_record)
+      return redirect_to visit_records_path(visit_records_return_params), notice: "Visit entry updated successfully as #{existing_visit.visit_label}."
+    end
+
     if @visit_record.save
       redirect_to visit_records_path(visit_records_return_params), notice: "Visit entry saved successfully."
     else
@@ -107,7 +113,7 @@ class VisitRecordsController < ApplicationController
   end
 
   def filtered_visit_records(include_attachments: true)
-    visits = visible_visit_records
+    visits = visible_visit_records.where(active: true)
       .includes(:product, :shg_member, :created_by, :dc_approved_by, :assistant_approved_by, shg: [ :state, :district, :block, :village ])
     visits = visits.with_attached_photo if include_attachments
 
@@ -126,7 +132,7 @@ class VisitRecordsController < ApplicationController
     visits = visits.where(shg_id: params[:shg_id]) if params[:shg_id].present?
     visits = visits.where(approval_status: params[:approval_status]) if params[:approval_status].present?
     visits = search_visits(visits)
-    visits
+    deduplicate_visits_by_member(visits)
   end
 
   def search_visits(visits)
@@ -199,7 +205,7 @@ class VisitRecordsController < ApplicationController
   def stream_visits_csv(visits)
     stream_csv("visit-records-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
-        "Visit Date", "State", "District", "Block", "Village", "SHG", "Member", "Loan No",
+        "Visit Date", "Visit No.", "State", "District", "Block", "Village", "SHG", "Member", "Loan No",
         "Mobile", "Product", "Purpose", "Observations", "Approval",
         "Created By", "DC Approval", "Assistant Approval", "Remarks"
       ])
@@ -207,6 +213,7 @@ class VisitRecordsController < ApplicationController
       visits.reorder(nil).find_each(batch_size: 1_000) do |visit|
         stream << CSV.generate_line([
           visit.visit_date,
+          visit.visit_label,
           visit.shg.state.name,
           visit.shg.district.name,
           visit.shg.block.name,
@@ -230,6 +237,24 @@ class VisitRecordsController < ApplicationController
 
   def set_visit_record
     @visit_record = visible_visit_records.find(params[:id])
+  end
+
+  def duplicate_visit_for(visit_record)
+    VisitRecord.duplicate_of(visit_record).first
+  end
+
+  def attach_duplicate_photo(existing_visit, new_visit)
+    return unless new_visit.photo.attached?
+
+    existing_visit.photo.attach(new_visit.photo.blob)
+  end
+
+  def deduplicate_visits_by_member(visits)
+    latest_visit_ids = visits
+      .reselect("DISTINCT ON (visit_records.shg_member_id) visit_records.id")
+      .reorder("visit_records.shg_member_id, visit_records.visit_number DESC, visit_records.visit_date DESC, visit_records.updated_at DESC, visit_records.id DESC")
+
+    visits.where(id: latest_visit_ids)
   end
 
   def visit_record_params

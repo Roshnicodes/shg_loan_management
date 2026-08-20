@@ -31,7 +31,6 @@ export default class extends Controller {
     this.clearSelect(this.memberTarget, "Select member")
     if (this.hasBlockTarget && this.blockTarget.value) {
       this.loadRemoteVillages()
-      this.loadRemoteShgs()
     }
     this.update()
   }
@@ -141,7 +140,7 @@ export default class extends Controller {
     }
 
     this.loadRemoteVillages()
-    this.loadRemoteShgs()
+    if (!this.hasVillageTarget || this.villageTarget.value) this.loadRemoteShgs()
     if (this.shgTarget.value) this.loadRemoteMembers()
   }
 
@@ -153,6 +152,11 @@ export default class extends Controller {
   }
 
   async loadRemoteShgs() {
+    if (this.hasVillageTarget && !this.villageTarget.value) {
+      this.clearSelect(this.shgTarget, "Select SHG")
+      return
+    }
+
     const options = await this.fetchRemoteOptions("/location_options/shgs", {
       block_id: this.hasBlockTarget ? this.blockTarget.value : "",
       village_id: this.hasVillageTarget ? this.villageTarget.value : ""

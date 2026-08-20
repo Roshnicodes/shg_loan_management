@@ -12,6 +12,8 @@
   <dl class="detail-list">
     <dt>Visit Date</dt>
     <dd><%= @visit_record.visit_date %></dd>
+    <dt>Visit No.</dt>
+    <dd><%= @visit_record.visit_label %></dd>
     <dt>Product</dt>
     <dd><%= @visit_record.product&.name || "-" %></dd>
     <dt>Village</dt>
@@ -41,10 +43,15 @@
     <dt>Approval Remarks</dt>
     <dd><%= simple_format(@visit_record.approval_remarks.presence || "-") %></dd>
     <dt>Photo / Document</dt>
-    <dd>
+    <dd data-controller="visit-review">
       <% if @visit_record.photo.attached? %>
         <% if @visit_record.photo.image? %>
-          <%= image_tag @visit_record.photo, class: "attachment-preview", alt: "Visit photo" %>
+          <div class="visit-photo-tools show-photo-tools" aria-label="Photo rotation controls">
+            <button type="button" class="secondary-link compact-button" data-action="visit-review#rotateLeft">Rotate Left</button>
+            <button type="button" class="secondary-link compact-button" data-action="visit-review#rotateRight">Rotate Right</button>
+            <button type="button" class="secondary-link compact-button" data-action="visit-review#resetRotation">Reset</button>
+          </div>
+          <%= image_tag @visit_record.photo, class: "attachment-preview visit-rotatable-photo", alt: "Visit photo", data: { visit_review_target: "image" } %>
         <% end %>
         <%= link_to @visit_record.photo.filename.to_s, url_for(@visit_record.photo), target: "_blank", rel: "noopener" %>
         <%= link_to "Download", rails_blob_path(@visit_record.photo, disposition: "attachment"), class: "secondary-link" %>

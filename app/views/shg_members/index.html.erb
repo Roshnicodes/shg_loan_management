@@ -42,7 +42,7 @@
     <% if @members.blank? %><div class="table-empty-state">No matching members found.</div><% end %>
     <div class="table-wrap">
     <table>
-      <thead><tr><% if can_bulk_delete_records? %><th class="select-column"><div class="action-row"><%= check_box_tag "select_all_members_disable", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-members" }, aria: { label: "Select all active members on this page" } %><%= check_box_tag "select_all_members_activate", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-activate-members" }, aria: { label: "Select all inactive members on this page" } %></div></th><% end %><th>Name</th><th>SHG</th><th>Loan No</th><th>Status</th><th>Monthly HH Income</th><th>Mobile</th><th>Action</th></tr></thead>
+      <thead><tr><% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_members", "1", false, data: { bulk_select_all: true, bulk_select_forms: "bulk-disable-members bulk-activate-members" }, aria: { label: "Select all members on this page" } %></th><% end %><th>Name</th><th>SHG</th><th>Loan No</th><th>Status</th><th>Monthly HH Income</th><th>Mobile</th><th>Action</th></tr></thead>
       <tbody>
         <% @members.each do |member| %>
           <tr>

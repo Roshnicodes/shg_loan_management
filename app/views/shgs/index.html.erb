@@ -63,7 +63,7 @@
     <table>
       <thead>
         <tr>
-          <% if can_bulk_delete_records? %><th class="select-column"><div class="action-row"><%= check_box_tag "select_all_shgs_disable", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-disable-shgs" }, aria: { label: "Select all active SHGs on this page" } %><%= check_box_tag "select_all_shgs_activate", "1", false, data: { bulk_select_all: true, bulk_select_form: "bulk-activate-shgs" }, aria: { label: "Select all inactive SHGs on this page" } %></div></th><% end %>
+          <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_shgs", "1", false, data: { bulk_select_all: true, bulk_select_forms: "bulk-disable-shgs bulk-activate-shgs" }, aria: { label: "Select all SHGs on this page" } %></th><% end %>
           <th>Name</th>
           <th>Location</th>
           <th>Linkage Date</th>

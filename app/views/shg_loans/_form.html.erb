@@ -1,8 +1,13 @@
 <%= render "shared/errors", record: @loan %>
 <% blocks = visible_blocks.order(:name) %>
-<% villages = visible_villages.order(:name) %>
-<% shgs = visible_shgs.where(active: true).order(:name) %>
-<% member_options = visible_shg_members.where(active: true).includes(:shg).order(:name).map do |member|
+<% active_shg_village_ids = visible_shgs.where(active: true).where.not(village_id: nil).select(:village_id) %>
+<% villages = visible_villages.where(id: active_shg_village_ids).order(:name) %>
+<% selected_block_id = params.dig(:shg_loan, :block_id).presence || @loan.shg&.block_id %>
+<% selected_village_id = params.dig(:shg_loan, :village_id).presence || @loan.shg&.village_id %>
+<% villages = villages.where(block_id: selected_block_id) if selected_block_id.present? %>
+<% shgs = selected_village_id.present? ? visible_shgs.where(active: true, village_id: selected_village_id).order(:name) : Shg.none %>
+<% member_scope = @loan.shg_id.present? ? visible_shg_members.where(active: true, shg_id: @loan.shg_id).includes(:shg).order(:name) : ShgMember.none %>
+<% member_options = member_scope.map do |member|
   [
     member.name,
     member.id,
@@ -20,8 +25,6 @@
   ]
 end %>
 
-<% selected_block_id = params.dig(:shg_loan, :block_id).presence || @loan.shg&.block_id %>
-<% selected_village_id = params.dig(:shg_loan, :village_id).presence || @loan.shg&.village_id %>
 <% paid_amount = @loan.persisted? ? @loan.total_paid : 0 %>
 
 <%= form_with model: @loan, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f, dependent_dropdown_fallback: true } do |form| %>

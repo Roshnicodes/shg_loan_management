@@ -12,7 +12,7 @@
   <label><span>Designation</span><%= form.text_field :designation, required: true %></label>
   <label><span>User Type</span><%= form.select :user_type_id, options_for_select(user_type_options, @user.user_type_id), { prompt: "Select role" }, required: true, data: { user_mapping_target: "role", action: "user-mapping#roleChanged" } %></label>
   <label data-user-mapping-target="stateField"><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { user_mapping_target: "state", action: "user-mapping#stateChanged" } %></label>
-  <label data-user-mapping-target="districtField">
+  <div class="form-field" data-user-mapping-target="districtField">
     <span>District Office</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="district">
       <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="district" data-user-mapping-target="districtToggle">Select districts</button>
@@ -23,8 +23,8 @@
     </div>
     <%= form.select :mapped_district_ids, options_for_select(district_options, @user.office_district_ids), {}, multiple: true, data: { user_mapping_target: "district", action: "user-mapping#districtChanged" } %>
     <button type="button" class="mini-link" data-user-mapping-target="districtSelectAll" data-action="user-mapping#selectAll" data-user-mapping-select-param="district">Select all districts</button>
-  </label>
-  <label data-user-mapping-target="blockField">
+  </div>
+  <div class="form-field" data-user-mapping-target="blockField">
     <span>Block Office</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="block">
       <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="block" data-user-mapping-target="blockToggle">Select blocks</button>
@@ -35,8 +35,8 @@
     </div>
     <%= form.select :mapped_block_ids, options_for_select(block_options, @user.office_block_ids), {}, multiple: true, data: { user_mapping_target: "block", action: "user-mapping#blockChanged" } %>
     <button type="button" class="mini-link" data-action="user-mapping#selectAll" data-user-mapping-select-param="block">Select all blocks</button>
-  </label>
-  <label data-user-mapping-target="villageField">
+  </div>
+  <div class="form-field" data-user-mapping-target="villageField">
     <span>Village Office</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="village">
       <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="village" data-user-mapping-target="villageToggle">Select villages</button>
@@ -47,7 +47,7 @@
     </div>
     <%= form.select :mapped_village_ids, options_for_select(village_options, @user.office_village_ids), {}, multiple: true, data: { user_mapping_target: "village" } %>
     <button type="button" class="mini-link" data-action="user-mapping#selectAll" data-user-mapping-select-param="village">Select all villages</button>
-  </label>
+  </div>
   <label>
     <span>Password</span>
     <div class="password-field">

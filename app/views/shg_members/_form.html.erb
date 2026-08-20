@@ -1,9 +1,11 @@
 <%= render "shared/errors", record: @member %>
 <% blocks = visible_blocks.order(:name) %>
-<% villages = visible_villages.order(:name) %>
-<% shgs = visible_shgs.where(active: true).order(:name) %>
+<% active_shg_village_ids = visible_shgs.where(active: true).where.not(village_id: nil).select(:village_id) %>
+<% villages = visible_villages.where(id: active_shg_village_ids).order(:name) %>
 <% selected_block_id = params.dig(:shg_member, :block_id).presence || @member.shg&.block_id %>
 <% selected_village_id = params.dig(:shg_member, :village_id).presence || @member.shg&.village_id %>
+<% villages = villages.where(block_id: selected_block_id) if selected_block_id.present? %>
+<% shgs = selected_village_id.present? ? visible_shgs.where(active: true, village_id: selected_village_id).order(:name) : Shg.none %>
 
 <%= form_with model: @member, class: "form-grid", data: { controller: "location-select", location_select_remote_value: true, dependent_dropdown_fallback: true } do |form| %>
   <label><span>Block</span><%= select_tag "shg_member[block_id]", options_for_select(block_filter_options(blocks), selected_block_id), prompt: "Select block", required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>

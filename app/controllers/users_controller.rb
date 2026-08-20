@@ -108,7 +108,7 @@ class UsersController < ApplicationController
   end
 
   def export
-    stream_csv("cash360-users-#{Date.current.strftime('%Y%m%d')}.csv") do |stream|
+    stream_csv("wash360-users-#{Date.current.strftime('%Y%m%d')}.csv") do |stream|
       stream << CSV.generate_line([ "ID", "Name", "Login ID", "Email", "Mobile", "Designation", "Role", "State", "Districts", "Blocks", "Villages", "Active", "Password" ])
 
       User.includes(:user_type, :state, :district, :block, :village).find_each(batch_size: 1_000) do |user|

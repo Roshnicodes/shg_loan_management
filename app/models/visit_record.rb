@@ -16,19 +16,29 @@ class VisitRecord < ApplicationRecord
 
   before_validation :set_default_status, on: :create
   before_validation :set_product_from_member_loan, if: -> { product.blank? && shg_member.present? }
+  before_validation :set_visit_number, on: :create
 
   validates :visit_date, presence: true
+  validates :visit_number, numericality: { only_integer: true, greater_than: 0 }
   validates :approval_status, inclusion: { in: APPROVAL_STATUSES }
   validate :member_belongs_to_shg
   validate :shg_belongs_to_village
   validate :photo_file_type
   validate :photo_file_size
 
+  scope :duplicate_of, ->(visit) {
+    where(
+      active: true,
+      shg_member_id: visit.shg_member_id
+    ).order(visit_number: :desc, visit_date: :desc, updated_at: :desc, id: :desc)
+  }
+
   def pending_dc? = approval_status == "pending_dc"
   def pending_assistant? = approval_status == "pending_assistant"
   def approved? = approval_status == "approved"
   def approval_label = approval_status.to_s.titleize
   def block_id = @block_id.presence || village&.block_id || shg&.block_id
+  def visit_label = "Visit #{visit_number}"
 
   def approve!(user)
     raise ActiveRecord::RecordInvalid, self unless approvable_by?(user)
@@ -86,26 +96,68 @@ class VisitRecord < ApplicationRecord
     approvable_by?(user)
   end
 
+  def merge_submission!(submitted_visit, user)
+    increment_visit_number = visit_date != submitted_visit.visit_date || product_id != submitted_visit.product_id
+
+    assign_attributes(
+      village: submitted_visit.village,
+      shg: submitted_visit.shg,
+      shg_member: submitted_visit.shg_member,
+      product: submitted_visit.product,
+      visit_date: submitted_visit.visit_date,
+      purpose: submitted_visit.purpose,
+      observations: submitted_visit.observations,
+      active: true,
+      created_by: user
+    )
+    self.visit_number = visit_number.to_i + 1 if increment_visit_number
+    apply_default_status_for(user)
+    save!
+  end
+
   private
 
   def set_default_status
-    if created_by&.assistant_admin?
+    apply_default_status_for(created_by)
+  end
+
+  def apply_default_status_for(user)
+    if user&.assistant_admin?
       self.approval_status = "approved"
-      self.assistant_approved_by = created_by
+      self.dc_approved_by = nil
+      self.dc_approved_at = nil
+      self.assistant_approved_by = user
       self.assistant_approved_at = Time.current
-      self.approved_by = created_by
+      self.approved_by = user
       self.approved_at = Time.current
-    elsif created_by&.district_coordinator?
+    elsif user&.district_coordinator?
       self.approval_status = "pending_assistant"
-      self.dc_approved_by = created_by
+      self.dc_approved_by = user
       self.dc_approved_at = Time.current
+      self.assistant_approved_by = nil
+      self.assistant_approved_at = nil
+      self.approved_by = nil
+      self.approved_at = nil
     else
-      self.approval_status ||= "pending_dc"
+      self.approval_status = "pending_dc"
+      self.dc_approved_by = nil
+      self.dc_approved_at = nil
+      self.assistant_approved_by = nil
+      self.assistant_approved_at = nil
+      self.approved_by = nil
+      self.approved_at = nil
     end
   end
 
   def set_product_from_member_loan
     self.product = shg_member.shg_loans.order(active: :desc, id: :asc).first&.product
+  end
+
+  def set_visit_number
+    return if shg_member_id.blank?
+    return if visit_number.present? && !(visit_number == 1 && self.class.where(shg_member_id: shg_member_id).exists?)
+
+    self.visit_number = self.class.where(shg_member_id: shg_member_id).maximum(:visit_number).to_i + 1
   end
 
   def member_belongs_to_shg

@@ -61,7 +61,7 @@ export default class extends Controller {
     this.submitForm()
   }
 
-  blockChanged() {
+  async blockChanged() {
     if (this.hasVillageTarget) this.villageTarget.value = ""
     if (this.hasShgTarget) this.shgTarget.value = ""
     if (this.hasMemberTarget) this.memberTarget.value = ""
@@ -69,8 +69,7 @@ export default class extends Controller {
     if (this.remoteValue) {
       this.clearRemoteChildren()
       if (this.hasBlockTarget && this.blockTarget.value) {
-        this.loadRemoteVillages()
-        this.loadRemoteShgs()
+        await this.loadRemoteVillages()
       }
       return
     }
@@ -78,14 +77,14 @@ export default class extends Controller {
     this.submitForm()
   }
 
-  villageChanged() {
+  async villageChanged() {
     if (this.hasShgTarget) this.shgTarget.value = ""
     if (this.hasMemberTarget) this.memberTarget.value = ""
     if (this.hasLoanTarget) this.loanTarget.value = ""
     if (this.remoteValue) {
       this.clearSelect(this.shgTarget, "Select SHG")
       if (this.hasMemberTarget) this.clearSelect(this.memberTarget, "Select member")
-      if (this.hasVillageTarget && this.villageTarget.value) this.loadRemoteShgs()
+      if (this.hasVillageTarget && this.villageTarget.value) await this.loadRemoteShgs()
       return
     }
     this.filterAfterVillage()
@@ -341,15 +340,15 @@ export default class extends Controller {
     return option.getAttribute(`data-${dashedKey}`) || ""
   }
 
-  refreshRemoteOptions() {
+  async refreshRemoteOptions() {
     if (!this.hasBlockTarget || !this.blockTarget.value) {
       this.clearRemoteChildren()
       return
     }
 
-    this.loadRemoteVillages()
-    this.loadRemoteShgs()
-    if (this.hasMemberTarget && this.hasShgTarget && this.shgTarget.value) this.loadRemoteMembers()
+    await this.loadRemoteVillages()
+    if (!this.hasVillageTarget || this.villageTarget.value) await this.loadRemoteShgs()
+    if (this.hasMemberTarget && this.hasShgTarget && this.shgTarget.value) await this.loadRemoteMembers()
   }
 
   clearRemoteChildren() {
@@ -367,6 +366,10 @@ export default class extends Controller {
 
   async loadRemoteShgs() {
     if (!this.hasShgTarget) return
+    if (this.hasVillageTarget && !this.villageTarget.value) {
+      this.clearSelect(this.shgTarget, "Select SHG")
+      return
+    }
 
     const options = await this.fetchRemoteOptions("/location_options/shgs", {
       block_id: this.hasBlockTarget ? this.blockTarget.value : "",

@@ -62,12 +62,19 @@ export default class extends Controller {
   }
 
   selectAll(event) {
-    const target = this[`${event.params.select}Target`]
+    event.preventDefault()
+
+    const selectName = event.params.select || event.currentTarget.dataset.userMappingSelectParam
+    const target = this[`${selectName}Target`]
+    if (!target) return
+
     Array.from(target.options).forEach((option) => {
       option.selected = option.value !== ""
     })
     target.dispatchEvent(new Event("change", { bubbles: true }))
-    this.closeMenus()
+    this.clearMappingError(this[`${selectName}ToggleTarget`])
+    this.renderDropdownOptions()
+    this.renderSelectedSummaries()
   }
 
   togglePassword(event) {
@@ -180,16 +187,22 @@ export default class extends Controller {
     Array.from(select.options).forEach((option) => {
       if (option.value === "") return
 
-      const item = document.createElement("label")
+      const item = document.createElement("button")
       item.className = "multi-select-option"
+      item.type = "button"
+      item.dataset.select = name
+      item.dataset.value = option.value
+      item.setAttribute("role", name === "district" ? "radio" : "checkbox")
+      item.setAttribute("aria-checked", selectedValues.includes(option.value) ? "true" : "false")
+      item.addEventListener("click", (event) => {
+        event.preventDefault()
+        const currentlySelected = this.selectedValues(select).includes(item.dataset.value)
+        this.setSelection(item.dataset.select, item.dataset.value, name === "district" ? true : !currentlySelected)
+      })
 
-      const checkbox = document.createElement("input")
-      checkbox.type = name === "district" ? "radio" : "checkbox"
-      checkbox.name = `user_mapping_${name}`
-      checkbox.checked = selectedValues.includes(option.value)
-      checkbox.dataset.select = name
-      checkbox.dataset.value = option.value
-      checkbox.addEventListener("change", () => this.setSelection(checkbox.dataset.select, checkbox.dataset.value, checkbox.checked))
+      const checkbox = document.createElement("span")
+      checkbox.className = "multi-select-check"
+      checkbox.setAttribute("aria-hidden", "true")
 
       const text = document.createElement("span")
       text.textContent = option.textContent
@@ -217,7 +230,7 @@ export default class extends Controller {
     this.clearMappingError(this[`${selectName}ToggleTarget`])
     this.renderDropdownOptions()
     this.renderSelectedSummaries()
-    this.closeMenus()
+    if (selectName === "district") this.closeMenus()
   }
 
   updateToggleText(select, toggle, label) {
@@ -272,11 +285,12 @@ export default class extends Controller {
 
   showMappingError(toggle, message) {
     toggle.classList.add("field-invalid")
-    let error = toggle.closest("label")?.querySelector(".field-error")
+    const field = toggle.closest(".form-field, label")
+    let error = field?.querySelector(".field-error")
     if (!error) {
       error = document.createElement("small")
       error.className = "field-error"
-      toggle.closest("label")?.appendChild(error)
+      field?.appendChild(error)
     }
     error.textContent = message
     toggle.focus()
@@ -284,7 +298,7 @@ export default class extends Controller {
 
   clearMappingError(toggle) {
     toggle.classList.remove("field-invalid")
-    const error = toggle.closest("label")?.querySelector(".field-error")
+    const error = toggle.closest(".form-field, label")?.querySelector(".field-error")
     if (error) error.remove()
   }
 

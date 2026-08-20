@@ -2,7 +2,10 @@ class LocationOptionsController < ApplicationController
   before_action :authenticate_user!
 
   def villages
+    village_ids_with_active_shgs = visible_shgs.where(active: true).where.not(village_id: nil).select(:village_id)
+
     render json: visible_villages
+      .where(id: village_ids_with_active_shgs)
       .where(block_id: params[:block_id])
       .order(:name)
       .map { |village| village_option(village) }

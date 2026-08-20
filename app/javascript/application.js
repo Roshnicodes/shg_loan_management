@@ -20,7 +20,12 @@ const cascadeTargetSelectors = {
 }
 
 function cascadeFormFor(element) {
-  return element.closest('form[data-controller*="location-select"], form[data-controller*="loan-member-details"], form[data-controller*="visit-select"]')
+  const form = element.closest('form[data-controller*="location-select"], form[data-controller*="loan-member-details"], form[data-controller*="visit-select"]')
+  if (!form || form.dataset.dependentDropdownFallback === "true") return null
+  if ((form.dataset.controller || "").includes("loan-member-details")) return null
+  if ((form.dataset.controller || "").includes("visit-select")) return null
+
+  return form
 }
 
 function cascadeTargets(form) {
@@ -74,6 +79,7 @@ function filterCascadeForm(form) {
   primeCascadeOriginalOptions(form)
 
   const targets = cascadeTargets(form)
+  const requireVillageForShg = form.dataset.dependentDropdownFallback === "true" && targets.village
   const selected = {
     blockId: targets.block?.value || dataValue(targets.village?.selectedOptions[0], "blockId"),
     villageId: targets.village?.value || "",
@@ -82,7 +88,11 @@ function filterCascadeForm(form) {
   }
 
   replaceCascadeOptions(targets.village, (option) => !selected.blockId || dataValue(option, "blockId") === selected.blockId)
-  replaceCascadeOptions(targets.shg, (option) => optionMatchesCascade(option, selected))
+  replaceCascadeOptions(targets.shg, (option) => {
+    if (requireVillageForShg && !selected.villageId) return false
+
+    return optionMatchesCascade(option, selected)
+  })
   replaceCascadeOptions(targets.member, (option) => (
     optionMatchesCascade(option, selected) &&
       (!selected.shgId || dataValue(option, "shgId") === selected.shgId)
@@ -116,6 +126,10 @@ function clearCascadeChildren(target, form) {
 
 function refreshCascadeForms() {
   document.querySelectorAll('form[data-controller*="location-select"], form[data-controller*="loan-member-details"], form[data-controller*="visit-select"]').forEach((form) => {
+    if (form.dataset.dependentDropdownFallback === "true") return
+    if ((form.dataset.controller || "").includes("loan-member-details")) return
+    if ((form.dataset.controller || "").includes("visit-select")) return
+
     primeCascadeOriginalOptions(form)
     filterCascadeForm(form)
   })
@@ -126,8 +140,16 @@ function bulkCheckboxes(formId) {
     .filter((checkbox) => !checkbox.disabled)
 }
 
+function bulkSelectFormIds(master) {
+  return (master.dataset.bulkSelectForms || master.dataset.bulkSelectForm || "").split(/\s+/).filter(Boolean)
+}
+
+function bulkCheckboxesForMaster(master) {
+  return bulkSelectFormIds(master).flatMap(bulkCheckboxes)
+}
+
 function refreshBulkSelectAll(master) {
-  const checkboxes = bulkCheckboxes(master.dataset.bulkSelectForm)
+  const checkboxes = bulkCheckboxesForMaster(master)
   const checked = checkboxes.filter((checkbox) => checkbox.checked).length
 
   master.disabled = checkboxes.length === 0
@@ -163,7 +185,7 @@ document.addEventListener("change", (event) => {
   }
 
   if (target.matches("[data-bulk-select-all]")) {
-    bulkCheckboxes(target.dataset.bulkSelectForm).forEach((checkbox) => {
+    bulkCheckboxesForMaster(target).forEach((checkbox) => {
       checkbox.checked = target.checked
     })
     refreshBulkSelectAll(target)
@@ -171,8 +193,9 @@ document.addEventListener("change", (event) => {
   }
 
   if (target.matches('input[type="checkbox"][name="ids[]"][form]')) {
-    const master = document.querySelector(`[data-bulk-select-all][data-bulk-select-form="${target.getAttribute("form")}"]`)
-    if (master) refreshBulkSelectAll(master)
+    document.querySelectorAll("[data-bulk-select-all]").forEach((master) => {
+      if (bulkSelectFormIds(master).includes(target.getAttribute("form"))) refreshBulkSelectAll(master)
+    })
   }
 })
 

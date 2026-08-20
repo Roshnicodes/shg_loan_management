@@ -94,16 +94,16 @@ class User < ApplicationRecord
     elsif district_coordinator?
       self.mapped_district_ids = Array(mapped_district_ids.first || district_id).compact
       self.district_id = mapped_district_ids.first
-      self.block_id = mapped_block_ids.first || block_id
+      self.block_id = mapped_block_ids.first
       self.village_id = nil
       self.mapped_village_ids = []
     elsif crp?
       self.mapped_district_ids = Array(mapped_district_ids.first || district_id).compact
-      self.mapped_block_ids = normalize_id_list(mapped_block_ids.presence || Array(block_id))
-      self.mapped_village_ids = normalize_id_list(mapped_village_ids.presence || Array(village_id))
+      self.mapped_block_ids = normalize_id_list(mapped_block_ids)
+      self.mapped_village_ids = normalize_id_list(mapped_village_ids)
       self.district_id = mapped_district_ids.first
-      self.block_id = mapped_block_ids.first || block_id
-      self.village_id = mapped_village_ids.first || village_id
+      self.block_id = mapped_block_ids.first
+      self.village_id = mapped_village_ids.first
     end
   end
 
