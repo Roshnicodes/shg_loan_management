@@ -12,16 +12,19 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
     @assistant_type = UserType.create!(name: "Pagination Assistant", code: "ASSIST_ADMIN", level: "state")
     @dc = build_user("visit_page_dc", @dc_type)
     @assistant = build_user("visit_page_assistant", @assistant_type)
-    @shg = Shg.create!(
+    @shg = Shg.new(
       name: "Pagination SHG",
       shg_code: "PG-SHG",
       state: @state,
       district: @district,
       block: @block,
       village: @village,
+      linkage_date: Date.current,
       approval_status: "approved",
       created_by: @dc
     )
+    attach_required_shg_files(@shg)
+    @shg.save!
     @member = ShgMember.create!(
       shg: @shg,
       occupation: @occupation,

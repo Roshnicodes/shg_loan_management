@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_20_093000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -162,7 +162,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_093000) do
     t.integer "loan_term"
     t.string "loan_term_type"
     t.decimal "principal_amount", precision: 12, scale: 2, default: "0.0", null: false
-    t.bigint "product_id", null: false
+    t.bigint "product_id"
     t.bigint "shg_id", null: false
     t.bigint "shg_member_id", null: false
     t.string "source_crp_identifier"

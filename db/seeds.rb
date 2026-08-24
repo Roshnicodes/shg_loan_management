@@ -66,11 +66,16 @@ shg = Shg.find_or_create_by!(name: "Ujjwal Mahila Samuh", village: village) do |
   group.district = district
   group.block = block
   group.linkage_date = Date.current - 1.year
+  sample_image = Rails.root.join("app/assets/images/shg-women-hero.png")
+  group.meeting_register.attach(io: File.open(sample_image), filename: "sample-meeting-register.png", content_type: "image/png")
+  group.meeting_photo.attach(io: File.open(sample_image), filename: "sample-meeting-photo.png", content_type: "image/png")
 end
 
 ShgMember.find_or_create_by!(shg: shg, name: "Sita Bai") do |member|
   member.occupation = Occupation.find_by!(name: "Farmer")
   member.gender = "Female"
+  member.dob = Date.new(1990, 1, 1)
   member.mobile = "9000000001"
+  member.monthly_income = 10_000
   member.address = "Khajuri, Bhopal"
 end

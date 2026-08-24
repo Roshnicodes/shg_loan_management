@@ -8,8 +8,8 @@
 <% members = visible_shg_members.where(active: true, shg_id: shgs.select(:id)).includes(:shg).order(:name) %>
 <% member_loans = ShgLoan.where(shg_member_id: members.select(:id)).includes(:product).order(active: :desc, id: :asc).each_with_object({}) { |loan, indexed| indexed[loan.shg_member_id] ||= loan } %>
 <% village_options = villages.map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
-<% shg_options = shgs.map { |shg| [shg.name, shg.id, { data: { block_id: shg.block_id, village_id: shg.village_id } }] } %>
-<% member_options = members.map { |member| [member.name, member.id, { data: { shg_id: member.shg_id, product_id: member_loans[member.id]&.product_id } }] } %>
+<% shg_options = shgs.map { |shg| [shg.display_name, shg.id, { data: { block_id: shg.block_id, village_id: shg.village_id } }] } %>
+<% member_options = members.map { |member| [member.name, member.id, { data: { shg_id: member.shg_id, product_id: member_loans[member.id]&.product_id, product_name: member_loans[member.id]&.product&.name } }] } %>
 <% return_params = request.query_parameters.slice(*VisitRecordsController::VISIT_INDEX_PARAMS.map(&:to_s)) %>
 <% form_url = @visit_record.persisted? ? visit_record_path(@visit_record, return_params) : visit_records_path(return_params) %>
 
@@ -30,11 +30,15 @@
     <span>SHG Member</span>
     <%= form.select :shg_member_id, options_for_select(member_options, @visit_record.shg_member_id), { prompt: "Select member" }, required: true, data: { controller: "searchable-select", visit_select_target: "member", action: "visit-select#memberChanged" } %>
   </label>
-  <label><span>Product</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true, data: { controller: "searchable-select", visit_select_target: "product" } %></label>
+  <label>
+    <span>Product</span>
+    <%= form.hidden_field :product_id, data: { visit_select_target: "product" } %>
+    <input type="text" value="<%= @visit_record.product&.name %>" placeholder="Auto from member loan" readonly data-visit-select-target="productName">
+  </label>
   <label><span>Visit Date</span><%= form.date_field :visit_date, required: true %></label>
   <label><span>Photo / Document</span><%= form.file_field :photo, accept: ".pdf,image/png,image/jpeg,image/webp" %><small>Max 5 MB</small></label>
-  <label class="full"><span>Purpose</span><%= form.text_area :purpose, rows: 2 %></label>
-  <label class="full"><span>Observations</span><%= form.text_area :observations, rows: 3 %></label>
+  <label class="full"><span>Purpose</span><%= form.text_area :purpose, rows: 2, required: true %></label>
+  <label class="full"><span>Observations</span><%= form.text_area :observations, rows: 3, required: true %></label>
 
   <div class="form-actions">
     <%= link_to "Cancel", visit_records_path(return_params), class: "secondary-link" %>

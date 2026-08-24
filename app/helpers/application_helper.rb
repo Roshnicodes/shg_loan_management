@@ -174,16 +174,18 @@ module ApplicationHelper
 
   def loan_term_display(loan)
     term = loan.loan_term.to_i
-    period =
-      case loan.loan_term_type
-      when "Monthly" then "Month"
-      when "Quarterly" then "Quarter"
-      when "Half Yearly" then "Half Year"
-      when "Yearly" then "Year"
-      else loan.loan_term_type.to_s
-      end
-
-    "#{term} #{period.pluralize(term)}"
+    case loan.loan_term_type
+    when "Quarterly"
+      months = term * 3
+      "#{term} #{'quarter'.pluralize(term)} (#{months} #{'month'.pluralize(months)})"
+    when "Half Yearly"
+      months = term * 6
+      "#{term} #{'half-year'.pluralize(term)} (#{months} #{'month'.pluralize(months)})"
+    when "Yearly"
+      "#{term} #{'year'.pluralize(term)}"
+    else
+      "#{term} #{'month'.pluralize(term)}"
+    end
   end
 
   def pagination_controls(label = "records")

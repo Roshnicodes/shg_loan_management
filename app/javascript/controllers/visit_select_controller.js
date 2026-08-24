@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["block", "village", "shg", "member", "product"]
+  static targets = ["block", "village", "shg", "member", "product", "productName"]
 
   connect() {
     this.villageOptions = this.cloneOptions(this.villageTarget)
@@ -126,11 +126,13 @@ export default class extends Controller {
     }
     if (!force && this.productTarget.value) return
 
-    const productId = this.memberTarget.selectedOptions[0]?.dataset.productId
-    if (productId && Array.from(this.productTarget.options).some((option) => option.value === productId)) {
+    const selectedMember = this.memberTarget.selectedOptions[0]
+    const productId = selectedMember?.dataset.productId
+    const productName = selectedMember?.dataset.productName
+    if (productId) {
       this.productTarget.value = productId
+      if (this.hasProductNameTarget) this.productNameTarget.value = productName || "Selected member loan product"
       this.productTarget.dispatchEvent(new Event("change", { bubbles: true }))
-      this.refreshSearchableSelect(this.productTarget)
     } else if (force) {
       this.clearProduct()
     }
@@ -140,8 +142,8 @@ export default class extends Controller {
     if (!this.hasProductTarget) return
 
     this.productTarget.value = ""
+    if (this.hasProductNameTarget) this.productNameTarget.value = ""
     this.productTarget.dispatchEvent(new Event("change", { bubbles: true }))
-    this.refreshSearchableSelect(this.productTarget)
   }
 
   updateDependentStates() {

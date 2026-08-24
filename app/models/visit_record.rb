@@ -18,7 +18,7 @@ class VisitRecord < ApplicationRecord
   before_validation :set_product_from_member_loan, if: -> { product.blank? && shg_member.present? }
   before_validation :set_visit_number, on: :create
 
-  validates :visit_date, presence: true
+  validates :visit_date, :purpose, :observations, presence: true
   validates :visit_number, numericality: { only_integer: true, greater_than: 0 }
   validates :approval_status, inclusion: { in: APPROVAL_STATUSES }
   validate :member_belongs_to_shg

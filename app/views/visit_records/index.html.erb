@@ -69,7 +69,7 @@
             <td><%= visit.visit_label %></td>
             <td>
               <strong><%= visit.village.name %></strong><br>
-              <%= link_to visit.shg.name, visit.shg %><br>
+              <%= link_to visit.shg.display_name, visit.shg %><br>
               <small><%= visit.shg_member.name %></small>
             </td>
             <td><%= visit.product&.name || "-" %></td>
@@ -144,7 +144,7 @@
                             <dt>Visit No.</dt><dd><%= visit.visit_label %></dd>
                             <dt>Product</dt><dd><%= visit.product&.name || "-" %></dd>
                             <dt>Village</dt><dd><%= visit.village.name %></dd>
-                            <dt>SHG</dt><dd><%= visit.shg.name %></dd>
+                            <dt>SHG</dt><dd><%= visit.shg.display_name %></dd>
                             <dt>Created By</dt><dd><%= visit.created_by&.display_name || "-" %></dd>
                           </dl>
                         </div>

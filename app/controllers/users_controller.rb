@@ -165,6 +165,10 @@ class UsersController < ApplicationController
 
   private
 
+  def require_create_permission!
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to add new users." unless can_manage_users?
+  end
+
   def searched_users
     users = User.includes(:user_type, :state, :district, :block, :village)
     query = params[:q].to_s.strip

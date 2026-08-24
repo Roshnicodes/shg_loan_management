@@ -6,7 +6,8 @@
 <% selected_village_id = params.dig(:shg_loan, :village_id).presence || @loan.shg&.village_id %>
 <% villages = villages.where(block_id: selected_block_id) if selected_block_id.present? %>
 <% shgs = selected_village_id.present? ? visible_shgs.where(active: true, village_id: selected_village_id).order(:name) : Shg.none %>
-<% member_scope = @loan.shg_id.present? ? visible_shg_members.where(active: true, shg_id: @loan.shg_id).includes(:shg).order(:name) : ShgMember.none %>
+<% loaned_member_ids = ShgLoan.where(active: true).where.not(id: @loan.id).select(:shg_member_id) %>
+<% member_scope = @loan.shg_id.present? ? visible_shg_members.where(active: true, shg_id: @loan.shg_id).where.not(id: loaned_member_ids).includes(:shg).order(:name) : ShgMember.none %>
 <% member_options = member_scope.map do |member|
   [
     member.name,
@@ -16,7 +17,7 @@
         block_id: member.shg.block_id,
         village_id: member.shg.village_id,
         shg_id: member.shg_id,
-        group: member.shg.name,
+        group: member.shg.display_name,
         gender: member.gender,
         dob: member.dob,
         address: member.address
@@ -27,7 +28,7 @@ end %>
 
 <% paid_amount = @loan.persisted? ? @loan.total_paid : 0 %>
 
-<%= form_with model: @loan, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f, dependent_dropdown_fallback: true } do |form| %>
+<%= form_with model: @loan, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f, loan_member_details_loan_id_value: @loan.id.to_i, dependent_dropdown_fallback: true } do |form| %>
   <label><span>Block</span><%= select_tag "shg_loan[block_id]", options_for_select(block_filter_options(blocks), selected_block_id), prompt: "Select block", required: true, data: { loan_member_details_target: "block", action: "loan-member-details#blockChanged" } %></label>
   <label><span>Village</span><%= select_tag "shg_loan[village_id]", options_for_select(village_filter_options(villages), selected_village_id), prompt: "Select village", required: true, data: { loan_member_details_target: "village", action: "loan-member-details#villageChanged" } %></label>
   <label><span>SHG / Group Name</span><%= form.select :shg_id, options_for_select(shg_filter_options(shgs), @loan.shg_id), { prompt: "Select SHG" }, required: true, data: { loan_member_details_target: "shg", action: "loan-member-details#shgChanged" } %></label>
@@ -38,13 +39,22 @@ end %>
     <label><span>Date of Birth</span><input type="text" readonly data-loan-member-details-target="dob"></label>
     <label class="full"><span>Address</span><textarea rows="2" readonly data-loan-member-details-target="address"></textarea></label>
   </div>
-  <label><span>Product Type</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true %></label>
-  <label><span>Loan Status</span><%= form.collection_select :loan_status_id, LoanStatus.order(:name), :id, :name, { prompt: "Default Active" } %></label>
+  <% if current_user&.crp? %>
+    <%= form.hidden_field :product_id %>
+  <% else %>
+    <label><span>Product Type</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true %></label>
+  <% end %>
   <label><span>Type of Geography</span><%= form.select :geography_type, ShgLoan::GEOGRAPHY_TYPES, { prompt: "Rural / Urban" }, required: true %></label>
   <label><span>Disbursement Date</span><%= form.date_field :distribution_date, required: true, data: { loan_member_details_target: "distributionDate", action: "loan-member-details#calculate" } %></label>
   <label><span>Loan Term Type</span><%= form.select :loan_term_type, ShgLoan::TERM_TYPES, { prompt: "Select term type" }, required: true, data: { loan_member_details_target: "termType", action: "loan-member-details#calculate" } %></label>
-  <label><span>Loan Term</span><%= form.number_field :loan_term, min: 1, placeholder: "Example: 7", data: { loan_member_details_target: "term", action: "input->loan-member-details#calculate" } %></label>
-  <label><span>Principal Amount</span><%= form.number_field :principal_amount, step: "0.01", min: 1, required: true, data: { loan_member_details_target: "principal", action: "input->loan-member-details#calculate" } %></label>
+  <label>
+    <span>Loan Term</span>
+    <div class="input-with-suffix">
+      <%= form.number_field :loan_term, min: 1, placeholder: "Example: 7", required: true, data: { loan_member_details_target: "term", action: "input->loan-member-details#calculate" } %>
+      <span data-loan-member-details-target="termUnit">months</span>
+    </div>
+  </label>
+  <label><span>Principal Amount</span><%= form.number_field :principal_amount, step: "0.01", min: 1, value: (@loan.principal_amount.to_d.positive? ? @loan.principal_amount : nil), required: true, data: { loan_member_details_target: "principal", action: "input->loan-member-details#calculate" } %></label>
   <label><span>Interest Percent Per Installment</span><%= form.number_field :interest_percent, step: "0.01", min: 0, required: true, data: { loan_member_details_target: "interestPercent", action: "input->loan-member-details#calculate" } %></label>
 
   <div class="loan-calculation full">

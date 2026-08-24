@@ -21,6 +21,10 @@ class LocationImportsController < ApplicationController
 
   private
 
+  def require_create_permission!
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to add new records." unless can_create_location_records?
+  end
+
   def import_locations(file)
     rows = 0
     records = 0

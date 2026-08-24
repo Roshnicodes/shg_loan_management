@@ -78,6 +78,9 @@ class ShgsController < ApplicationController
 
   def approve
     return redirect_to(shgs_path, alert: "This SHG is not pending at your approval level.") unless @shg.approvable_by?(current_user)
+    if current_user&.district_coordinator? && !@shg.product_ready_for_approval?
+      return redirect_to(shgs_path, alert: "Product Type is mandatory for every loan before DC approval.")
+    end
 
     @shg.approve!(current_user)
     redirect_to shgs_path, notice: @shg.approved? ? "SHG approved successfully." : "SHG sent to Assistant Admin approval."

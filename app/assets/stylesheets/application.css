@@ -445,6 +445,27 @@ input, select, textarea {
   box-shadow: 0 1px 0 rgba(255,255,255,.9) inset, 0 8px 18px rgba(15, 76, 99, .04);
 }
 input:focus, select:focus, textarea:focus { border-color: #00a99c; box-shadow: 0 0 0 4px rgba(0,169,156,.12); }
+.input-with-suffix {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+.input-with-suffix input {
+  border-radius: 11px 0 0 11px;
+}
+.input-with-suffix > span {
+  display: inline-flex;
+  align-items: center;
+  min-width: 136px;
+  border: 1px solid #cddfe3;
+  border-left: 0;
+  border-radius: 0 11px 11px 0;
+  background: #eef8f7;
+  color: #17646a;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 900;
+}
 .searchable-select-native {
   position: static;
   width: 100%;
@@ -576,13 +597,15 @@ input:focus, select:focus, textarea:focus { border-color: #00a99c; box-shadow: 0
   width: 100%;
   max-width: 100%;
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(260px, 290px) minmax(0, 1fr);
+  display: block;
   overflow-x: hidden;
 }
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  bottom: 0;
+  width: 290px;
   height: 100vh;
   overflow: auto;
   padding: 12px 22px 22px;
@@ -627,6 +650,7 @@ input:focus, select:focus, textarea:focus { border-color: #00a99c; box-shadow: 0
 .main {
   min-width: 0;
   max-width: 100%;
+  margin-left: 290px;
   overflow-x: hidden;
   padding: 24px 28px 34px;
   background:
@@ -2498,7 +2522,7 @@ select[data-user-mapping-target="village"] {
   .login-panel { min-height: auto; padding: 0; }
   .login-panel-inner { border-radius: 20px; }
   .login-benefits { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: 16px; margin: 0; }
-  .sidebar { position: relative; height: auto; padding: 10px 16px 16px; }
+  .sidebar { position: relative; left: auto; top: auto; bottom: auto; width: auto; height: auto; padding: 10px 16px 16px; }
   .brand { min-height: 76px; padding: 0 0 12px; }
   .brand-logo { width: 340px; max-width: none; margin: -18px -48px -20px; }
   .sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
@@ -2521,7 +2545,7 @@ select[data-user-mapping-target="village"] {
   .analytics-total-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .approval-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .show-summary, .show-section-grid { grid-template-columns: 1fr; }
-  .main { padding: 18px; }
+  .main { margin-left: 0; padding: 18px; }
   .panel-header .action-row,
   .filter-actions,
   .form-actions {

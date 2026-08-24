@@ -1,4 +1,6 @@
 class AdminRecordsController < ApplicationController
+  ASSISTANT_ADMIN_CREATE_RECORD_CLASSES = [ State, District, Block, Village, Product, LoanStatus, UserType ].freeze
+
   before_action :authenticate_user!
   before_action :require_user_admin_permission!
   before_action :set_record, only: %i[show edit update destroy disable]
@@ -7,6 +9,8 @@ class AdminRecordsController < ApplicationController
   before_action :require_bulk_delete_permission!, only: :destroy
 
   class_attribute :record_class, :record_fields, :record_title
+
+  helper_method :can_create_admin_record?
 
   def index
     @records = paginate_relation(searched_records.order(created_at: :desc))
@@ -52,7 +56,19 @@ class AdminRecordsController < ApplicationController
     redirect_to polymorphic_path(record_class), notice: "#{record_title} disabled successfully."
   end
 
+  def can_create_admin_record?
+    can_create_records? || (assistant_admin_create_record_class? && can_create_location_records?)
+  end
+
   private
+
+  def require_create_permission!
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to add new records." unless can_create_admin_record?
+  end
+
+  def assistant_admin_create_record_class?
+    ASSISTANT_ADMIN_CREATE_RECORD_CLASSES.include?(record_class)
+  end
 
   def searched_records
     records = record_class.all

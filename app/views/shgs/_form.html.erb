@@ -23,9 +23,9 @@
   <label><span>Block</span><%= form.select :block_id, options_for_select(block_options, @shg.block_id), { prompt: "Select block" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
   <label><span>Village</span><%= form.select :village_id, options_for_select(village_options, @shg.village_id), { prompt: "Select village" }, required: true, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
   <label><span>SHG Name</span><%= form.text_field :name, required: true %></label>
-  <label><span>Linkage Date</span><%= form.date_field :linkage_date %></label>
-  <label><span>Meeting Register</span><%= form.file_field :meeting_register, accept: ".pdf,image/png,image/jpeg,image/webp" %></label>
-  <label><span>Meeting Photo</span><%= form.file_field :meeting_photo, accept: ".pdf,image/png,image/jpeg,image/webp" %></label>
+  <label><span>Linkage Date</span><%= form.date_field :linkage_date, required: true %></label>
+  <label><span>Meeting Register</span><%= form.file_field :meeting_register, accept: ".pdf,image/png,image/jpeg,image/webp", required: !@shg.meeting_register.attached? %></label>
+  <label><span>Meeting Photo</span><%= form.file_field :meeting_photo, accept: ".pdf,image/png,image/jpeg,image/webp", required: !@shg.meeting_photo.attached? %></label>
   <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
   <div class="form-actions"><%= link_to "Cancel", shgs_path, class: "secondary-link" %><%= form.submit "Save SHG", class: "primary-button" %></div>
 <% end %>

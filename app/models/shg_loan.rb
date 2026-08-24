@@ -3,7 +3,7 @@ class ShgLoan < ApplicationRecord
 
   belongs_to :shg
   belongs_to :shg_member
-  belongs_to :product
+  belongs_to :product, optional: true
   belongs_to :activity
   belongs_to :loan_status
   belongs_to :created_by, class_name: "User"

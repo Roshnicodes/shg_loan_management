@@ -40,7 +40,7 @@ class ReportsController < ApplicationController
           loan.shg.display_name,
           loan.shg_member.name,
           loan.shg_member.loan_no,
-          loan.product.name,
+          loan.product&.name || "-",
           loan.distribution_date,
           report_loan_status(loan, amount),
           report_collection_status(amount),

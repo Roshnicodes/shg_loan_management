@@ -18,10 +18,11 @@ class Shg < ApplicationRecord
   before_validation :build_shg_code, if: -> { shg_code.blank? && name.present? }
   before_validation :set_default_approval_status
 
-  validates :name, :shg_code, presence: true
+  validates :state, :district, :block, :village, :name, :shg_code, :linkage_date, presence: true
   validates :name, uniqueness: { case_sensitive: false }
   validates :shg_code, uniqueness: true
   validates :approval_status, inclusion: { in: APPROVAL_STATUSES }
+  validate :meeting_files_present
   validate :meeting_register_file_type
   validate :meeting_photo_file_type
   validate :meeting_register_file_size
@@ -37,6 +38,14 @@ class Shg < ApplicationRecord
 
   def ready_for_approval?
     shg_members.exists? && shg_loans.exists?
+  end
+
+  def loans_missing_product
+    shg_loans.where(active: true, product_id: nil)
+  end
+
+  def product_ready_for_approval?
+    loans_missing_product.none?
   end
 
   def submit_for_approval!(user = nil)
@@ -75,6 +84,10 @@ class Shg < ApplicationRecord
 
   def approve!(user)
     raise ActiveRecord::RecordInvalid, self unless approvable_by?(user)
+    if user.district_coordinator? && !product_ready_for_approval?
+      errors.add(:base, "Product Type must be selected for every SHG loan before DC approval")
+      raise ActiveRecord::RecordInvalid, self
+    end
 
     if user.district_coordinator?
       update!(
@@ -146,6 +159,11 @@ class Shg < ApplicationRecord
     return unless Shg.exists?(shg_code: shg_code)
 
     self.shg_code = "#{base}-#{Time.current.strftime('%H%M%S')}"
+  end
+
+  def meeting_files_present
+    errors.add(:meeting_register, "must be uploaded") unless meeting_register.attached?
+    errors.add(:meeting_photo, "must be uploaded") unless meeting_photo.attached?
   end
 
   def meeting_register_file_type

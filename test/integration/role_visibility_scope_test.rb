@@ -58,17 +58,21 @@ class RoleVisibilityScopeTest < ActionDispatch::IntegrationTest
   end
 
   def shg_for(state, district, block, village, name, created_by: nil)
-    Shg.create!(
+    shg = Shg.new(
       state: state,
       district: district,
       block: block,
       village: village,
       name: name,
       shg_code: name.parameterize.upcase.first(24),
+      linkage_date: Date.current,
       approval_status: "approved",
       created_by: created_by,
       active: true
     )
+    attach_required_shg_files(shg)
+    shg.save!
+    shg
   end
 
   def create_loan(shg, source_crp_identifier, created_by)

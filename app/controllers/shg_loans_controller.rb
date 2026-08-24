@@ -65,9 +65,14 @@ class ShgLoansController < ApplicationController
   def create
     @loan = ShgLoan.new(loan_params)
     @loan.created_by = current_user
+    @loan.loan_status ||= LoanStatus.default_active
 
     unless loan_selection_available?(@loan)
       @loan.errors.add(:shg, "and member are not available for your login")
+      return render :new, status: :unprocessable_entity
+    end
+
+    if product_required_for_current_user?(@loan)
       return render :new, status: :unprocessable_entity
     end
 
@@ -82,8 +87,13 @@ class ShgLoansController < ApplicationController
 
   def update
     @loan.assign_attributes(loan_params)
+    @loan.loan_status ||= LoanStatus.default_active
     unless loan_selection_available?(@loan)
       @loan.errors.add(:shg, "and member are not available for your login")
+      return render :edit, status: :unprocessable_entity
+    end
+
+    if product_required_for_current_user?(@loan)
       return render :edit, status: :unprocessable_entity
     end
 
@@ -254,7 +264,7 @@ class ShgLoansController < ApplicationController
             loan.shg.village.name,
             loan_crp_identifier(loan),
             loan_crp_name(loan),
-            loan.product.name,
+            loan.product&.name || "-",
             formatted_import_date(loan.distribution_date),
             loan_status_label(loan),
             loan.loan_term_type,
@@ -353,6 +363,14 @@ class ShgLoansController < ApplicationController
       loan.source_loan_status.present? ||
       loan.source_total_payable.present? ||
       loan.source_paid.present?
+  end
+
+  def product_required_for_current_user?(loan)
+    return false if current_user&.crp?
+    return false if loan.product_id.present?
+
+    loan.errors.add(:product, "must be selected by DC/Admin")
+    true
   end
 
   helper_method :loan_crp_identifier, :loan_crp_name, :loan_status_label,
@@ -1291,7 +1309,7 @@ class ShgLoansController < ApplicationController
   def loan_params
     params.require(:shg_loan)
       .except(:block_id, :village_id)
-      .permit(:shg_id, :shg_member_id, :product_id, :loan_status_id, :geography_type, :distribution_date, :loan_term_type, :loan_term, :principal_amount, :interest_percent)
+      .permit(:shg_id, :shg_member_id, :product_id, :geography_type, :distribution_date, :loan_term_type, :loan_term, :principal_amount, :interest_percent)
       .merge(activity_id: default_import_activity.id)
   end
 end

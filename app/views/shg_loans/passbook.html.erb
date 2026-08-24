@@ -23,7 +23,7 @@
     <div class="passbook-card">
       <h2>SHG Details</h2>
       <dl>
-        <dt>SHG Name</dt><dd><%= @loan.shg.name %></dd>
+        <dt>SHG Name</dt><dd><%= @loan.shg.display_name %></dd>
         <dt>Village</dt><dd><%= @loan.shg.village.name %></dd>
         <dt>Block</dt><dd><%= @loan.shg.block.name %></dd>
         <dt>CRP Name</dt><dd><%= @loan.created_by.name %></dd>
@@ -38,7 +38,7 @@
       <dl>
         <dt>Member Name</dt><dd><%= @loan.shg_member.name %></dd>
         <dt>Member ID</dt><dd><%= @loan.shg_member.loan_no.presence || "MEM#{@loan.shg_member.id.to_s.rjust(4, '0')}" %></dd>
-        <dt>Product</dt><dd><%= @loan.product.name %></dd>
+        <dt>Product</dt><dd><%= @loan.product&.name || "-" %></dd>
         <dt>Loan Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
         <dt>Interest Amount</dt><dd><%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
         <dt>Total Payable</dt><dd><%= number_to_currency(@loan.total_payable, unit: "₹") %></dd>

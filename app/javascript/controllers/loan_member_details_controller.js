@@ -5,11 +5,12 @@ export default class extends Controller {
     "block", "village", "shg", "member", "group", "gender", "dob", "address",
     "distributionDate", "termType", "term", "principal", "interestPercent",
     "principalOut", "interestOut", "totalOut", "paidOut", "remainingOut",
-    "emiOut", "scheduleLabel", "scheduleOut"
+    "emiOut", "scheduleLabel", "scheduleOut", "termUnit"
   ]
 
   static values = {
-    paid: Number
+    paid: Number,
+    loanId: Number
   }
 
   connect() {
@@ -168,7 +169,9 @@ export default class extends Controller {
     const options = await this.fetchRemoteOptions("/location_options/members", {
       block_id: this.hasBlockTarget ? this.blockTarget.value : "",
       village_id: this.hasVillageTarget ? this.villageTarget.value : "",
-      shg_id: this.shgTarget.value
+      shg_id: this.shgTarget.value,
+      available_for_loan: "1",
+      current_loan_id: this.loanIdValue || ""
     })
     this.replaceRemoteOptions(this.memberTarget, options, "Select member")
     this.update()
@@ -234,6 +237,7 @@ export default class extends Controller {
     const term = Math.max(parseInt(this.termTarget?.value || "0", 10), 0)
     const paid = this.paidValue || 0
     const termType = this.termTypeTarget?.value || "Monthly"
+    if (this.hasTermUnitTarget) this.termUnitTarget.textContent = this.termUnitText(termType, term)
     const schedule = this.reducingBalanceSchedule(principal, interestPercent, term, termType)
     const interestAmount = schedule.reduce((sum, emi) => sum + emi.interestAmount, 0)
     const totalPayable = schedule.reduce((sum, emi) => sum + emi.dueAmount, 0)
@@ -302,6 +306,14 @@ export default class extends Controller {
 
   installmentsPerYear(termType) {
     return 12 / this.intervalMonths(termType)
+  }
+
+  termUnitText(termType, term = 0) {
+    const count = Number.parseInt(term || "0", 10)
+    if (termType === "Quarterly") return `${count === 1 ? "quarter" : "quarters"} (${count * 3} months)`
+    if (termType === "Half Yearly") return `${count === 1 ? "half-year" : "half-years"} (${count * 6} months)`
+    if (termType === "Yearly") return count === 1 ? "year" : "years"
+    return count === 1 ? "month" : "months"
   }
 
   roundMoney(value) {

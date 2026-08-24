@@ -115,7 +115,7 @@
         <% @loans.each do |loan| %>
           <tr>
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", loan.id, false, form: "bulk-disable-loans", disabled: !loan.active? %></td><% end %>
-            <td><%= loan.shg.name %></td>
+            <td><%= loan.shg.display_name %></td>
             <td><%= link_to loan.shg_member.name, loan %></td>
             <td><%= loan.shg_member.loan_no.presence || "-" %></td>
             <td><%= loan.shg.state.name %></td>
@@ -124,12 +124,12 @@
             <td><%= loan.shg.village.name %></td>
             <td><%= loan_crp_identifier(loan).presence || "-" %></td>
             <td><%= loan_crp_name(loan).presence || "-" %></td>
-            <td><%= loan.product.name %></td>
+            <td><%= loan.product&.name || "-" %></td>
             <td><%= formatted_import_date(loan.distribution_date) %></td>
             <td><span class="status"><%= loan_status_label(loan) %></span></td>
             <td><span class="status <%= loan.active? ? "approved" : "rejected" %>"><%= loan.active? ? "Active" : "Inactive" %></span></td>
             <td><%= loan.loan_term_type %></td>
-            <td><%= loan.loan_term %></td>
+            <td><%= loan_term_display(loan) %></td>
             <td><%= number_to_currency(loan.principal_amount, unit: "₹") %></td>
             <td><%= loan.interest_percent.present? ? loan.interest_percent : "-" %></td>
             <td><%= number_to_currency(loan_interest_amount(loan), unit: "₹") %></td>

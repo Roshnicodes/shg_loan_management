@@ -73,7 +73,13 @@
       <div class="document-tile">
         <span>Meeting Register</span>
         <% if @shg.meeting_register.attached? %>
-          <%= link_to @shg.meeting_register.filename.to_s, rails_blob_path(@shg.meeting_register, disposition: "attachment"), class: "secondary-link" %>
+          <% if @shg.meeting_register.image? %>
+            <%= link_to rails_blob_path(@shg.meeting_register, disposition: "attachment"), class: "document-image-link" do %>
+              <%= image_tag(@shg.meeting_register, class: "attachment-preview", alt: "Meeting register") %>
+            <% end %>
+          <% else %>
+            <%= link_to @shg.meeting_register.filename.to_s, rails_blob_path(@shg.meeting_register, disposition: "attachment"), class: "secondary-link" %>
+          <% end %>
         <% else %>
           <strong>Not uploaded</strong>
         <% end %>

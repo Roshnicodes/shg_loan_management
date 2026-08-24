@@ -24,36 +24,47 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
       active: true
     )
 
-    imported_shg = Shg.create!(
+    imported_shg = Shg.new(
       state: state,
       district: district,
       block: block,
       village: village,
       name: "Imported Scope SHG",
       shg_code: "IMPORTED-SCOPE-SHG",
+      linkage_date: Date.current,
       approval_status: "approved",
       active: true
     )
-    other_shg = Shg.create!(
+    attach_required_shg_files(imported_shg)
+    imported_shg.save!
+
+    other_shg = Shg.new(
       state: state,
       district: district,
       block: other_block,
       village: other_village,
       name: "Other Scope SHG",
       shg_code: "OTHER-SCOPE-SHG",
+      linkage_date: Date.current,
       approval_status: "approved",
       active: true
     )
-    inactive_shg = Shg.create!(
+    attach_required_shg_files(other_shg)
+    other_shg.save!
+
+    inactive_shg = Shg.new(
       state: state,
       district: district,
       block: block,
       village: inactive_only_village,
       name: "Inactive Scope SHG",
       shg_code: "INACTIVE-SCOPE-SHG",
+      linkage_date: Date.current,
       approval_status: "approved",
       active: false
     )
+    attach_required_shg_files(inactive_shg)
+    inactive_shg.save!
     member = ShgMember.create!(
       shg: imported_shg,
       occupation: occupations(:one),

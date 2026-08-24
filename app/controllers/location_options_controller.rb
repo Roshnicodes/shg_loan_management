@@ -24,6 +24,7 @@ class LocationOptionsController < ApplicationController
     members = members.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     members = members.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
     members = members.where(shg_id: params[:shg_id]) if params[:shg_id].present?
+    members = members_available_for_loan(members) if params[:available_for_loan].present?
 
     render json: members.order(:name).map { |member| member_option(member) }
   end
@@ -50,10 +51,17 @@ class LocationOptionsController < ApplicationController
       block_id: member.shg.block_id,
       village_id: member.shg.village_id,
       shg_id: member.shg_id,
-      group: member.shg.name,
+      group: member.shg.display_name,
       gender: member.gender,
       dob: member.dob,
       address: member.address
     }
+  end
+
+  def members_available_for_loan(members)
+    loaned_member_ids = ShgLoan.where(active: true)
+    loaned_member_ids = loaned_member_ids.where.not(id: params[:current_loan_id]) if params[:current_loan_id].present?
+
+    members.where.not(id: loaned_member_ids.select(:shg_member_id))
   end
 end
