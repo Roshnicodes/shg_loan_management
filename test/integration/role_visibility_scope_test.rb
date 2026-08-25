@@ -16,10 +16,10 @@ class RoleVisibilityScopeTest < ActionDispatch::IntegrationTest
     created_village = Village.create!(block: block, name: "Created Village", code: "CV", active: true)
     other_village = Village.create!(block: other_block, name: "Other District Village", code: "ODV", active: true)
 
-    admin = user_for(admin_type, state, nil, "scope-admin")
-    assistant = user_for(assistant_type, state, nil, "scope-assistant")
-    dc = user_for(dc_type, state, district, "scope-dc")
-    crp = user_for(crp_type, state, district, "scope-crp")
+    admin = user_for(admin_type, state, nil, "106")
+    assistant = user_for(assistant_type, state, nil, "107")
+    dc = user_for(dc_type, state, district, "108")
+    crp = user_for(crp_type, state, district, "109")
 
     imported_shg = shg_for(state, district, block, village, "Imported Sheet SHG")
     crp_created_shg = shg_for(state, district, block, created_village, "CRP Master SHG", created_by: crp)
@@ -28,8 +28,8 @@ class RoleVisibilityScopeTest < ActionDispatch::IntegrationTest
 
     create_loan(imported_shg, crp.login_id, users(:one))
     create_loan(crp_created_shg, crp.login_id, crp)
-    create_loan(other_shg, "other-crp", users(:one))
-    create_loan(unrelated_same_district_shg, "someone-else", users(:one))
+    create_loan(other_shg, "110", users(:one))
+    create_loan(unrelated_same_district_shg, "111", users(:one))
 
     assert_shg_options_for(admin, block, village, [ imported_shg, unrelated_same_district_shg ])
     assert_shg_options_for(assistant, other_block, other_village, [ other_shg ])
@@ -48,7 +48,6 @@ class RoleVisibilityScopeTest < ActionDispatch::IntegrationTest
       email: "#{login_id}@example.com",
       login_id: login_id,
       mobile: "98#{SecureRandom.random_number(10**8).to_s.rjust(8, "0")}",
-      designation: user_type.name,
       user_type: user_type,
       state: state,
       district: district,

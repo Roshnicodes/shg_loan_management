@@ -31,8 +31,8 @@
         <p>Please sign in to continue.</p>
         <%= form_with url: login_path, class: "login-form" do |form| %>
           <label>
-            <span>Login ID</span>
-            <%= form.text_field :login_id, value: @remembered_login_id, placeholder: "Enter your login ID", required: true, autofocus: true, autocomplete: "username" %>
+            <span>Username</span>
+            <%= form.text_field :login_id, value: @remembered_login_id, placeholder: "Enter username", required: true, autofocus: true, autocomplete: "username" %>
           </label>
           <label>
             <span>Password</span>

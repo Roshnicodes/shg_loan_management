@@ -10,8 +10,8 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
     @occupation = Occupation.create!(name: "Pagination Occupation")
     @dc_type = UserType.create!(name: "Pagination DC", code: "DIST_COORDINATOR", level: "district")
     @assistant_type = UserType.create!(name: "Pagination Assistant", code: "ASSIST_ADMIN", level: "state")
-    @dc = build_user("visit_page_dc", @dc_type)
-    @assistant = build_user("visit_page_assistant", @assistant_type)
+    @dc = build_user("113", @dc_type)
+    @assistant = build_user("114", @assistant_type)
     @shg = Shg.new(
       name: "Pagination SHG",
       shg_code: "PG-SHG",
@@ -129,7 +129,6 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
       email: "#{login_id}@example.com",
       login_id: login_id,
       mobile: "98765#{rand(10000..99999)}",
-      designation: user_type.name,
       user_type: user_type,
       state: @state,
       district: @district,

@@ -34,9 +34,8 @@ class ShgTest < ActiveSupport::TestCase
     dc = User.create!(
       name: "Approval DC",
       email: "approval-dc@example.com",
-      login_id: "approval-dc",
+      login_id: "102",
       mobile: "9876501111",
-      designation: "DC",
       user_type: dc_type,
       state: shg.state,
       district: shg.district,
@@ -46,5 +45,39 @@ class ShgTest < ActiveSupport::TestCase
 
     assert_raises(ActiveRecord::RecordInvalid) { shg.approve!(dc) }
     assert_equal "pending_dc", shg.reload.approval_status
+  end
+
+  test "district coordinator approval assigns loan numbers to blank members" do
+    shg = shgs(:one)
+    shg.update_column(:approval_status, "pending_dc")
+    attach_required_shg_files(shg)
+    member = ShgMember.create!(
+      shg: shg,
+      occupation: occupations(:one),
+      name: "DC Approved Member",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543216",
+      monthly_income: 10_000,
+      address: "Test address"
+    )
+
+    dc_type = UserType.create!(name: "Loan Number DC", code: "DIST_COORDINATOR", level: "district", active: true)
+    dc = User.create!(
+      name: "Loan Number DC",
+      email: "loan-number-dc@example.com",
+      login_id: "103",
+      mobile: "9876501112",
+      user_type: dc_type,
+      state: shg.state,
+      district: shg.district,
+      password: "secret123",
+      active: true
+    )
+
+    shg.approve!(dc)
+
+    assert_equal "pending_assistant", shg.reload.approval_status
+    assert_equal "ASAWO26-01", member.reload.loan_no
   end
 end

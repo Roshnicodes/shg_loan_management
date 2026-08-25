@@ -20,7 +20,7 @@ class SessionsController < ApplicationController
       redirect_to dashboard_path, notice: "Welcome back, #{user.name}."
     else
       @remembered_login_id = login_id
-      flash.now[:alert] = "Login ID or password is incorrect."
+      flash.now[:alert] = "Username or password is incorrect."
       render :new, status: :unprocessable_entity
     end
   end

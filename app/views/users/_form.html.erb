@@ -6,14 +6,13 @@
 
 <%= form_with model: @user, class: "form-grid user-form", data: { controller: "user-mapping", action: "submit->user-mapping#validateMapping" } do |form| %>
   <label><span>User Name</span><%= form.text_field :name, required: true %></label>
-  <label><span>Login ID</span><%= form.text_field :login_id, required: true, pattern: "[A-Za-z0-9_.-]+", title: "Only letters, numbers, dot, dash and underscore" %></label>
+  <label><span>Username</span><%= form.text_field :login_id, readonly: true, placeholder: @user.persisted? ? nil : "Auto generated", title: "Username is auto generated as 3 digits" %></label>
   <label><span>Email</span><%= form.email_field :email, required: true %></label>
   <label><span>Mobile</span><%= form.telephone_field :mobile, required: true, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number" %></label>
-  <label><span>Designation</span><%= form.text_field :designation, required: true %></label>
   <label><span>User Type</span><%= form.select :user_type_id, options_for_select(user_type_options, @user.user_type_id), { prompt: "Select role" }, required: true, data: { user_mapping_target: "role", action: "user-mapping#roleChanged" } %></label>
-  <label data-user-mapping-target="stateField"><span>State Office</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { user_mapping_target: "state", action: "user-mapping#stateChanged" } %></label>
+  <label data-user-mapping-target="stateField"><span>State</span><%= form.collection_select :state_id, State.order(:name), :id, :display_name, { prompt: "Select state" }, required: true, data: { user_mapping_target: "state", action: "user-mapping#stateChanged" } %></label>
   <div class="form-field" data-user-mapping-target="districtField">
-    <span>District Office</span>
+    <span>District</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="district">
       <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="district" data-user-mapping-target="districtToggle">Select districts</button>
       <div class="multi-select-menu" data-user-mapping-target="districtMenu">
@@ -25,7 +24,7 @@
     <button type="button" class="mini-link" data-user-mapping-target="districtSelectAll" data-action="user-mapping#selectAll" data-user-mapping-select-param="district">Select all districts</button>
   </div>
   <div class="form-field" data-user-mapping-target="blockField">
-    <span>Block Office</span>
+    <span>Block</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="block">
       <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="block" data-user-mapping-target="blockToggle">Select blocks</button>
       <div class="multi-select-menu" data-user-mapping-target="blockMenu">
@@ -37,7 +36,7 @@
     <button type="button" class="mini-link" data-action="user-mapping#selectAll" data-user-mapping-select-param="block">Select all blocks</button>
   </div>
   <div class="form-field" data-user-mapping-target="villageField">
-    <span>Village Office</span>
+    <span>Village</span>
     <div class="multi-select-combobox" data-user-mapping-select-param="village">
       <button type="button" class="multi-select-toggle" data-action="user-mapping#toggleDropdown" data-user-mapping-select-param="village" data-user-mapping-target="villageToggle">Select villages</button>
       <div class="multi-select-menu" data-user-mapping-target="villageMenu">

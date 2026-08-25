@@ -53,9 +53,8 @@ class AssistantAdminLocationCreationTest < ActionDispatch::IntegrationTest
     User.create!(
       name: "Assistant Master Admin",
       email: "assistant-master@example.com",
-      login_id: "assistant-master",
+      login_id: "105",
       mobile: "9812345678",
-      designation: "Assistant Admin",
       user_type: assistant_type,
       state: state,
       password: "secret123",

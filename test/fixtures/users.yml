@@ -3,9 +3,8 @@
 one:
   name: Test User One
   email: one@example.com
-  login_id: user_one
+  login_id: 201
   mobile: "9876543201"
-  designation: MyString
   user_type: one
   state: one
   district: one
@@ -17,9 +16,8 @@ one:
 two:
   name: Test User Two
   email: two@example.com
-  login_id: user_two
+  login_id: 202
   mobile: "9876543202"
-  designation: MyString
   user_type: two
   state: two
   district: two

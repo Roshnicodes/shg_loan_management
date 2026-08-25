@@ -14,9 +14,8 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
     crp = User.create!(
       name: "Sheet CRP",
       email: "sheet-crp@example.com",
-      login_id: "sheet_crp",
+      login_id: "112",
       mobile: "9876543999",
-      designation: "CRP",
       user_type: crp_type,
       state: state,
       district: district,

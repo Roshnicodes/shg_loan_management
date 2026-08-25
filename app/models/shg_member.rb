@@ -4,9 +4,8 @@ class ShgMember < ApplicationRecord
   has_many :shg_loans, dependent: :restrict_with_error
   has_many :visit_records, dependent: :restrict_with_error
 
-  LOAN_NO_PREFIX = "ASAWO24".freeze
+  LOAN_NO_PREFIX = "ASAWO26".freeze
 
-  before_validation :assign_loan_no, if: -> { loan_no.blank? }
   before_validation :normalize_contact_numbers
 
   validates :shg, :occupation, :gender, :dob, :mobile, :monthly_income, :address, presence: true
@@ -17,23 +16,41 @@ class ShgMember < ApplicationRecord
 
   def display_name = "#{name} - #{shg.name}"
 
-  private
+  def assign_next_loan_no!
+    return loan_no if loan_no.present?
 
-  def normalize_contact_numbers
-    self.mobile = mobile.to_s.gsub(/\D/, "") if mobile.present?
+    attempts = 0
+    with_lock do
+      reload
+      return loan_no if loan_no.present?
+
+      update_columns(loan_no: self.class.next_loan_no, updated_at: Time.current)
+      loan_no
+    end
+  rescue ActiveRecord::RecordNotUnique
+    attempts += 1
+    retry if attempts < 3
+
+    raise
   end
 
-  def assign_loan_no
-    self.loan_no = "#{LOAN_NO_PREFIX}-#{next_loan_no_sequence}"
+  def self.next_loan_no
+    "#{LOAN_NO_PREFIX}-#{next_loan_no_sequence.to_s.rjust(2, '0')}"
   end
 
-  def next_loan_no_sequence
-    last_number = self.class
-      .where("loan_no LIKE ?", "#{LOAN_NO_PREFIX}-%")
+  def self.next_loan_no_sequence
+    last_number = where("loan_no LIKE ?", "#{LOAN_NO_PREFIX}-%")
       .pluck(:loan_no)
       .filter_map { |value| value.to_s.split("-").last.to_i if value.to_s.match?(/\A#{Regexp.escape(LOAN_NO_PREFIX)}-\d+\z/) }
       .max
 
     last_number.to_i + 1
   end
+
+  private
+
+  def normalize_contact_numbers
+    self.mobile = mobile.to_s.gsub(/\D/, "") if mobile.present?
+  end
+
 end

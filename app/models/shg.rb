@@ -64,11 +64,14 @@ class Shg < ApplicationRecord
         approved_at: timestamp
       )
     elsif actor&.district_coordinator?
-      update!(
-        approval_status: "pending_assistant",
-        dc_approved_by: actor,
-        dc_approved_at: timestamp
-      )
+      transaction do
+        update!(
+          approval_status: "pending_assistant",
+          dc_approved_by: actor,
+          dc_approved_at: timestamp
+        )
+        assign_member_loan_numbers!
+      end
     else
       update!(
         approval_status: "pending_dc",
@@ -90,11 +93,14 @@ class Shg < ApplicationRecord
     end
 
     if user.district_coordinator?
-      update!(
-        approval_status: "pending_assistant",
-        dc_approved_by: user,
-        dc_approved_at: Time.current
-      )
+      transaction do
+        update!(
+          approval_status: "pending_assistant",
+          dc_approved_by: user,
+          dc_approved_at: Time.current
+        )
+        assign_member_loan_numbers!
+      end
     else
       update!(
         approval_status: "approved",
@@ -140,6 +146,12 @@ class Shg < ApplicationRecord
 
   def returnable_by?(user)
     approvable_by?(user)
+  end
+
+  def assign_member_loan_numbers!
+    shg_members.where(loan_no: [ nil, "" ]).order(:id).find_each do |member|
+      member.assign_next_loan_no!
+    end
   end
 
   private

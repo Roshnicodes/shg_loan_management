@@ -7,15 +7,16 @@ class User < ApplicationRecord
   belongs_to :block, optional: true
   belongs_to :village, optional: true
 
+  before_validation :assign_login_id, on: :create
   before_validation :normalize_login_id
   before_validation :normalize_mobile
   before_validation :normalize_office_mapping
   after_commit :attach_imported_crp_loans, on: %i[create update]
 
-  validates :name, :email, :login_id, :mobile, :designation, :user_type, presence: true, if: :user_profile_validation_needed?
+  validates :name, :email, :login_id, :mobile, :user_type, presence: true, if: :user_profile_validation_needed?
   validates :email, uniqueness: { case_sensitive: false, conditions: -> { where(active: true) } }, if: :active?
-  validates :login_id, uniqueness: { case_sensitive: false, conditions: -> { where(active: true) } }, if: :active?
-  validates :login_id, format: { with: /\A[a-zA-Z0-9_.-]+\z/, message: "can use only letters, numbers, dot, dash and underscore" }
+  validates :login_id, uniqueness: { case_sensitive: false }, if: :login_id_validation_needed?
+  validates :login_id, format: { with: /\A\d{3}\z/, message: "must be exactly 3 digits" }, if: :login_id_validation_needed?
   validates :mobile, format: { with: /\A\d{10}\z/, allow_blank: true, message: "must be 10 digits" }
   validates :password, length: { minimum: 6 }, if: -> { password.present? }
   validate :office_mapping_required, if: :office_mapping_validation_needed?
@@ -75,6 +76,25 @@ class User < ApplicationRecord
     self.login_id = login_id.to_s.strip.downcase
   end
 
+  def assign_login_id
+    return if login_id.present?
+
+    self.login_id = next_numeric_login_id
+  end
+
+  def next_numeric_login_id
+    used_numbers = self.class
+      .where("login_id ~ ?", "^[0-9]+$")
+      .pluck(:login_id)
+      .map(&:to_i)
+      .select { |number| number.between?(1, 999) }
+
+    next_number = (1..999).detect { |number| used_numbers.exclude?(number) }
+    raise ActiveRecord::RecordInvalid, self unless next_number
+
+    next_number.to_s.rjust(3, "0")
+  end
+
   def normalize_mobile
     self.mobile = mobile.to_s.gsub(/\D/, "") if mobile.present?
   end
@@ -117,9 +137,12 @@ class User < ApplicationRecord
       will_save_change_to_email? ||
       will_save_change_to_login_id? ||
       will_save_change_to_mobile? ||
-      will_save_change_to_designation? ||
       will_save_change_to_user_type_id? ||
       office_mapping_validation_needed?
+  end
+
+  def login_id_validation_needed?
+    new_record? || will_save_change_to_login_id?
   end
 
   def office_mapping_validation_needed?
@@ -138,8 +161,8 @@ class User < ApplicationRecord
   def office_mapping_required
     return if user_type.blank?
 
-    errors.add(:state, "office is required") if state_id.blank?
-    errors.add(:district, "office is required") if (district_coordinator? || crp?) && office_district_ids.blank?
+    errors.add(:state, "is required") if state_id.blank?
+    errors.add(:district, "is required") if (district_coordinator? || crp?) && office_district_ids.blank?
   end
 
   def role_matches?(*keys)

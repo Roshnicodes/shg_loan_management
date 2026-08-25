@@ -78,7 +78,7 @@
           </div>
           <div class="mobile-menu-user">
             <strong><%= current_user.name %></strong>
-            <span><%= current_user.user_type&.name.presence || current_user.designation %></span>
+            <span><%= current_user.user_type&.name %></span>
           </div>
           <nav class="mobile-menu-nav">
             <% app_nav_items.each do |label, path| %>

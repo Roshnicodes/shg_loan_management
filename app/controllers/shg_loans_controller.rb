@@ -476,23 +476,6 @@ class ShgLoansController < ApplicationController
     @import_crp_users_by_name = users_with_role_codes("CRP").index_by { |user| user.name.to_s.downcase }
     @import_loan_statuses = {}
     @next_import_shg_code_no = Shg.maximum(:id).to_i + 1
-    @next_import_member_loan_no = next_import_member_loan_no
-  end
-
-  def next_import_member_loan_no
-    last_number = ShgMember
-      .where("loan_no LIKE ?", "#{ShgMember::LOAN_NO_PREFIX}-%")
-      .pluck(:loan_no)
-      .filter_map { |value| value.to_s.split("-").last.to_i if value.to_s.match?(/\A#{Regexp.escape(ShgMember::LOAN_NO_PREFIX)}-\d+\z/) }
-      .max
-
-    last_number.to_i + 1
-  end
-
-  def next_import_member_loan_number
-    number = @next_import_member_loan_no
-    @next_import_member_loan_no += 1
-    "#{ShgMember::LOAN_NO_PREFIX}-#{number}"
   end
 
   def cached_import_state(name)
@@ -1019,7 +1002,7 @@ class ShgLoansController < ApplicationController
         shg_id: shg.id,
         occupation_id: cached_import_occupation(attrs[:occupation]).id,
         name: attrs[:member],
-        loan_no: next_import_member_loan_number,
+        loan_no: nil,
         gender: attrs[:gender],
         dob: attrs[:dob],
         mobile: attrs[:mobile],

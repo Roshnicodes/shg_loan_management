@@ -1090,6 +1090,10 @@ input:focus, select:focus, textarea:focus { border-color: #00a99c; box-shadow: 0
   overflow: visible;
   z-index: 5;
 }
+.panel:has(.user-form) {
+  overflow: visible;
+  z-index: 6;
+}
 .report-panel .filter-grid {
   overflow: visible;
 }
@@ -1220,6 +1224,7 @@ select[data-user-mapping-target="village"] {
 }
 .multi-select-combobox {
   position: relative;
+  z-index: 3;
 }
 .multi-select-toggle {
   position: relative;
@@ -1264,11 +1269,11 @@ select[data-user-mapping-target="village"] {
 }
 .multi-select-menu {
   position: absolute;
-  z-index: 40;
+  z-index: 200;
   inset: calc(100% + 8px) 0 auto;
   display: grid;
   gap: 8px;
-  max-height: 300px;
+  max-height: min(280px, calc(100vh - 190px));
   padding: 10px;
   border: 1px solid rgba(108,178,203,.72);
   border-radius: 14px;
@@ -1282,6 +1287,7 @@ select[data-user-mapping-target="village"] {
 .multi-select-options {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 .multi-select-option {
   display: flex;
@@ -1297,6 +1303,7 @@ select[data-user-mapping-target="village"] {
   font: inherit;
   font-weight: 800;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 .multi-select-option:hover {
   background: #eefafa;

@@ -17,10 +17,10 @@
   <div class="record-hero">
     <div class="record-card">
       <h3><%= @user.name %></h3>
-      <p><%= @user.designation.presence || @user.user_type.name %></p>
+      <p><%= @user.user_type.name %></p>
     </div>
     <div class="record-card">
-      <h3>Login ID</h3>
+      <h3>Username</h3>
       <p><%= @user.login_id %></p>
     </div>
   </div>

@@ -28,10 +28,9 @@ Product.find_or_create_by!(code: "CL") { |p| p.name = "Consumption Loan" }
 
 admin = User.find_or_initialize_by(email: "admin@shg.local")
 admin.assign_attributes(
-  login_id: "admin",
+  login_id: "001",
   name: "System Admin",
   mobile: "9999999999",
-  designation: "Administrator",
   user_type: admin_type,
   state: state
 )
@@ -40,16 +39,15 @@ admin.password_confirmation = "password" if admin.new_record?
 admin.save!
 
 [
-  [ "assistant@shg.local", "assistant", "Assistant Admin", assist_admin_type, state, nil, nil, nil ],
-  [ "dc@shg.local", "dc", "District Coordinator", district_coordinator_type, state, district, nil, nil ],
-  [ "crp@shg.local", "crp", "CRP User", crp_type, state, district, block, village ]
+  [ "assistant@shg.local", "002", "Assistant Admin", assist_admin_type, state, nil, nil, nil ],
+  [ "dc@shg.local", "003", "District Coordinator", district_coordinator_type, state, district, nil, nil ],
+  [ "crp@shg.local", "004", "CRP User", crp_type, state, district, block, village ]
 ].each do |email, login_id, name, role, user_state, user_district, user_block, user_village|
   user = User.find_or_initialize_by(email: email)
   user.assign_attributes(
     login_id: login_id,
     name: name,
     mobile: "9999999999",
-    designation: role.name,
     user_type: role,
     state: user_state,
     district: user_district,

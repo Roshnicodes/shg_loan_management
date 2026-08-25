@@ -109,7 +109,7 @@ class UsersController < ApplicationController
 
   def export
     stream_csv("wash360-users-#{Date.current.strftime('%Y%m%d')}.csv") do |stream|
-      stream << CSV.generate_line([ "ID", "Name", "Login ID", "Email", "Mobile", "Designation", "Role", "State", "Districts", "Blocks", "Villages", "Active", "Password" ])
+      stream << CSV.generate_line([ "ID", "Name", "Username", "Email", "Mobile", "Role", "State", "Districts", "Blocks", "Villages", "Active", "Password" ])
 
       User.includes(:user_type, :state, :district, :block, :village).find_each(batch_size: 1_000) do |user|
         stream << CSV.generate_line([
@@ -118,7 +118,6 @@ class UsersController < ApplicationController
           user.login_id,
           user.email,
           user.mobile,
-          user.designation,
           user.user_type&.name,
           user.office_state_names.join(", "),
           user.office_district_names.join(", "),
@@ -203,7 +202,6 @@ class UsersController < ApplicationController
       "LOWER(users.login_id) LIKE :query",
       "LOWER(users.email) LIKE :query",
       "LOWER(users.mobile) LIKE :query",
-      "LOWER(users.designation) LIKE :query",
       "LOWER(user_types.name) LIKE :query",
       "LOWER(states.name) LIKE :query",
       "LOWER(districts.name) LIKE :query",
@@ -219,7 +217,7 @@ class UsersController < ApplicationController
   end
 
   def user_params
-    params.require(:user).permit(:name, :login_id, :email, :mobile, :designation, :user_type_id, :state_id, :district_id, :block_id, :village_id, :password, :password_confirmation, :active, mapped_district_ids: [], mapped_block_ids: [], mapped_village_ids: [])
+    params.require(:user).permit(:name, :login_id, :email, :mobile, :user_type_id, :state_id, :district_id, :block_id, :village_id, :password, :password_confirmation, :active, mapped_district_ids: [], mapped_block_ids: [], mapped_village_ids: [])
   end
 
   def user_import_attributes(row)
@@ -231,10 +229,9 @@ class UsersController < ApplicationController
 
     {
       name: row["Name"].presence || row["User Name"],
-      login_id: row["Login ID"].to_s.strip,
+      login_id: row["Username"].to_s.strip,
       email: row["Email"].to_s.strip,
       mobile: row["Mobile"].to_s.strip,
-      designation: row["Designation"].to_s.strip,
       user_type: user_type,
       state: state,
       mapped_district_ids: district_ids,

@@ -31,14 +31,14 @@ export default class extends Controller {
     this.stateTarget.setCustomValidity("")
 
     if (!this.stateTarget.value) {
-      this.stateTarget.setCustomValidity("Please select state office")
+      this.stateTarget.setCustomValidity("Please select state")
       this.stateTarget.reportValidity()
       event.preventDefault()
       return
     }
 
     if (role && !adminRole && this.selectedValues(this.districtTarget).length === 0) {
-      this.showMappingError(this.districtToggleTarget, "Please select district office")
+      this.showMappingError(this.districtToggleTarget, "Please select district")
       event.preventDefault()
     }
   }

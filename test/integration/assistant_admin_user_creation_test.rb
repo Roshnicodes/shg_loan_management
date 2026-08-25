@@ -8,7 +8,7 @@ class AssistantAdminUserCreationTest < ActionDispatch::IntegrationTest
     village = Village.create!(name: "Assistant User Village", block: block, active: true)
     assistant_type = UserType.create!(name: "Assistant Admin", code: "ASSIST_ADMIN", level: "state", active: true)
     crp_type = UserType.create!(name: "CRP", code: "CRP", level: "village", active: true)
-    assistant = create_user("assistant-user-admin", assistant_type, state)
+    assistant = create_user("104", assistant_type, state)
 
     post login_path, params: { login_id: assistant.login_id, password: "secret123" }
 
@@ -16,10 +16,8 @@ class AssistantAdminUserCreationTest < ActionDispatch::IntegrationTest
       post users_path, params: {
         user: {
           name: "Created CRP",
-          login_id: "created-crp",
           email: "created-crp@example.com",
           mobile: "9876502222",
-          designation: "CRP",
           user_type_id: crp_type.id,
           state_id: state.id,
           mapped_district_ids: [ district.id ],
@@ -42,7 +40,6 @@ class AssistantAdminUserCreationTest < ActionDispatch::IntegrationTest
       email: "#{login_id}@example.com",
       login_id: login_id,
       mobile: "9876501111",
-      designation: user_type.name,
       user_type: user_type,
       state: state,
       password: "secret123",
