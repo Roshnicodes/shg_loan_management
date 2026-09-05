@@ -8,19 +8,37 @@
     </div>
   </div>
   <%= render "shared/errors", record: @record %>
-  <%= form_with model: @record, class: "form-grid" do |form| %>
+  <% village_form = controller.record_class == Village %>
+  <% form_data = village_form ? { controller: "location-select" } : {} %>
+  <%= form_with model: @record, class: "form-grid", data: form_data do |form| %>
+    <% if village_form %>
+      <% selected_state_id = params.dig(@record.model_name.param_key, :state_id).presence || @record.block&.district&.state_id %>
+      <% selected_district_id = params.dig(@record.model_name.param_key, :district_id).presence || @record.block&.district_id %>
+      <label>
+        <span>State</span>
+        <%= select_tag "#{@record.model_name.param_key}[state_id]", options_from_collection_for_select(State.order(:name), :id, :display_name, selected_state_id), prompt: "Select State", required: true, data: { location_select_target: "state", action: "location-select#stateChanged" } %>
+      </label>
+      <label>
+        <span>District</span>
+        <%= select_tag "#{@record.model_name.param_key}[district_id]", options_for_select(district_filter_options(District.includes(:state).order(:name)), selected_district_id), prompt: "Select District", required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %>
+      </label>
+    <% end %>
     <% controller.record_fields.each do |field| %>
       <label class="<%= "checkbox-field" if field[:type] == :checkbox %>">
         <span><%= field[:label] %></span>
         <% case field[:type] %>
         <% when :select %>
-          <%= form.collection_select field[:name], field[:collection].call, :id, :display_name, { prompt: "Select #{field[:label]}" }, required: true %>
+          <% if village_form && field[:name] == :block_id %>
+            <%= form.select field[:name], options_for_select(block_filter_options(field[:collection].call), @record.block_id), { prompt: "Select #{field[:label]}" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %>
+          <% else %>
+            <%= form.collection_select field[:name], field[:collection].call, :id, :display_name, { prompt: "Select #{field[:label]}" }, required: field.fetch(:required, true) %>
+          <% end %>
         <% when :static_select %>
-          <%= form.select field[:name], field[:options], { prompt: "Select #{field[:label]}" }, required: true %>
+          <%= form.select field[:name], field[:options], { prompt: "Select #{field[:label]}" }, required: field.fetch(:required, true) %>
         <% when :checkbox %>
           <%= form.check_box field[:name] %>
         <% else %>
-          <%= form.text_field field[:name], required: true %>
+          <%= form.text_field field[:name], required: field.fetch(:required, true) %>
         <% end %>
       </label>
     <% end %>

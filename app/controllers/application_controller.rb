@@ -9,12 +9,13 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :logged_in?, :can_manage_records?, :can_approve_shg?, :readonly_admin?,
     :can_manage_users?, :can_manage_shg?, :can_manage_shg_member?, :can_approve_visit?, :can_manage_visit?,
-    :can_bulk_delete_records?, :can_create_records?, :can_create_location_records?, :can_import_loan_data?,
+    :can_manage_shg_loan?, :can_bulk_delete_records?, :can_create_records?, :can_create_location_records?, :can_import_loan_data?,
     :visible_states, :visible_districts, :visible_blocks, :visible_villages, :visible_shgs,
-    :manageable_shgs, :visible_shg_members, :visible_visit_records
+    :manageable_shgs, :visible_shg_members, :visible_visit_records, :with_results_anchor
 
   DEFAULT_PAGE_SIZE = 30
   FILTER_OPTION_LIMIT = 250
+  RESULTS_ANCHOR = "results"
 
   private
 
@@ -73,6 +74,14 @@ class ApplicationController < ActionController::Base
 
   def can_manage_shg_member?(member)
     can_manage_shg?(member&.shg)
+  end
+
+  def can_manage_shg_loan?(loan)
+    return false unless can_manage_records? && loan
+    return false if loan.shg&.approved?
+    return loan.created_by_id == current_user.id || can_manage_shg?(loan.shg) if current_user&.crp?
+
+    current_user&.admin? || current_user&.assistant_admin? || current_user&.district_coordinator?
   end
 
   def can_approve_visit?(visit = nil)
@@ -462,6 +471,42 @@ class ApplicationController < ActionController::Base
     page_records = records.first(@per_page)
     @page_item_count = page_records.size
     page_records
+  end
+
+  def restore_persistent_index_params(session_key, path_helper, permitted_keys)
+    if params[:clear_filters].present?
+      session.delete(session_key)
+      redirect_to public_send(path_helper)
+      return
+    end
+
+    permitted_key_names = permitted_keys.map(&:to_s)
+    if (request.query_parameters.keys & permitted_key_names).present?
+      index_params = params.permit(*permitted_keys).to_h.compact_blank
+      index_params.present? ? session[session_key] = index_params : session.delete(session_key)
+      return
+    end
+
+    saved_params = session[session_key]
+    return if saved_params.blank?
+
+    flash.keep
+    redirect_to public_send(path_helper, saved_params)
+  end
+
+  def preserved_index_params(permitted_keys)
+    params.permit(*permitted_keys).to_h.compact_blank
+  end
+
+  def results_redirect_path(path_helper, permitted_keys)
+    with_results_anchor(public_send(path_helper, preserved_index_params(permitted_keys)))
+  end
+
+  def with_results_anchor(path)
+    path = path.to_s
+    return path if path.include?("#")
+
+    "#{path}##{RESULTS_ANCHOR}"
   end
 
   def stream_csv(filename)

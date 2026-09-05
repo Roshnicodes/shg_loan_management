@@ -43,7 +43,7 @@
   <% end %>
 
   <% if @report_ready %>
-    <div class="searchable-table compact-search-results">
+    <div id="<%= ApplicationController::RESULTS_ANCHOR %>" class="searchable-table compact-search-results">
       <% if @loans.blank? %><div class="table-empty-state">No matching report records found.</div><% end %>
       <div class="table-wrap">
         <table class="loan-import-table">

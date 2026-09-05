@@ -6,7 +6,7 @@ class ShgLoanEmisController < ApplicationController
 
   def pay
     @emi.mark_paid!(params[:paid_amount])
-    redirect_to @loan, notice: "EMI payment updated successfully."
+    redirect_to shg_loan_path(@loan, preserved_index_params(ShgLoansController::LOAN_INDEX_PARAMS)), notice: "EMI payment updated successfully."
   end
 
   private

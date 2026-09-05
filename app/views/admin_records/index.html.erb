@@ -19,7 +19,7 @@
       <%= server_search_box(polymorphic_path(controller.record_class), placeholder: "Search...") %>
     </div>
   </div>
-  <div class="searchable-table compact-search-results">
+  <div id="<%= ApplicationController::RESULTS_ANCHOR %>" class="searchable-table compact-search-results">
     <% if @records.blank? %><div class="table-empty-state">No matching records found.</div><% end %>
   <div class="table-wrap">
     <table>

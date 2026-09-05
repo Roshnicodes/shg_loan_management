@@ -36,12 +36,12 @@
     <label><span>SHG</span><%= form.select :shg_id, options_for_select(shg_filter_options(@shgs), params[:shg_id]), { prompt: "All SHG" }, data: { location_select_target: "shg", action: "location-select#shgChanged" } %></label>
     <label><span>Approval</span><%= form.select :approval_status, VisitRecord::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, { prompt: "All status", selected: params[:approval_status] } %></label>
     <div class="filter-actions">
-      <%= link_to "Clear", visit_records_path, class: "secondary-link" %>
+      <%= link_to "Clear", visit_records_path(clear_filters: 1), class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
     </div>
   <% end %>
 
-  <div class="searchable-table compact-search-results">
+  <div id="<%= ApplicationController::RESULTS_ANCHOR %>" class="searchable-table compact-search-results">
     <% if @visit_records.blank? %><div class="table-empty-state">No matching visits found.</div><% end %>
     <div class="table-wrap">
     <table>

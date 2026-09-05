@@ -1830,6 +1830,19 @@ select[data-user-mapping-target="village"] {
   gap: 8px;
   margin: 0;
 }
+.inline-product-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.inline-product-form select {
+  min-width: 150px;
+  max-width: 220px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
 .danger-link,
 .warning-link,
 .success-link {

@@ -1,4 +1,5 @@
 <% content_for :page_title, "SHG Members" %>
+<% index_params = request.query_parameters %>
 
 <section class="panel">
   <div class="panel-header">
@@ -13,7 +14,7 @@
           <%= form.submit "Activate Selected", class: "success-link", data: { turbo_confirm: "Activate selected members?" } %>
         <% end %>
       <% end %>
-      <% if @can_add_member %><%= link_to "Add Member", new_shg_member_path, class: "primary-link" %><% end %>
+      <% if @can_add_member %><%= link_to "Add Member", new_shg_member_path(index_params), class: "primary-link" %><% end %>
       <%= server_search_box(shg_members_path, placeholder: "Search members...") %>
     </div>
   </div>
@@ -33,12 +34,12 @@
       <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp", action: "location-select#userChanged" } %></label>
     <% end %>
     <div class="filter-actions">
-      <%= link_to "Clear", shg_members_path, class: "secondary-link" %>
+      <%= link_to "Clear", shg_members_path(clear_filters: 1), class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
     </div>
   <% end %>
 
-  <div class="searchable-table compact-search-results">
+  <div id="<%= ApplicationController::RESULTS_ANCHOR %>" class="searchable-table compact-search-results">
     <% if @members.blank? %><div class="table-empty-state">No matching members found.</div><% end %>
     <div class="table-wrap">
     <table>
@@ -47,13 +48,13 @@
         <% @members.each do |member| %>
           <tr>
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", member.id, false, form: (member.active? ? "bulk-disable-members" : "bulk-activate-members") %></td><% end %>
-            <td><%= link_to member.name, member %></td>
+            <td><%= link_to member.name, shg_member_path(member, index_params) %></td>
             <td><%= member.shg.display_name %></td>
             <td><%= member.loan_no.presence || "-" %></td>
             <td><span class="status <%= member.active? ? "approved" : "rejected" %>"><%= member.active? ? "Active" : "Inactive" %></span></td>
             <td><%= member.monthly_income.present? ? number_to_currency(member.monthly_income, unit: "₹") : "-" %></td>
             <td><%= member.mobile %></td>
-            <td><div class="action-row"><%= link_to "Details", member %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member) %><% end %><% if can_bulk_delete_records? && member.active? %><%= button_to "Disable", disable_shg_member_path(member), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this member?" } } %><% elsif can_bulk_delete_records? %><%= button_to "Activate", activate_shg_member_path(member), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this member?" } } %><% elsif !member.active? %><span class="muted-cell">Disabled</span><% end %></div></td>
+            <td><div class="action-row"><%= link_to "Details", shg_member_path(member, index_params) %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member, index_params) %><% end %><% if can_bulk_delete_records? && member.active? %><%= button_to "Disable", disable_shg_member_path(member, index_params), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this member?" } } %><% elsif can_bulk_delete_records? %><%= button_to "Activate", activate_shg_member_path(member, index_params), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this member?" } } %><% elsif !member.active? %><span class="muted-cell">Disabled</span><% end %></div></td>
           </tr>
         <% end %>
       </tbody>

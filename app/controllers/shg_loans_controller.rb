@@ -8,6 +8,11 @@ require "zip"
 class ShgLoansController < ApplicationController
   helper_method :can_filter_loan_state_district_crp?
 
+  LOAN_INDEX_PARAMS = %i[
+    page q date_from date_to crp_id
+    state_id district_id block_id village_id shg_id
+  ].freeze
+
   IMPORT_BATCH_SIZE = 2_000
   ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
   ImportShgReference = Struct.new(:id, :village_id, :name, :approved, keyword_init: true) do
@@ -15,9 +20,11 @@ class ShgLoansController < ApplicationController
   end
 
   before_action :authenticate_user!
-  before_action :set_loan, only: %i[show edit update destroy disable passbook]
+  before_action -> { restore_persistent_index_params(:shg_loans_index_params, :shg_loans_path, LOAN_INDEX_PARAMS) }, only: :index
+  before_action :set_loan, only: %i[show edit update destroy disable passbook update_product]
   before_action :require_create_permission!, only: %i[new create]
-  before_action :require_manage_permission!, only: %i[edit update destroy disable]
+  before_action :require_shg_loan_manage_permission!, only: %i[edit update update_product]
+  before_action :require_manage_permission!, only: %i[destroy disable]
   before_action :require_loan_import_permission!, only: %i[new_import import]
   before_action :require_bulk_delete_permission!, only: %i[destroy disable bulk_destroy bulk_disable]
 
@@ -26,6 +33,7 @@ class ShgLoansController < ApplicationController
     @loan_imports = LoanImport.includes(:user).order(created_at: :desc).limit(5) if can_import_loan_data?
     @loans = paginate_relation(filtered_loans(preload_emis: false).order(created_at: :desc))
     @loan_emi_totals = emi_totals_by_loan_id(@loans.map(&:id))
+    @loan_product_options = product_code_options
   end
 
   def export
@@ -33,19 +41,19 @@ class ShgLoansController < ApplicationController
   end
 
   def new_import
-    redirect_to shg_loans_path
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS)
   end
 
   def import
     file = params[:file]
-    return redirect_to(shg_loans_path, alert: "Please select a CSV or Excel file.") unless file.present?
+    return redirect_to(results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Please select a CSV or Excel file.") unless file.present?
 
     loan_import = start_async_loan_import(file)
-    redirect_to shg_loans_path, notice: "Loan import started in background."
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "Loan import started in background."
   rescue CSV::MalformedCSVError, Zip::Error, REXML::ParseException
-    redirect_to shg_loans_path, alert: "Uploaded file is not a valid CSV or Excel file."
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Uploaded file is not a valid CSV or Excel file."
   rescue ActiveRecord::RecordInvalid => e
-    redirect_to shg_loans_path, alert: e.record.errors.full_messages.to_sentence
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: e.record.errors.full_messages.to_sentence
   end
 
   def show
@@ -77,7 +85,7 @@ class ShgLoansController < ApplicationController
     end
 
     if @loan.save
-      redirect_to shg_loans_path, notice: "SHG loan saved successfully."
+      redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loan saved successfully."
     else
       render :new, status: :unprocessable_entity
     end
@@ -98,7 +106,7 @@ class ShgLoansController < ApplicationController
     end
 
     if @loan.save
-      redirect_to shg_loans_path, notice: "SHG loan updated successfully."
+      redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loan updated successfully."
     else
       render :edit, status: :unprocessable_entity
     end
@@ -114,18 +122,41 @@ class ShgLoansController < ApplicationController
 
   def disable
     @loan.update_columns(active: false, updated_at: Time.current)
-    redirect_to shg_loans_path, notice: "SHG loan disabled successfully."
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loan disabled successfully."
+  end
+
+  def update_product
+    product_id = params.dig(:shg_loan, :product_id).presence
+    return redirect_to(results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Please select Product Code.") if product_id.blank?
+
+    product = Product.find_by(id: product_id)
+    return redirect_to(results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Selected Product Code is not available.") unless product
+
+    @loan.update_columns(product_id: product.id, updated_at: Time.current)
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "Product Code updated successfully."
   end
 
   def bulk_disable
     result = disable_records(filtered_loans, params[:ids])
-    redirect_to shg_loans_path, notice: "SHG loans disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
+    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loans disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   private
 
   def require_loan_import_permission!
     redirect_back fallback_location: shg_loans_path, alert: "You do not have permission to import loan data." unless can_import_loan_data?
+  end
+
+  def require_shg_loan_manage_permission!
+    return if can_manage_shg_loan?(@loan)
+
+    redirect_back fallback_location: results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "This loan cannot be edited after Assistant Admin approval."
+  end
+
+  def product_code_options
+    Product.order(:name).map do |product|
+      [ product_code_label(product), product.id ]
+    end
   end
 
   def start_async_loan_import(file)
@@ -223,6 +254,7 @@ class ShgLoansController < ApplicationController
           "LOWER(shg_members.loan_no) LIKE :query",
           "LOWER(shg_members.mobile) LIKE :query",
           "LOWER(products.name) LIKE :query",
+          "LOWER(products.code) LIKE :query",
           "LOWER(loan_statuses.name) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
@@ -239,7 +271,7 @@ class ShgLoansController < ApplicationController
     stream_csv("shg-loans-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
         "SHG Name", "Member", "Loan No", "State", "District", "Block", "Village", "CRP ID",
-        "CRPName", "Product", "Disbursement Date", "Loan Status",
+        "CRPName", "Product Code", "Disbursement Date", "Loan Status",
         "Term Type", "Loan term", "Principal", "Annual Interest Percent",
         "Interest Amount", "Total Payable", "Principal Collected",
         "Interest collected", "Paid", "Remaining", "Mobile",
@@ -264,7 +296,7 @@ class ShgLoansController < ApplicationController
             loan.shg.village.name,
             loan_crp_identifier(loan),
             loan_crp_name(loan),
-            loan.product&.name || "-",
+            product_code_label(loan.product),
             formatted_import_date(loan.distribution_date),
             loan_status_label(loan),
             loan.loan_term_type,
@@ -365,6 +397,12 @@ class ShgLoansController < ApplicationController
       loan.source_paid.present?
   end
 
+  def product_code_label(product)
+    return "-" unless product
+
+    [ product.name, product.code.presence ].compact_blank.join(" / ")
+  end
+
   def product_required_for_current_user?(loan)
     return false if current_user&.crp?
     return false if loan.product_id.present?
@@ -376,7 +414,7 @@ class ShgLoansController < ApplicationController
   helper_method :loan_crp_identifier, :loan_crp_name, :loan_status_label,
     :loan_interest_amount, :loan_total_payable, :loan_principal_collect,
     :loan_interest_collect, :loan_paid_amount, :loan_remaining_amount,
-    :formatted_import_date
+    :formatted_import_date, :product_code_label
 
   def import_loans(file, progress_import: nil)
     result = { rows: 0, loans: 0, approved_shgs: 0, skipped: 0, errors: [] }

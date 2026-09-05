@@ -3,8 +3,10 @@
 <% block_options = Block.order(:name).map { |block| [block.name, block.id, { data: { district_id: block.district_id } }] } %>
 <% village_options = Village.order(:name).map { |village| [village.name, village.id, { data: { block_id: village.block_id } }] } %>
 <% lock_state_district = (current_user&.crp? || current_user&.district_coordinator?) && @shg.state_id.present? && @shg.district_id.present? %>
+<% return_params = request.query_parameters.slice(*ShgsController::SHG_INDEX_PARAMS.map(&:to_s)) %>
+<% form_url = @shg.persisted? ? shg_path(@shg, return_params) : shgs_path(return_params) %>
 
-<%= form_with model: @shg, class: "form-grid", data: { controller: "location-select" } do |form| %>
+<%= form_with model: @shg, url: form_url, class: "form-grid", data: { controller: "location-select" } do |form| %>
   <% if lock_state_district %>
     <label>
       <span>State</span>
@@ -27,5 +29,5 @@
   <label><span>Meeting Register</span><%= form.file_field :meeting_register, accept: ".pdf,image/png,image/jpeg,image/webp", required: !@shg.meeting_register.attached? %></label>
   <label><span>Meeting Photo</span><%= form.file_field :meeting_photo, accept: ".pdf,image/png,image/jpeg,image/webp", required: !@shg.meeting_photo.attached? %></label>
   <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
-  <div class="form-actions"><%= link_to "Cancel", shgs_path, class: "secondary-link" %><%= form.submit "Save SHG", class: "primary-button" %></div>
+  <div class="form-actions"><%= link_to "Cancel", with_results_anchor(shgs_path(return_params)), class: "secondary-link" %><%= form.submit "Save SHG", class: "primary-button" %></div>
 <% end %>

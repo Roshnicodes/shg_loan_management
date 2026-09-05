@@ -43,7 +43,7 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
 
     patch approve_visit_record_path(@visit, page: 4, approval_status: "pending_dc", q: "Pagination")
 
-    assert_redirected_to visit_records_path(page: 4, approval_status: "pending_dc", q: "Pagination")
+    assert_redirected_to "#{visit_records_path(page: 4, approval_status: "pending_dc", q: "Pagination")}#results"
   end
 
   test "update keeps visit index page params" do
@@ -62,7 +62,7 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
       }
     }
 
-    assert_redirected_to visit_records_path(page: 3, block_id: @block.id)
+    assert_redirected_to "#{visit_records_path(page: 3, block_id: @block.id)}#results"
   end
 
   test "disable keeps visit index page params" do
@@ -71,7 +71,7 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
 
     patch disable_visit_record_path(visit, page: 2, month: "2026-08")
 
-    assert_redirected_to visit_records_path(page: 2, month: "2026-08")
+    assert_redirected_to "#{visit_records_path(page: 2, month: "2026-08")}#results"
   end
 
   test "duplicate visit submit reuses existing record" do
@@ -92,7 +92,7 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
       }
     end
 
-    assert_redirected_to visit_records_path
+    assert_redirected_to "#{visit_records_path}#results"
     assert_equal 1, @visit.reload.visit_number
   end
 
@@ -115,7 +115,7 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
     end
 
     @visit.reload
-    assert_redirected_to visit_records_path
+    assert_redirected_to "#{visit_records_path}#results"
     assert_equal 2, @visit.visit_number
     assert_equal "Second visit", @visit.purpose
     assert_equal "Updated on second visit", @visit.observations

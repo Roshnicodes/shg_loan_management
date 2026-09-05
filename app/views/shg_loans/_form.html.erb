@@ -27,8 +27,10 @@
 end %>
 
 <% paid_amount = @loan.persisted? ? @loan.total_paid : 0 %>
+<% return_params = request.query_parameters.slice(*ShgLoansController::LOAN_INDEX_PARAMS.map(&:to_s)) %>
+<% form_url = @loan.persisted? ? shg_loan_path(@loan, return_params) : shg_loans_path(return_params) %>
 
-<%= form_with model: @loan, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f, loan_member_details_loan_id_value: @loan.id.to_i, dependent_dropdown_fallback: true } do |form| %>
+<%= form_with model: @loan, url: form_url, class: "form-grid", data: { controller: "loan-member-details", loan_member_details_paid_value: paid_amount.to_f, loan_member_details_loan_id_value: @loan.id.to_i, dependent_dropdown_fallback: true } do |form| %>
   <label><span>Block</span><%= select_tag "shg_loan[block_id]", options_for_select(block_filter_options(blocks), selected_block_id), prompt: "Select block", required: true, data: { loan_member_details_target: "block", action: "loan-member-details#blockChanged" } %></label>
   <label><span>Village</span><%= select_tag "shg_loan[village_id]", options_for_select(village_filter_options(villages), selected_village_id), prompt: "Select village", required: true, data: { loan_member_details_target: "village", action: "loan-member-details#villageChanged" } %></label>
   <label><span>SHG / Group Name</span><%= form.select :shg_id, options_for_select(shg_filter_options(shgs), @loan.shg_id), { prompt: "Select SHG" }, required: true, data: { loan_member_details_target: "shg", action: "loan-member-details#shgChanged" } %></label>
@@ -42,7 +44,7 @@ end %>
   <% if current_user&.crp? %>
     <%= form.hidden_field :product_id %>
   <% else %>
-    <label><span>Product Type</span><%= form.collection_select :product_id, Product.order(:name), :id, :name, { prompt: "Select product" }, required: true %></label>
+    <label><span>Product Code</span><%= form.select :product_id, options_for_select(Product.order(:name).map { |product| [ product_code_label(product), product.id ] }, @loan.product_id), { prompt: "Select product" }, required: true %></label>
   <% end %>
   <label><span>Type of Geography</span><%= form.select :geography_type, ShgLoan::GEOGRAPHY_TYPES, { prompt: "Rural / Urban" }, required: true %></label>
   <label><span>Disbursement Date</span><%= form.date_field :distribution_date, required: true, data: { loan_member_details_target: "distributionDate", action: "loan-member-details#calculate" } %></label>
@@ -77,6 +79,6 @@ end %>
       Enter principal amount, interest percent and loan term to see EMI details.
     </div>
   </div>
-  <div class="form-actions"><%= link_to "Cancel", shg_loans_path, class: "secondary-link" %><%= form.submit "Save Loan", class: "primary-button" %></div>
+  <div class="form-actions"><%= link_to "Cancel", with_results_anchor(shg_loans_path(return_params)), class: "secondary-link" %><%= form.submit "Save Loan", class: "primary-button" %></div>
 <% end %>
 <%= render "shared/dependent_dropdown_fallback" %>

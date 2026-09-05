@@ -25,6 +25,8 @@ export default class extends Controller {
     if (this.hasBlockTarget) {
       if (this.hasDistrictTarget) {
         this.filterSelect(this.blockTarget, this.blockOptions, "districtId", this.districtTarget.value)
+      } else if (this.hasStateTarget) {
+        this.filterSelect(this.blockTarget, this.blockOptions, "stateId", this.stateTarget.value)
       }
     }
 

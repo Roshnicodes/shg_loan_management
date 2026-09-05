@@ -108,6 +108,7 @@ Rails.application.routes.draw do
 
     member do
       patch :disable
+      patch :update_product
     end
 
     resources :shg_loan_emis, only: [] do

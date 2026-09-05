@@ -1,4 +1,5 @@
 <% content_for :page_title, @member.name %>
+<% return_params = request.query_parameters.slice(*ShgMembersController::MEMBER_INDEX_PARAMS.map(&:to_s)) %>
 
 <section class="panel">
   <div class="panel-header">
@@ -7,9 +8,9 @@
       <h2><%= @member.name %></h2>
     </div>
     <div class="action-row">
-      <%= link_to "Back", shg_members_path, class: "secondary-link" %>
+      <%= link_to "Back", with_results_anchor(shg_members_path(return_params)), class: "secondary-link" %>
       <% if can_manage_shg_member?(@member) %>
-        <%= link_to "Edit", edit_shg_member_path(@member), class: "primary-link" %>
+        <%= link_to "Edit", edit_shg_member_path(@member, return_params), class: "primary-link" %>
       <% end %>
     </div>
   </div>

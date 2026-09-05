@@ -1,11 +1,12 @@
 <% content_for :page_title, "Visit Details" %>
+<% return_params = request.query_parameters.slice(*VisitRecordsController::VISIT_INDEX_PARAMS.map(&:to_s)) %>
 
 <section class="panel narrow">
   <div class="panel-header">
     <div><p class="eyebrow">Visit Work</p><h2>Visit Details</h2></div>
     <div class="action-row">
-      <%= link_to "Back to Visits", visit_records_path, class: "secondary-link" %>
-      <% if can_manage_visit?(@visit_record) %><%= link_to "Edit", edit_visit_record_path(@visit_record), class: "primary-link" %><% end %>
+      <%= link_to "Back to Visits", with_results_anchor(visit_records_path(return_params)), class: "secondary-link" %>
+      <% if can_manage_visit?(@visit_record) %><%= link_to "Edit", edit_visit_record_path(@visit_record, return_params), class: "primary-link" %><% end %>
     </div>
   </div>
 

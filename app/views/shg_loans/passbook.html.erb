@@ -1,7 +1,8 @@
 <% content_for :page_title, "Loan Passbook" %>
+<% return_params = request.query_parameters.slice(*ShgLoansController::LOAN_INDEX_PARAMS.map(&:to_s)) %>
 
 <div class="passbook-actions">
-  <%= link_to "Back to Loan", shg_loan_path(@loan), class: "secondary-link" %>
+  <%= link_to "Back to Loan", shg_loan_path(@loan, return_params), class: "secondary-link" %>
   <button type="button" class="primary-button" onclick="window.print()">Print / Save PDF</button>
 </div>
 

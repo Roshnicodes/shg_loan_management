@@ -3,7 +3,13 @@ require "csv"
 class ShgsController < ApplicationController
   helper_method :can_filter_shg_state_district_crp?
 
+  SHG_INDEX_PARAMS = %i[
+    page q date_from date_to assistant_id dc_id crp_id
+    state_id district_id block_id village_id approval_status
+  ].freeze
+
   before_action :authenticate_user!
+  before_action -> { restore_persistent_index_params(:shgs_index_params, :shgs_path, SHG_INDEX_PARAMS) }, only: :index
   before_action :set_shg, only: %i[show edit update destroy activate disable approve return_for_correction reject]
   before_action :require_create_permission!, only: %i[new create]
   before_action :require_shg_manage_permission!, only: %i[edit update destroy activate disable]
@@ -32,7 +38,7 @@ class ShgsController < ApplicationController
     @shg = Shg.new(shg_params)
     @shg.created_by = current_user
     if @shg.save
-      redirect_to shgs_path, notice: "SHG registered successfully."
+      redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG registered successfully."
     else
       render :new, status: :unprocessable_entity
     end
@@ -42,7 +48,7 @@ class ShgsController < ApplicationController
 
   def update
     if @shg.update(shg_params)
-      redirect_to shgs_path, notice: "SHG updated successfully."
+      redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG updated successfully."
     else
       render :edit, status: :unprocessable_entity
     end
@@ -58,46 +64,46 @@ class ShgsController < ApplicationController
 
   def activate
     @shg.update_columns(active: true, updated_at: Time.current)
-    redirect_to shgs_path, notice: "SHG activated successfully."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG activated successfully."
   end
 
   def disable
     @shg.update_columns(active: false, updated_at: Time.current)
-    redirect_to shgs_path, notice: "SHG disabled successfully."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG disabled successfully."
   end
 
   def bulk_activate
     result = activate_records(visible_shgs, params[:ids])
-    redirect_to shgs_path, notice: "SHGs activated: #{result[:activated]}, skipped: #{result[:skipped]}."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHGs activated: #{result[:activated]}, skipped: #{result[:skipped]}."
   end
 
   def bulk_disable
     result = disable_records(visible_shgs, params[:ids])
-    redirect_to shgs_path, notice: "SHGs disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHGs disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   def approve
-    return redirect_to(shgs_path, alert: "This SHG is not pending at your approval level.") unless @shg.approvable_by?(current_user)
+    return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "This SHG is not pending at your approval level.") unless @shg.approvable_by?(current_user)
     if current_user&.district_coordinator? && !@shg.product_ready_for_approval?
-      return redirect_to(shgs_path, alert: "Product Type is mandatory for every loan before DC approval.")
+      return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "Product Type is mandatory for every loan before DC approval.")
     end
 
     @shg.approve!(current_user)
-    redirect_to shgs_path, notice: @shg.approved? ? "SHG approved successfully." : "SHG sent to Assistant Admin approval."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: @shg.approved? ? "SHG approved successfully." : "SHG sent to Assistant Admin approval."
   end
 
   def return_for_correction
-    return redirect_to(shgs_path, alert: "This SHG is not pending at your approval level.") unless @shg.returnable_by?(current_user)
+    return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "This SHG is not pending at your approval level.") unless @shg.returnable_by?(current_user)
 
     @shg.return_for_correction!(current_user, params[:approval_remarks])
-    redirect_to shgs_path, notice: "SHG returned to CRP for correction."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG returned to CRP for correction."
   end
 
   def reject
-    return redirect_to(shgs_path, alert: "This SHG is not pending at your approval level.") unless @shg.rejectable_by?(current_user)
+    return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "This SHG is not pending at your approval level.") unless @shg.rejectable_by?(current_user)
 
     @shg.reject!(current_user, params[:approval_remarks])
-    redirect_to shgs_path, notice: "SHG rejected successfully."
+    redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG rejected successfully."
   end
 
   private

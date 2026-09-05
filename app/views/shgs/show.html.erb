@@ -1,4 +1,5 @@
 <% content_for :page_title, @shg.name %>
+<% return_params = request.query_parameters.slice(*ShgsController::SHG_INDEX_PARAMS.map(&:to_s)) %>
 
 <section class="panel">
   <div class="panel-header">
@@ -7,9 +8,9 @@
       <h2><%= @shg.name %></h2>
     </div>
     <div class="action-row">
-      <%= link_to "Back", shgs_path, class: "secondary-link" %>
+      <%= link_to "Back", with_results_anchor(shgs_path(return_params)), class: "secondary-link" %>
       <% if can_manage_shg?(@shg) %>
-        <%= link_to "Edit", edit_shg_path(@shg), class: "primary-link" %>
+        <%= link_to "Edit", edit_shg_path(@shg, return_params), class: "primary-link" %>
       <% end %>
     </div>
   </div>

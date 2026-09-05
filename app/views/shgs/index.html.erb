@@ -1,4 +1,5 @@
 <% content_for :page_title, "SHG Master" %>
+<% index_params = request.query_parameters %>
 
 <section class="panel">
   <div class="panel-header">
@@ -17,7 +18,7 @@
         <% end %>
       <% end %>
       <% if can_create_records? %>
-        <%= link_to "Add SHG", new_shg_path, class: "primary-link" %>
+        <%= link_to "Add SHG", new_shg_path(index_params), class: "primary-link" %>
       <% end %>
       <%= server_search_box(shgs_path, placeholder: "Search SHGs...") %>
     </div>
@@ -42,7 +43,7 @@
       <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
     <% end %>
     <div class="filter-actions">
-      <%= link_to "Clear", shgs_path, class: "secondary-link" %>
+      <%= link_to "Clear", shgs_path(clear_filters: 1), class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
     </div>
   <% end %>
@@ -57,7 +58,7 @@
     </div>
   <% end %>
 
-  <div class="searchable-table compact-search-results">
+  <div id="<%= ApplicationController::RESULTS_ANCHOR %>" class="searchable-table compact-search-results">
     <% if @shgs.blank? %><div class="table-empty-state">No matching SHGs found.</div><% end %>
     <div class="table-wrap">
     <table>
@@ -80,7 +81,7 @@
         <% @shgs.each do |shg| %>
           <tr>
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", shg.id, false, form: (shg.active? ? "bulk-disable-shgs" : "bulk-activate-shgs") %></td><% end %>
-            <td><%= link_to shg.display_name, shg %></td>
+            <td><%= link_to shg.display_name, shg_path(shg, index_params) %></td>
             <td><%= [shg.state.name, shg.district.name, shg.block.name, shg.village.name].join(" / ") %></td>
             <td><%= shg.linkage_date %></td>
             <td><span class="status <%= shg.active? ? "approved" : "rejected" %>"><%= shg.active? ? "Active" : "Inactive" %></span></td>
@@ -118,21 +119,21 @@
             <td><%= shg.created_by&.name || "-" %></td>
             <td>
               <div class="action-row">
-                <%= link_to "Details", shg %>
+                <%= link_to "Details", shg_path(shg, index_params) %>
                 <% if can_manage_shg?(shg) %>
-                  <%= link_to "Edit", edit_shg_path(shg) %>
+                  <%= link_to "Edit", edit_shg_path(shg, index_params) %>
                 <% end %>
                 <% if can_bulk_delete_records? && shg.active? %>
-                  <%= button_to "Disable", disable_shg_path(shg), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this SHG?" } } %>
+                  <%= button_to "Disable", disable_shg_path(shg, index_params), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this SHG?" } } %>
                 <% elsif can_bulk_delete_records? %>
-                  <%= button_to "Activate", activate_shg_path(shg), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this SHG?" } } %>
+                  <%= button_to "Activate", activate_shg_path(shg, index_params), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this SHG?" } } %>
                 <% elsif !shg.active? %>
                   <span class="muted-cell">Disabled</span>
                 <% end %>
                 <% if can_approve_shg?(shg) %>
-                  <%= button_to "Approve", approve_shg_path(shg), method: :patch, class: "success-link" %>
-                  <%= button_to "Return", return_for_correction_shg_path(shg), method: :patch, class: "warning-link" %>
-                  <%= button_to "Reject", reject_shg_path(shg), method: :patch, class: "danger-link" %>
+                  <%= button_to "Approve", approve_shg_path(shg, index_params), method: :patch, class: "success-link" %>
+                  <%= button_to "Return", return_for_correction_shg_path(shg, index_params), method: :patch, class: "warning-link" %>
+                  <%= button_to "Reject", reject_shg_path(shg, index_params), method: :patch, class: "danger-link" %>
                 <% end %>
               </div>
             </td>

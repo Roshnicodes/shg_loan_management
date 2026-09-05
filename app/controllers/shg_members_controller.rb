@@ -3,7 +3,18 @@ require "csv"
 class ShgMembersController < ApplicationController
   helper_method :can_filter_member_state_district_crp?
 
+  MEMBER_INDEX_PARAMS = %i[
+    page q date_from date_to crp_id
+    state_id district_id block_id village_id shg_id
+  ].freeze
+  MEMBER_PREFILL_PARAMS = %i[
+    shg_id block_id village_id gender monthly_income address active
+  ].freeze
+  MEMBER_PREFILL_SESSION_KEY = :shg_member_prefill_params
+
   before_action :authenticate_user!
+  before_action -> { restore_persistent_index_params(:shg_members_index_params, :shg_members_path, MEMBER_INDEX_PARAMS) }, only: :index
+  before_action :set_member_form_prefill, only: %i[new create]
   before_action :set_member, only: %i[show edit update destroy activate disable]
   before_action :require_create_permission!, only: %i[new create]
   before_action :require_shg_member_manage_permission!, only: %i[edit update destroy activate disable]
@@ -23,6 +34,7 @@ class ShgMembersController < ApplicationController
 
   def new
     @member = ShgMember.new(active: true)
+    apply_member_prefill(@member)
   end
 
   def create
@@ -35,7 +47,12 @@ class ShgMembersController < ApplicationController
     end
 
     if @member.save
-      redirect_to shg_members_path, notice: "SHG member saved successfully."
+      store_member_prefill
+      if add_another_member?
+        redirect_to new_shg_member_path(member_prefill_redirect_params), notice: "SHG member saved successfully. Add another member."
+      else
+        redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member saved successfully."
+      end
     else
       render :new, status: :unprocessable_entity
     end
@@ -52,7 +69,7 @@ class ShgMembersController < ApplicationController
     end
 
     if @member.save
-      redirect_to shg_members_path, notice: "SHG member updated successfully."
+      redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member updated successfully."
     else
       render :edit, status: :unprocessable_entity
     end
@@ -68,22 +85,22 @@ class ShgMembersController < ApplicationController
 
   def activate
     @member.update_columns(active: true, updated_at: Time.current)
-    redirect_to shg_members_path, notice: "SHG member activated successfully."
+    redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member activated successfully."
   end
 
   def disable
     @member.update_columns(active: false, updated_at: Time.current)
-    redirect_to shg_members_path, notice: "SHG member disabled successfully."
+    redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member disabled successfully."
   end
 
   def bulk_activate
     result = activate_records(visible_shg_members, params[:ids])
-    redirect_to shg_members_path, notice: "SHG members activated: #{result[:activated]}, skipped: #{result[:skipped]}."
+    redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG members activated: #{result[:activated]}, skipped: #{result[:skipped]}."
   end
 
   def bulk_disable
     result = disable_records(visible_shg_members, params[:ids])
-    redirect_to shg_members_path, notice: "SHG members disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
+    redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG members disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
   private
@@ -98,6 +115,56 @@ class ShgMembersController < ApplicationController
     @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
     @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
     @shgs = limited_filter_records(member_filter_shgs, params[:shg_id])
+  end
+
+  def set_member_form_prefill
+    @member_form_prefill = member_form_prefill_params
+  end
+
+  def member_form_prefill_params
+    saved_prefill = session[MEMBER_PREFILL_SESSION_KEY].is_a?(Hash) ? session[MEMBER_PREFILL_SESSION_KEY].slice(*MEMBER_PREFILL_PARAMS.map(&:to_s)) : {}
+    index_prefill = params.permit(:shg_id, :block_id, :village_id).to_h.compact_blank
+
+    merge_member_prefill(saved_prefill, index_prefill, submitted_member_prefill_params)
+  end
+
+  def merge_member_prefill(saved_prefill, index_prefill, submitted_prefill)
+    prefill = saved_prefill.dup
+    prefill.except!("village_id", "shg_id") if index_prefill["block_id"].present? && index_prefill["block_id"] != prefill["block_id"]
+    prefill.except!("shg_id") if index_prefill["village_id"].present? && index_prefill["village_id"] != prefill["village_id"]
+
+    prefill.merge(index_prefill).merge(submitted_prefill)
+  end
+
+  def submitted_member_prefill_params
+    return {} unless params[:shg_member].respond_to?(:permit)
+
+    params.require(:shg_member).permit(*MEMBER_PREFILL_PARAMS).to_h.compact_blank
+  end
+
+  def apply_member_prefill(member)
+    attributes = @member_form_prefill.slice("shg_id", "gender", "monthly_income", "address", "active")
+    if attributes["shg_id"].present?
+      shg = visible_shgs.find_by(id: attributes["shg_id"])
+      attributes.delete("shg_id") if shg.blank? ||
+        (@member_form_prefill["block_id"].present? && shg.block_id.to_s != @member_form_prefill["block_id"].to_s) ||
+        (@member_form_prefill["village_id"].present? && shg.village_id.to_s != @member_form_prefill["village_id"].to_s)
+    end
+
+    member.assign_attributes(attributes)
+  end
+
+  def store_member_prefill
+    prefill = submitted_member_prefill_params
+    prefill.present? ? session[MEMBER_PREFILL_SESSION_KEY] = prefill : session.delete(MEMBER_PREFILL_SESSION_KEY)
+  end
+
+  def add_another_member?
+    params[:add_another].present?
+  end
+
+  def member_prefill_redirect_params
+    preserved_index_params(MEMBER_INDEX_PARAMS).merge(shg_member: session[MEMBER_PREFILL_SESSION_KEY])
   end
 
   def filtered_members

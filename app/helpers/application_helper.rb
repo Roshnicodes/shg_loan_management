@@ -203,7 +203,7 @@ module ApplicationHelper
 
     links = []
     if @page > 1
-      links << link_to("Previous", url_for(request.query_parameters.merge(page: @page - 1)), class: "secondary-link compact-button")
+      links << link_to("Previous", with_results_anchor(url_for(request.query_parameters.merge(page: @page - 1))), class: "secondary-link compact-button")
     else
       links << content_tag(:span, "Previous", class: "secondary-link compact-button disabled")
     end
@@ -211,7 +211,7 @@ module ApplicationHelper
     links << content_tag(:span, "Page #{@page}", class: "pagination-page")
 
     if @has_next_page
-      links << link_to("Next", url_for(request.query_parameters.merge(page: @page + 1)), class: "secondary-link compact-button")
+      links << link_to("Next", with_results_anchor(url_for(request.query_parameters.merge(page: @page + 1))), class: "secondary-link compact-button")
     else
       links << content_tag(:span, "Next", class: "secondary-link compact-button disabled")
     end
