@@ -8,10 +8,11 @@ class ApplicationController < ActionController::Base
   stale_when_importmap_changes
 
   helper_method :current_user, :logged_in?, :can_manage_records?, :can_approve_shg?, :readonly_admin?,
-    :can_manage_users?, :can_manage_shg?, :can_manage_shg_member?, :can_approve_visit?, :can_manage_visit?,
+    :can_view_users?, :can_view_admin_records?, :can_manage_users?, :can_manage_shg?, :can_manage_shg_member?, :can_approve_visit?, :can_manage_visit?,
     :can_manage_shg_loan?, :can_bulk_delete_records?, :can_create_records?, :can_create_location_records?, :can_import_loan_data?,
     :visible_states, :visible_districts, :visible_blocks, :visible_villages, :visible_shgs,
-    :manageable_shgs, :visible_shg_members, :visible_visit_records, :with_results_anchor
+    :manageable_shgs, :visible_shg_members, :visible_visit_records, :with_results_anchor,
+    :filter_param_values, :filter_param_ids, :filter_param_value
 
   DEFAULT_PAGE_SIZE = 30
   FILTER_OPTION_LIMIT = 250
@@ -59,6 +60,14 @@ class ApplicationController < ActionController::Base
     return current_user&.approval_user? unless shg
 
     shg.approvable_by?(current_user)
+  end
+
+  def can_view_users?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
+  end
+
+  def can_view_admin_records?
+    can_view_users?
   end
 
   def can_manage_users?
@@ -121,6 +130,14 @@ class ApplicationController < ActionController::Base
     redirect_back fallback_location: dashboard_path, alert: "You do not have permission for user management." unless can_manage_users?
   end
 
+  def require_user_view_permission!
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to view user records." unless can_view_users?
+  end
+
+  def require_admin_record_view_permission!
+    redirect_back fallback_location: dashboard_path, alert: "You do not have permission to view master records." unless can_view_admin_records?
+  end
+
   def require_bulk_delete_permission!
     redirect_back fallback_location: dashboard_path, alert: "You do not have permission to disable multiple records." unless can_bulk_delete_records?
   end
@@ -138,7 +155,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_states
-    return State.all if current_user&.admin? || current_user&.assistant_admin?
+    return State.all if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
     return State.where(id: current_user.state_id) if current_user&.state_id.present?
     return State.joins(:districts).where(districts: { id: current_user.office_district_ids }).distinct if current_user&.office_district_ids.present?
     return State.joins(districts: :blocks).where(blocks: { id: current_user.office_block_ids }).distinct if current_user&.office_block_ids.present?
@@ -148,7 +165,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_districts
-    return District.all if current_user&.admin? || current_user&.assistant_admin?
+    return District.all if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
     return District.where(id: current_user.office_district_ids) if current_user&.office_district_ids.present? && (current_user.crp? || current_user.district_coordinator?)
     return District.joins(:blocks).where(blocks: { id: current_user.office_block_ids }).distinct if current_user&.office_block_ids.present? && (current_user.crp? || current_user.district_coordinator?)
     return District.joins(blocks: :villages).where(villages: { id: current_user.office_village_ids }).distinct if current_user&.office_village_ids.present? && current_user.crp?
@@ -158,7 +175,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_blocks
-    return Block.all if current_user&.admin? || current_user&.assistant_admin?
+    return Block.all if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
     return Block.where(district_id: current_user.office_district_ids) if current_user&.district_coordinator? && current_user.office_district_ids.present?
     return crp_visible_blocks if current_user&.crp?
     return Block.where(district_id: current_user.office_district_ids) if current_user&.office_district_ids.present?
@@ -168,7 +185,7 @@ class ApplicationController < ActionController::Base
   end
 
   def visible_villages
-    return Village.all if current_user&.admin? || current_user&.assistant_admin?
+    return Village.all if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
     return crp_visible_villages if current_user&.crp?
     return Village.joins(block: :district).where(districts: { id: current_user.office_district_ids }) if current_user&.district_coordinator? && current_user.office_district_ids.present?
     return Village.where(block_id: current_user.office_block_ids) if current_user&.office_block_ids.present?
@@ -183,7 +200,7 @@ class ApplicationController < ActionController::Base
     if current_user&.crp?
       return relation.where(id: crp_visible_shg_scope.select(:id))
     end
-    return relation if current_user&.admin? || current_user&.assistant_admin?
+    return relation if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
     if current_user&.district_coordinator?
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
 
@@ -232,7 +249,7 @@ class ApplicationController < ActionController::Base
   def visible_visit_records
     relation = VisitRecord.includes(:village, :shg, :shg_member, :product, :created_by, :dc_approved_by, :assistant_approved_by)
     return relation.where(created_by: current_user).or(relation.where(shg_id: visible_shgs.select(:id))) if current_user&.crp?
-    return relation if current_user&.admin? || current_user&.assistant_admin?
+    return relation if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
     if current_user&.district_coordinator?
       return relation.none if current_user.office_district_ids.blank? && current_user.office_block_ids.blank?
 
@@ -266,25 +283,31 @@ class ApplicationController < ActionController::Base
 
   def filter_districts_for_params
     districts = filter_districts
-    districts = districts.where(state_id: params[:state_id]) if params[:state_id].present?
+    state_ids = filter_param_ids(:state_id)
+    districts = districts.where(state_id: state_ids) if state_ids.present?
     districts
   end
 
   def filter_blocks_for_params
     blocks = filter_blocks
-    blocks = blocks.joins(:district).where(districts: { state_id: params[:state_id] }) if params[:state_id].present?
-    blocks = blocks.where(district_id: params[:district_id]) if params[:district_id].present?
+    state_ids = filter_param_ids(:state_id)
+    district_ids = filter_param_ids(:district_id)
+    blocks = blocks.joins(:district).where(districts: { state_id: state_ids }) if state_ids.present?
+    blocks = blocks.where(district_id: district_ids) if district_ids.present?
     blocks
   end
 
   def filter_villages_for_params
     villages = filter_villages
-    if params[:block_id].present?
-      villages = villages.where(block_id: params[:block_id])
-    elsif params[:district_id].present?
-      villages = villages.joins(:block).where(blocks: { district_id: params[:district_id] })
-    elsif params[:state_id].present?
-      villages = villages.joins(block: :district).where(districts: { state_id: params[:state_id] })
+    block_ids = filter_param_ids(:block_id)
+    district_ids = filter_param_ids(:district_id)
+    state_ids = filter_param_ids(:state_id)
+    if block_ids.present?
+      villages = villages.where(block_id: block_ids)
+    elsif district_ids.present?
+      villages = villages.joins(:block).where(blocks: { district_id: district_ids })
+    elsif state_ids.present?
+      villages = villages.joins(block: :district).where(districts: { state_id: state_ids })
     end
     villages
   end
@@ -295,6 +318,8 @@ class ApplicationController < ActionController::Base
     users = users_with_role_codes("CRP")
     users =
       if current_user&.admin? || current_user&.assistant_admin?
+        users
+      elsif readonly_admin?
         users
       else
         users.to_a.select do |user|
@@ -358,6 +383,22 @@ class ApplicationController < ActionController::Base
     else
       relation.none
     end
+  end
+
+  def apply_users_office_scope_to_shgs(relation, users)
+    users = Array(users).compact
+    return relation.none if users.blank?
+
+    shg_ids = users.flat_map { |user| apply_user_office_scope_to_shgs(Shg.all, user).reselect(:id).pluck(:id) }.uniq
+    shg_ids.present? ? relation.where(id: shg_ids) : relation.none
+  end
+
+  def apply_users_office_scope_to_joined_shgs(relation, users)
+    users = Array(users).compact
+    return relation.none if users.blank?
+
+    shg_ids = users.flat_map { |user| apply_user_office_scope_to_shgs(Shg.all, user).reselect(:id).pluck(:id) }.uniq
+    shg_ids.present? ? relation.joins(:shg).where(shgs: { id: shg_ids }) : relation.none
   end
 
   def crp_visible_location_shgs
@@ -482,7 +523,7 @@ class ApplicationController < ActionController::Base
 
     permitted_key_names = permitted_keys.map(&:to_s)
     if (request.query_parameters.keys & permitted_key_names).present?
-      index_params = params.permit(*permitted_keys).to_h.compact_blank
+      index_params = sliced_request_params(permitted_keys)
       index_params.present? ? session[session_key] = index_params : session.delete(session_key)
       return
     end
@@ -495,7 +536,7 @@ class ApplicationController < ActionController::Base
   end
 
   def preserved_index_params(permitted_keys)
-    params.permit(*permitted_keys).to_h.compact_blank
+    sliced_request_params(permitted_keys)
   end
 
   def results_redirect_path(path_helper, permitted_keys)
@@ -528,39 +569,66 @@ class ApplicationController < ActionController::Base
 
   def limited_filter_records(relation, selected_id = nil, limit: FILTER_OPTION_LIMIT)
     records = relation.limit(limit).to_a
-    return records if selected_id.blank? || records.any? { |record| record.id.to_s == selected_id.to_s }
+    selected_ids = Array(selected_id).compact_blank.map(&:to_s)
+    return records if selected_ids.blank?
 
-    selected = relation.klass.find_by(id: selected_id)
-    selected ? records + [ selected ] : records
+    missing_ids = selected_ids - records.map { |record| record.id.to_s }
+    return records if missing_ids.blank?
+
+    records + relation.klass.where(id: missing_ids).to_a
   end
 
   def limited_user_filter_records(users, selected_id = nil, limit: FILTER_OPTION_LIMIT)
     records = users.first(limit)
-    return records if selected_id.blank? || records.any? { |user| user.id.to_s == selected_id.to_s }
+    selected_ids = Array(selected_id).compact_blank.map(&:to_s)
+    return records if selected_ids.blank?
 
-    selected = User.includes(:user_type).find_by(id: selected_id)
-    selected ? records + [ selected ] : records
+    missing_ids = selected_ids - records.map { |user| user.id.to_s }
+    return records if missing_ids.blank?
+
+    records + User.includes(:user_type).where(id: missing_ids).to_a
   end
 
   def filter_users_by_selected_location(users)
     filters = {
-      state_id: params[:state_id].presence&.to_i,
-      district_id: params[:district_id].presence&.to_i,
-      block_id: params[:block_id].presence&.to_i,
-      village_id: params[:village_id].presence&.to_i
+      state_ids: filter_param_ids(:state_id),
+      district_ids: filter_param_ids(:district_id),
+      block_ids: filter_param_ids(:block_id),
+      village_ids: filter_param_ids(:village_id)
     }
-    return users if filters.values.compact.blank?
+    return users if filters.values.all?(&:blank?)
 
     users.select { |user| user_matches_selected_location?(user, filters) }
   end
 
   def user_matches_selected_location?(user, filters)
-    return false if filters[:state_id].present? && !user_office_state_ids(user).include?(filters[:state_id])
-    return false if filters[:district_id].present? && !user_office_district_ids(user).include?(filters[:district_id])
-    return false if filters[:block_id].present? && !user_office_block_ids(user).include?(filters[:block_id])
-    return false if filters[:village_id].present? && !user_office_village_ids(user).include?(filters[:village_id])
+    return false if filters[:state_ids].present? && (user_office_state_ids(user) & filters[:state_ids]).blank?
+    return false if filters[:district_ids].present? && (user_office_district_ids(user) & filters[:district_ids]).blank?
+    return false if filters[:block_ids].present? && (user_office_block_ids(user) & filters[:block_ids]).blank?
+    return false if filters[:village_ids].present? && (user_office_village_ids(user) & filters[:village_ids]).blank?
 
     true
+  end
+
+  def filter_param_values(key)
+    Array(params[key]).compact_blank.map(&:to_s)
+  end
+
+  def filter_param_ids(key)
+    filter_param_values(key).filter_map do |value|
+      Integer(value, exception: false)
+    end.reject(&:zero?)
+  end
+
+  def filter_param_value(key)
+    filter_param_values(key).first
+  end
+
+  def sliced_request_params(permitted_keys)
+    key_names = permitted_keys.map(&:to_s)
+    params.to_unsafe_h.slice(*key_names).transform_values do |value|
+      value.is_a?(Array) ? value.compact_blank : value
+    end.compact_blank
   end
 
   def user_office_state_ids(user)

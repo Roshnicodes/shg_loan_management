@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = [
-    "block", "village", "shg", "member", "group", "gender", "dob", "address",
+    "block", "village", "shg", "member", "group", "gender", "dob", "spouseFather", "workActivity", "address",
     "distributionDate", "termType", "term", "principal", "interestPercent",
     "principalOut", "interestOut", "totalOut", "paidOut", "remainingOut",
     "emiOut", "scheduleLabel", "scheduleOut", "termUnit"
@@ -19,8 +19,18 @@ export default class extends Controller {
     this.memberOptions = Array.from(this.memberTarget.options).map((option) => option.cloneNode(true))
     this.filterLocation()
     this.refreshRemoteOptions()
+    this.scheduleRestoredValueFilter()
     this.update()
     this.calculate()
+  }
+
+  scheduleRestoredValueFilter() {
+    ;[0, 150, 500].forEach((delay) => {
+      window.setTimeout(() => {
+        this.filterLocation()
+        this.update()
+      }, delay)
+    })
   }
 
   blockChanged() {
@@ -30,6 +40,7 @@ export default class extends Controller {
     this.clearSelect(this.villageTarget, "Select village")
     this.clearSelect(this.shgTarget, "Select SHG")
     this.clearSelect(this.memberTarget, "Select member")
+    this.filterLocation()
     if (this.hasBlockTarget && this.blockTarget.value) {
       this.loadRemoteVillages()
     }
@@ -41,6 +52,8 @@ export default class extends Controller {
     this.memberTarget.value = ""
     this.clearSelect(this.shgTarget, "Select SHG")
     this.clearSelect(this.memberTarget, "Select member")
+    this.filterShgs()
+    this.filterMembers()
     if (this.hasVillageTarget && this.villageTarget.value) this.loadRemoteShgs()
     this.update()
   }
@@ -48,6 +61,7 @@ export default class extends Controller {
   shgChanged() {
     this.memberTarget.value = ""
     this.clearSelect(this.memberTarget, "Select member")
+    this.filterMembers()
     if (this.shgTarget.value) this.loadRemoteMembers()
     this.update()
   }
@@ -73,7 +87,7 @@ export default class extends Controller {
 
     const selectedBlockId = this.hasBlockTarget ? this.blockTarget.value : ""
     this.replaceOptions(this.villageTarget, this.villageOptions, (option) => (
-      !selectedBlockId || this.dataValue(option, "blockId") === selectedBlockId
+      selectedBlockId && this.dataValue(option, "blockId") === selectedBlockId
     ))
   }
 
@@ -82,8 +96,8 @@ export default class extends Controller {
     const selectedVillageId = this.hasVillageTarget ? this.villageTarget.value : ""
 
     this.replaceOptions(this.shgTarget, this.shgOptions, (option) => {
-      const matchesBlock = !selectedBlockId || this.dataValue(option, "blockId") === selectedBlockId
-      const matchesVillage = !selectedVillageId || this.dataValue(option, "villageId") === selectedVillageId
+      const matchesBlock = selectedBlockId && this.dataValue(option, "blockId") === selectedBlockId
+      const matchesVillage = selectedVillageId && this.dataValue(option, "villageId") === selectedVillageId
       return matchesBlock && matchesVillage
     })
   }
@@ -94,9 +108,9 @@ export default class extends Controller {
     const selectedShgId = this.shgTarget.value
 
     this.replaceOptions(this.memberTarget, this.memberOptions, (option) => {
-      const matchesBlock = !selectedBlockId || this.dataValue(option, "blockId") === selectedBlockId
-      const matchesVillage = !selectedVillageId || this.dataValue(option, "villageId") === selectedVillageId
-      const matchesShg = !selectedShgId || this.dataValue(option, "shgId") === selectedShgId
+      const matchesBlock = selectedBlockId && this.dataValue(option, "blockId") === selectedBlockId
+      const matchesVillage = selectedVillageId && this.dataValue(option, "villageId") === selectedVillageId
+      const matchesShg = selectedShgId && this.dataValue(option, "shgId") === selectedShgId
       return matchesBlock && matchesVillage && matchesShg
     })
   }
@@ -134,9 +148,6 @@ export default class extends Controller {
 
   refreshRemoteOptions() {
     if (!this.hasBlockTarget || !this.blockTarget.value) {
-      if (this.hasVillageTarget) this.clearSelect(this.villageTarget, "Select village")
-      this.clearSelect(this.shgTarget, "Select SHG")
-      this.clearSelect(this.memberTarget, "Select member")
       return
     }
 
@@ -149,6 +160,14 @@ export default class extends Controller {
     if (!this.hasVillageTarget) return
 
     const options = await this.fetchRemoteOptions("/location_options/villages", { block_id: this.blockTarget.value })
+    if (!options) return
+    if (options.length === 0 && this.localOptionExists(this.villageOptions, (option) => (
+      this.dataValue(option, "blockId") === this.blockTarget.value
+    ))) {
+      this.filterVillages()
+      return
+    }
+
     this.replaceRemoteOptions(this.villageTarget, options, "Select village")
   }
 
@@ -162,6 +181,19 @@ export default class extends Controller {
       block_id: this.hasBlockTarget ? this.blockTarget.value : "",
       village_id: this.hasVillageTarget ? this.villageTarget.value : ""
     })
+    if (!options) return
+    if (options.length === 0 && this.localOptionExists(this.shgOptions, (option) => {
+      const selectedBlockId = this.hasBlockTarget ? this.blockTarget.value : ""
+      const selectedVillageId = this.hasVillageTarget ? this.villageTarget.value : ""
+      return selectedBlockId &&
+        selectedVillageId &&
+        this.dataValue(option, "blockId") === selectedBlockId &&
+        this.dataValue(option, "villageId") === selectedVillageId
+    })) {
+      this.filterShgs()
+      return
+    }
+
     this.replaceRemoteOptions(this.shgTarget, options, "Select SHG")
   }
 
@@ -173,20 +205,45 @@ export default class extends Controller {
       available_for_loan: "1",
       current_loan_id: this.loanIdValue || ""
     })
+    if (!options) return
+    if (options.length === 0 && this.localOptionExists(this.memberOptions, (option) => {
+      const selectedBlockId = this.hasBlockTarget ? this.blockTarget.value : ""
+      const selectedVillageId = this.hasVillageTarget ? this.villageTarget.value : ""
+      const selectedShgId = this.shgTarget.value
+      return selectedBlockId &&
+        selectedVillageId &&
+        selectedShgId &&
+        this.dataValue(option, "blockId") === selectedBlockId &&
+        this.dataValue(option, "villageId") === selectedVillageId &&
+        this.dataValue(option, "shgId") === selectedShgId
+    })) {
+      this.filterMembers()
+      this.update()
+      return
+    }
+
     this.replaceRemoteOptions(this.memberTarget, options, "Select member")
     this.update()
   }
 
+  localOptionExists(options, predicate) {
+    return options.some((option) => option.value !== "" && predicate(option))
+  }
+
   async fetchRemoteOptions(path, params) {
-    const query = new URLSearchParams()
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) query.set(key, value)
-    })
+    try {
+      const query = new URLSearchParams()
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) query.set(key, value)
+      })
 
-    const response = await fetch(`${path}?${query.toString()}`, { headers: { Accept: "application/json" } })
-    if (!response.ok) return []
+      const response = await fetch(`${path}?${query.toString()}`, { headers: { Accept: "application/json" } })
+      if (!response.ok) return null
 
-    return response.json()
+      return response.json()
+    } catch (_error) {
+      return null
+    }
   }
 
   replaceRemoteOptions(select, options, prompt) {
@@ -228,6 +285,8 @@ export default class extends Controller {
     this.groupTarget.value = data.group || ""
     this.genderTarget.value = data.gender || ""
     this.dobTarget.value = data.dob || ""
+    if (this.hasSpouseFatherTarget) this.spouseFatherTarget.value = data.spouseFatherName || ""
+    if (this.hasWorkActivityTarget) this.workActivityTarget.value = data.workActivity || ""
     this.addressTarget.value = data.address || ""
   }
 

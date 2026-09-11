@@ -101,16 +101,16 @@ class VisitRecordsController < ApplicationController
 
   def set_filter_options
     if can_filter_visit_state_district_crp?
-      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
-      @district_coordinators = limited_user_filter_records(filter_district_coordinators, params[:dc_id])
-      @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), params[:assistant_id])
+      @crps = limited_user_filter_records(filter_crps, filter_param_values(:crp_id))
+      @district_coordinators = limited_user_filter_records(filter_district_coordinators, filter_param_values(:dc_id))
+      @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), filter_param_values(:assistant_id))
       @states = filter_states
-      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
+      @districts = limited_filter_records(filter_districts_for_params, filter_param_values(:district_id))
     end
 
-    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
-    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
-    @shgs = limited_filter_records(visit_filter_shgs, params[:shg_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, filter_param_values(:block_id))
+    @villages = limited_filter_records(filter_villages_for_params, filter_param_values(:village_id))
+    @shgs = limited_filter_records(visit_filter_shgs, filter_param_values(:shg_id))
   end
 
   def filtered_visit_records(include_attachments: true)
@@ -122,16 +122,25 @@ class VisitRecordsController < ApplicationController
     visits = visits.where(visit_date: params[:date_from]..) if params[:date_from].present?
     visits = visits.where(visit_date: ..params[:date_to]) if params[:date_to].present?
     if can_filter_visit_state_district_crp?
-      visits = visits.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
-      visits = visits.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
-      visits = visits.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
-      visits = apply_user_office_scope_to_joined_shgs(visits, User.includes(:user_type).find_by(id: params[:dc_id])) if params[:dc_id].present? && can_filter_dc?
-      visits = visits.where("visit_records.assistant_approved_by_id = :id OR visit_records.created_by_id = :id", id: params[:assistant_id]) if params[:assistant_id].present? && can_filter_assistant?
+      state_ids = filter_param_ids(:state_id)
+      district_ids = filter_param_ids(:district_id)
+      crp_ids = filter_param_ids(:crp_id)
+      dc_ids = filter_param_ids(:dc_id)
+      assistant_ids = filter_param_ids(:assistant_id)
+      visits = visits.joins(:shg).where(shgs: { state_id: state_ids }) if state_ids.present?
+      visits = visits.joins(:shg).where(shgs: { district_id: district_ids }) if district_ids.present?
+      visits = visits.where(created_by_id: crp_ids) if crp_ids.present?
+      visits = apply_users_office_scope_to_joined_shgs(visits, User.includes(:user_type).where(id: dc_ids)) if dc_ids.present? && can_filter_dc?
+      visits = visits.where("visit_records.assistant_approved_by_id IN (:ids) OR visit_records.created_by_id IN (:ids)", ids: assistant_ids) if assistant_ids.present? && can_filter_assistant?
     end
-    visits = visits.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
-    visits = visits.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
-    visits = visits.where(shg_id: params[:shg_id]) if params[:shg_id].present?
-    visits = visits.where(approval_status: params[:approval_status]) if params[:approval_status].present?
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    shg_ids = filter_param_ids(:shg_id)
+    approval_statuses = filter_param_values(:approval_status) & VisitRecord::APPROVAL_STATUSES
+    visits = visits.joins(:shg).where(shgs: { block_id: block_ids }) if block_ids.present?
+    visits = visits.joins(:shg).where(shgs: { village_id: village_ids }) if village_ids.present?
+    visits = visits.where(shg_id: shg_ids) if shg_ids.present?
+    visits = visits.where(approval_status: approval_statuses) if approval_statuses.present?
     visits = search_visits(visits)
     deduplicate_visits_by_member(visits)
   end
@@ -153,6 +162,7 @@ class VisitRecordsController < ApplicationController
           "LOWER(shg_members.name) LIKE :query",
           "LOWER(shg_members.loan_no) LIKE :query",
           "LOWER(products.name) LIKE :query",
+          "LOWER(products.code) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
           "LOWER(blocks.name) LIKE :query",
@@ -174,7 +184,7 @@ class VisitRecordsController < ApplicationController
   end
 
   def can_filter_visit_state_district_crp?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def visit_filter_option_scope
@@ -188,26 +198,30 @@ class VisitRecordsController < ApplicationController
 
   def visit_filter_shgs
     shgs = visible_shgs
-    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
-    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
-    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
-    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    state_ids = filter_param_ids(:state_id)
+    district_ids = filter_param_ids(:district_id)
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    shgs = shgs.where(state_id: state_ids) if state_ids.present?
+    shgs = shgs.where(district_id: district_ids) if district_ids.present?
+    shgs = shgs.where(block_id: block_ids) if block_ids.present?
+    shgs = shgs.where(village_id: village_ids) if village_ids.present?
     shgs.order(:name)
   end
 
   def can_filter_dc?
-    current_user&.assistant_admin? || current_user&.admin?
+    current_user&.assistant_admin? || current_user&.admin? || readonly_admin?
   end
 
   def can_filter_assistant?
-    current_user&.admin?
+    current_user&.admin? || readonly_admin?
   end
 
   def stream_visits_csv(visits)
     stream_csv("visit-records-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
         "Visit Date", "Visit No.", "State", "District", "Block", "Village", "SHG", "Member", "Loan No",
-        "Mobile", "Product", "Purpose", "Observations", "Approval",
+        "Mobile", "Office Location", "Borrower Short Address", "Product", "Purpose", "Observations", "Approval",
         "Created By", "DC Approval", "Assistant Approval", "Remarks"
       ])
 
@@ -223,7 +237,9 @@ class VisitRecordsController < ApplicationController
           visit.shg_member.name,
           visit.shg_member.loan_no,
           visit.shg_member.mobile,
-          visit.product&.name,
+          visit.shg.office_location,
+          visit.shg.borrower_short_address,
+          helpers.product_code_label(visit.product),
           visit.purpose,
           visit.observations,
           visit.approval_label,

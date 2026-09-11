@@ -12,30 +12,29 @@
     </div>
   </div>
 
-  <% refresh_on_change = "const p=new URLSearchParams(new FormData(this.form));p.delete('commit');p.delete('q');p.delete('page');p.set('refresh_filters','1');window.location=this.form.action+'?'+p.toString();" %>
-  <%= form_with url: reports_path, method: :get, class: "filter-grid report-filter-grid", data: { controller: "location-select", location_select_auto_submit_value: true } do |form| %>
+  <%= form_with url: reports_path, method: :get, class: "filter-grid report-filter-grid", data: { controller: "location-select" } do |form| %>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if show_report_state_filter? %>
-      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: @selected_state_id }, data: { searchable_select_skip: true, location_select_target: "state", action: "location-select#stateChanged" }, onchange: refresh_on_change %></label>
+      <%= multi_filter_select(form, :state_id, "State", @states.map { |state| [state.name, state.id] }, selected_values: @selected_state_ids, data: { location_select_target: "state", action: "location-select#stateChanged" }, placeholder: "All states") %>
     <% end %>
     <% if show_report_district_filter? %>
-      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), @selected_district_id), { prompt: "All districts" }, data: { searchable_select_skip: true, location_select_target: "district", action: "location-select#districtChanged" }, onchange: refresh_on_change %></label>
+      <%= multi_filter_select(form, :district_id, "District", district_filter_options(@districts), selected_values: @selected_district_ids, data: { location_select_target: "district", action: "location-select#districtChanged" }, placeholder: "All districts") %>
     <% end %>
     <% if show_report_block_filter? %>
-      <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), @selected_block_id), { prompt: "All blocks" }, data: { searchable_select_skip: true, location_select_target: "block", action: "location-select#blockChanged" }, onchange: refresh_on_change %></label>
+      <%= multi_filter_select(form, :block_id, "Block", block_filter_options(@blocks), selected_values: @selected_block_ids, data: { location_select_target: "block", action: "location-select#blockChanged" }, placeholder: "All blocks") %>
     <% end %>
     <% if show_report_village_filter? %>
-      <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), @selected_village_id), { prompt: "All villages" }, data: { searchable_select_skip: true, location_select_target: "village", action: "location-select#villageChanged" }, onchange: refresh_on_change %></label>
+      <%= multi_filter_select(form, :village_id, "Village", village_filter_options(@villages), selected_values: @selected_village_ids, data: { location_select_target: "village", action: "location-select#villageChanged" }, placeholder: "All villages") %>
     <% end %>
     <% if show_report_user_filter? %>
-      <label><span>CRP</span><%= form.select :user_id, options_for_select(user_filter_options(@crps), @selected_user_id), { prompt: "All CRPs" }, data: { searchable_select_skip: true, location_select_target: "crp", action: "location-select#userChanged" }, onchange: refresh_on_change %></label>
+      <%= multi_filter_select(form, :user_id, "CRP", user_filter_options(@crps), selected_values: @selected_user_ids, data: { location_select_target: "crp", action: "location-select#userChanged" }, placeholder: "All CRPs") %>
     <% end %>
-    <label><span>SHG / ID / Village</span><%= form.select :shg_id, options_for_select(shg_filter_options(@shgs), @selected_shg_id), { prompt: "All SHG" }, data: { searchable_select_skip: true, location_select_target: "shg", action: "location-select#shgChanged" }, onchange: refresh_on_change %></label>
-    <label><span>SHG Member</span><%= form.select :member_id, options_for_select(member_filter_options(@members), @selected_member_id), { prompt: "All members" }, data: { searchable_select_skip: true, location_select_target: "member", action: "location-select#memberChanged" }, onchange: refresh_on_change %></label>
-    <label><span>Loan</span><%= form.select :loan_id, options_for_select(loan_filter_options(@loan_filter_records), @selected_loan_id), { prompt: "All loans" }, data: { searchable_select_skip: true, location_select_target: "loan" }, onchange: refresh_on_change %></label>
-    <label><span>Loan Status</span><%= form.collection_select :loan_status_id, @loan_statuses, :id, :name, { prompt: "All loan status", selected: params[:loan_status_id] }, data: { searchable_select_skip: true } %></label>
-    <label><span>Collection</span><%= form.select :collection_status, options_for_select([ [ "All", "" ], [ "Pending", "pending" ], [ "Closed", "closed" ], [ "Paid Installment", "paid_installment" ] ], params[:collection_status]), {}, data: { searchable_select_skip: true } %></label>
+    <%= multi_filter_select(form, :shg_id, "SHG / ID / Village", shg_filter_options(@shgs), selected_values: @selected_shg_ids, data: { location_select_target: "shg", action: "location-select#shgChanged" }, placeholder: "All SHG") %>
+    <%= multi_filter_select(form, :member_id, "SHG Member", member_filter_options(@members), selected_values: @selected_member_ids, data: { location_select_target: "member", action: "location-select#memberChanged" }, placeholder: "All members") %>
+    <%= multi_filter_select(form, :loan_id, "Loan", loan_filter_options(@loan_filter_records), selected_values: @selected_loan_ids, data: { location_select_target: "loan" }, placeholder: "All loans") %>
+    <%= multi_filter_select(form, :loan_status_id, "Loan Status", @loan_statuses.map { |status| [status.name, status.id] }, selected_values: filter_param_values(:loan_status_id), placeholder: "All loan status") %>
+    <%= multi_filter_select(form, :collection_status, "Collection", [ [ "Pending", "pending" ], [ "Closed", "closed" ], [ "Paid Installment", "paid_installment" ] ], selected_values: filter_param_values(:collection_status), placeholder: "All collection") %>
     <div class="filter-actions">
       <%= link_to "Clear", reports_path, class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
@@ -57,6 +56,7 @@
               <th>SHG / ID / Village</th>
               <th>Member</th>
               <th>Loan No</th>
+              <th>Product Code</th>
               <th>Status</th>
               <th>Collection</th>
               <th>Total</th>
@@ -79,6 +79,7 @@
                 <td><%= loan.shg.display_name %></td>
                 <td><%= loan.shg_member.name %></td>
                 <td><%= loan.shg_member.loan_no.presence || "-" %></td>
+                <td><%= product_code_label(loan.product) %></td>
                 <td><span class="status"><%= report_loan_status(loan, amount) %></span></td>
                 <td><span class="status"><%= report_collection_status(amount) %></span></td>
                 <td><%= number_to_currency(amount[:total_payable], unit: "₹") %></td>

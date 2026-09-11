@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_11_113000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -202,8 +202,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
   end
 
   create_table "shg_members", force: :cascade do |t|
+    t.string "aadhaar_no"
     t.boolean "active", default: true, null: false
-    t.text "address"
+    t.bigint "activity_id"
     t.datetime "created_at", null: false
     t.date "dob"
     t.string "gender"
@@ -213,10 +214,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
     t.string "name", null: false
     t.bigint "occupation_id", null: false
     t.bigint "shg_id", null: false
+    t.string "spouse_father_name"
     t.datetime "updated_at", null: false
+    t.string "work_activity"
+    t.index "lower((aadhaar_no)::text)", name: "index_shg_members_on_unique_aadhaar_no", unique: true, where: "((aadhaar_no IS NOT NULL) AND (btrim((aadhaar_no)::text) <> ''::text))"
     t.index "lower((loan_no)::text) gin_trgm_ops", name: "index_shg_members_on_lower_loan_no_trgm", using: :gin
     t.index "lower((mobile)::text) gin_trgm_ops", name: "index_shg_members_on_lower_mobile_trgm", using: :gin
     t.index "lower((name)::text) gin_trgm_ops", name: "index_shg_members_on_lower_name_trgm", using: :gin
+    t.index ["activity_id"], name: "index_shg_members_on_activity_id"
     t.index ["created_at"], name: "index_shg_members_on_created_at"
     t.index ["loan_no"], name: "index_shg_members_on_loan_no", unique: true
     t.index ["occupation_id"], name: "index_shg_members_on_occupation_id"
@@ -234,6 +239,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
     t.datetime "assistant_approved_at"
     t.bigint "assistant_approved_by_id"
     t.bigint "block_id", null: false
+    t.text "borrower_short_address"
     t.datetime "created_at", null: false
     t.bigint "created_by_id"
     t.datetime "dc_approved_at"
@@ -241,6 +247,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
     t.bigint "district_id", null: false
     t.date "linkage_date"
     t.string "name", null: false
+    t.string "office_location"
     t.string "shg_code", null: false
     t.bigint "state_id", null: false
     t.datetime "updated_at", null: false
@@ -401,6 +408,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_090000) do
   add_foreign_key "shg_loans", "shg_members"
   add_foreign_key "shg_loans", "shgs"
   add_foreign_key "shg_loans", "users", column: "created_by_id"
+  add_foreign_key "shg_members", "activities"
   add_foreign_key "shg_members", "occupations"
   add_foreign_key "shg_members", "shgs"
   add_foreign_key "shgs", "blocks"

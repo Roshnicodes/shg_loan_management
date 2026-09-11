@@ -23,7 +23,7 @@ class DashboardController < ApplicationController
 
   def summary_counts_for(loans, linked_shgs, emis)
     location_counts =
-      if current_user&.admin? || current_user&.assistant_admin?
+      if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
         {
           "Working Districts" => linked_shgs.select(:district_id).distinct.count,
           "Working Blocks" => linked_shgs.select(:block_id).distinct.count,
@@ -193,6 +193,7 @@ class DashboardController < ApplicationController
       .joins(:product)
       .group("products.name")
       .count
+      .map { |name, count| [ name.presence || "-", count ] }
       .sort_by { |_, count| -count }
       .first(5)
   end

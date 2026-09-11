@@ -1,5 +1,5 @@
 class UserTypesController < AdminRecordsController
-  before_action :require_user_admin_permission!
+  before_action :require_user_admin_permission!, except: %i[index show]
 
   self.record_class = UserType
   self.record_title = "User Type"

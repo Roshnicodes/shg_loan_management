@@ -25,9 +25,10 @@ class User < ApplicationRecord
   def assistant_admin? = role_matches?("ASSIST_ADMIN", "ASSISTANT_ADMIN")
   def district_coordinator? = role_matches?("DIST_COORDINATOR", "DISTRICT_COORDINATOR")
   def crp? = role_matches?("CRP")
+  def view_only? = role_matches?("VIEW_ONLY", "READ_ONLY", "READONLY_ADMIN", "VIEW_ONLY_ADMIN")
   def approval_user? = assistant_admin? || district_coordinator?
   def entry_user? = crp? || assistant_admin? || district_coordinator?
-  def readonly_admin? = false
+  def readonly_admin? = view_only?
   def display_name = "#{name} (#{user_type&.name})"
 
   def office_state_ids
@@ -104,7 +105,7 @@ class User < ApplicationRecord
     self.mapped_block_ids = normalize_id_list(mapped_block_ids)
     self.mapped_village_ids = normalize_id_list(mapped_village_ids)
 
-    if admin? || assistant_admin?
+    if admin? || assistant_admin? || view_only?
       self.district_id = nil
       self.block_id = nil
       self.village_id = nil

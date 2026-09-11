@@ -2,7 +2,8 @@ class AdminRecordsController < ApplicationController
   ASSISTANT_ADMIN_CREATE_RECORD_CLASSES = [ State, District, Block, Village, Product, LoanStatus, UserType ].freeze
 
   before_action :authenticate_user!
-  before_action :require_user_admin_permission!
+  before_action :require_admin_record_view_permission!, only: %i[index show]
+  before_action :require_user_admin_permission!, except: %i[index show]
   before_action :set_record, only: %i[show edit update destroy disable]
   before_action :require_create_permission!, only: %i[new create]
   before_action :require_manage_permission!, except: %i[index show]

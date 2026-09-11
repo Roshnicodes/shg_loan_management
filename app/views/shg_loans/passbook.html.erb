@@ -39,7 +39,7 @@
       <dl>
         <dt>Member Name</dt><dd><%= @loan.shg_member.name %></dd>
         <dt>Member ID</dt><dd><%= @loan.shg_member.loan_no.presence || "MEM#{@loan.shg_member.id.to_s.rjust(4, '0')}" %></dd>
-        <dt>Product</dt><dd><%= @loan.product&.name || "-" %></dd>
+        <dt>Product Code</dt><dd><%= product_code_label(@loan.product) %></dd>
         <dt>Loan Amount</dt><dd><%= number_to_currency(@loan.principal_amount, unit: "₹") %></dd>
         <dt>Interest Amount</dt><dd><%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
         <dt>Total Payable</dt><dd><%= number_to_currency(@loan.total_payable, unit: "₹") %></dd>

@@ -9,7 +9,7 @@ module ApplicationHelper
 
   def app_nav_items
     items = [ [ "Dashboard", dashboard_path ] ]
-    if can_manage_users?
+    if can_view_admin_records?
       items += [
         [ "States", states_path ],
         [ "Districts", districts_path ],
@@ -95,6 +95,73 @@ module ApplicationHelper
 
   def user_filter_options(users)
     users.map { |user| [ user.name, user.id, { data: user_location_filter_data(user) } ] }
+  end
+
+  def product_code_label(product)
+    product&.name.presence || "-"
+  end
+
+  def formatted_import_date(date)
+    date&.strftime("%d/%m/%Y")
+  end
+
+  def attachment_preview_link(attachment, label)
+    return content_tag(:small, "No #{label.to_s.downcase}") unless attachment.attached?
+
+    direct_url = url_for(attachment)
+    download_url = rails_blob_path(attachment, disposition: "attachment")
+
+    content_tag(:div, class: "attachment-previewable") do
+      if attachment.image?
+        safe_join([
+          link_to(image_tag(direct_url, class: "table-photo", alt: label, loading: "lazy", decoding: "async"), direct_url, target: "_blank", rel: "noopener"),
+          content_tag(:div, class: "attachment-zoom", aria: { hidden: true }) do
+            image_tag(direct_url, alt: "#{label} preview", loading: "lazy", decoding: "async")
+          end,
+          link_to("Download", download_url)
+        ])
+      else
+        safe_join([
+          link_to("Preview", direct_url, target: "_blank", rel: "noopener"),
+          content_tag(:div, class: "attachment-zoom document", aria: { hidden: true }) do
+            safe_join([
+              content_tag(:strong, attachment.filename.to_s),
+              link_to("Open", direct_url, target: "_blank", rel: "noopener", class: "secondary-link compact-button")
+            ])
+          end,
+          link_to("Download", download_url)
+        ])
+      end
+    end
+  end
+
+  def multi_filter_select(form, key, label, choices, selected_values:, data: {}, placeholder: nil)
+    placeholder ||= "All #{label.to_s.downcase}"
+    select_data = data.dup
+    select_data[:multi_filter_target] = "select"
+    select_data[:action] = [
+      select_data[:action],
+      "change->multi-filter#selectChanged",
+      "searchable-select:refresh->multi-filter#refresh"
+    ].compact.join(" ")
+
+    content_tag(:div, class: "form-field multi-filter-field") do
+      safe_join([
+        content_tag(:span, label),
+        content_tag(:div, class: "multi-select-combobox", data: { controller: "multi-filter", multi_filter_placeholder_value: placeholder }) do
+          safe_join([
+            button_tag(placeholder, type: "button", class: "multi-select-toggle", data: { multi_filter_target: "toggle", action: "multi-filter#toggle" }),
+            content_tag(:div, class: "multi-select-menu", hidden: true, data: { multi_filter_target: "menu" }) do
+              safe_join([
+                content_tag(:div, "", class: "selected-options-bar", data: { multi_filter_target: "selected" }),
+                content_tag(:div, "", class: "multi-select-options", data: { multi_filter_target: "options" })
+              ])
+            end,
+            form.select(key, choices, { selected: Array(selected_values).compact_blank, include_hidden: false }, { multiple: true, data: select_data })
+          ])
+        end
+      ])
+    end
   end
 
   def user_location_filter_data(user)
@@ -223,8 +290,12 @@ module ApplicationHelper
     preserved_params = request.query_parameters.except(:q, :page, :commit, :refresh_filters)
 
     form_with url: path, method: :get, class: "header-search-box server-search-box" do |form|
-      fields = preserved_params.map do |key, value|
-        hidden_field_tag(key, value)
+      fields = preserved_params.flat_map do |key, value|
+        if value.is_a?(Array)
+          value.compact_blank.map { |item| hidden_field_tag("#{key}[]", item) }
+        else
+          hidden_field_tag(key, value)
+        end
       end
       fields << content_tag(:span, "Search")
       fields << form.search_field(:q, value: params[:q], placeholder: placeholder)

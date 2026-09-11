@@ -10,9 +10,10 @@ class ShgsController < ApplicationController
 
   before_action :authenticate_user!
   before_action -> { restore_persistent_index_params(:shgs_index_params, :shgs_path, SHG_INDEX_PARAMS) }, only: :index
-  before_action :set_shg, only: %i[show edit update destroy activate disable approve return_for_correction reject]
+  before_action :set_shg, only: %i[show edit update destroy activate disable approve return_for_correction reject emi_collections update_emi_collections]
   before_action :require_create_permission!, only: %i[new create]
   before_action :require_shg_manage_permission!, only: %i[edit update destroy activate disable]
+  before_action :require_create_permission!, only: %i[update_emi_collections]
   before_action :require_approval_permission!, only: %i[approve return_for_correction reject]
   before_action :require_bulk_delete_permission!, only: %i[destroy activate disable bulk_destroy bulk_activate bulk_disable]
 
@@ -28,6 +29,10 @@ class ShgsController < ApplicationController
   end
 
   def show; end
+
+  def emi_collections
+    prepare_group_emi_collections
+  end
 
   def new
     @shg = Shg.new(active: true)
@@ -84,8 +89,12 @@ class ShgsController < ApplicationController
 
   def approve
     return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "This SHG is not pending at your approval level.") unless @shg.approvable_by?(current_user)
+    if current_user&.district_coordinator? && !@shg.ready_for_approval?
+      return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "At least one active SHG member loan is required before DC approval.")
+    end
+
     if current_user&.district_coordinator? && !@shg.product_ready_for_approval?
-      return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "Product Type is mandatory for every loan before DC approval.")
+      return redirect_to(results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "Product Type is mandatory for every active loan before DC approval.")
     end
 
     @shg.approve!(current_user)
@@ -106,19 +115,40 @@ class ShgsController < ApplicationController
     redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG rejected successfully."
   end
 
+  def update_emi_collections
+    emis = group_emi_scope.index_by(&:id)
+    updated = 0
+
+    params.fetch(:emis, {}).each do |emi_id, values|
+      amount = values[:paid_amount].presence || values["paid_amount"].presence
+      next if amount.blank?
+
+      emi = emis[emi_id.to_i]
+      next unless emi
+
+      payment = amount.to_d
+      next unless payment.positive?
+
+      emi.mark_paid!([ payment, emi.remaining_amount ].min)
+      updated += 1
+    end
+
+    redirect_to emi_collections_shg_path(@shg, request.query_parameters.slice(*SHG_INDEX_PARAMS.map(&:to_s))), notice: "EMI collections updated: #{updated}."
+  end
+
   private
 
   def set_filter_options
     if can_filter_shg_state_district_crp?
       @states = filter_states
-      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
-      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
-      @district_coordinators = limited_user_filter_records(filter_district_coordinators, params[:dc_id])
-      @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), params[:assistant_id])
+      @districts = limited_filter_records(filter_districts_for_params, filter_param_values(:district_id))
+      @crps = limited_user_filter_records(filter_crps, filter_param_values(:crp_id))
+      @district_coordinators = limited_user_filter_records(filter_district_coordinators, filter_param_values(:dc_id))
+      @assistant_admins = limited_user_filter_records(users_with_role_codes("ASSIST_ADMIN", "ASSISTANT_ADMIN"), filter_param_values(:assistant_id))
     end
 
-    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
-    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, filter_param_values(:block_id))
+    @villages = limited_filter_records(filter_villages_for_params, filter_param_values(:village_id))
   end
 
   def filtered_shgs(include_attachments: true)
@@ -132,17 +162,23 @@ class ShgsController < ApplicationController
     shgs = shgs.where(linkage_date: params[:date_from]..) if params[:date_from].present?
     shgs = shgs.where(linkage_date: ..params[:date_to]) if params[:date_to].present?
     if can_filter_shg_state_district_crp?
-      shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
-      shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
-      shgs = shgs.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
-      if params[:dc_id].present?
-        shgs = apply_user_office_scope_to_shgs(shgs, User.includes(:user_type).find_by(id: params[:dc_id]))
-      end
-      shgs = shgs.where(assistant_approved_by_id: params[:assistant_id]) if params[:assistant_id].present? && current_user&.admin?
+      state_ids = filter_param_ids(:state_id)
+      district_ids = filter_param_ids(:district_id)
+      crp_ids = filter_param_ids(:crp_id)
+      dc_ids = filter_param_ids(:dc_id)
+      assistant_ids = filter_param_ids(:assistant_id)
+      shgs = shgs.where(state_id: state_ids) if state_ids.present?
+      shgs = shgs.where(district_id: district_ids) if district_ids.present?
+      shgs = shgs.where(created_by_id: crp_ids) if crp_ids.present?
+      shgs = apply_users_office_scope_to_shgs(shgs, User.includes(:user_type).where(id: dc_ids)) if dc_ids.present?
+      shgs = shgs.where(assistant_approved_by_id: assistant_ids) if assistant_ids.present? && (current_user&.admin? || readonly_admin?)
     end
-    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
-    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
-    shgs = shgs.where(approval_status: params[:approval_status]) if params[:approval_status].present?
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    approval_statuses = filter_param_values(:approval_status) & Shg::APPROVAL_STATUSES
+    shgs = shgs.where(block_id: block_ids) if block_ids.present?
+    shgs = shgs.where(village_id: village_ids) if village_ids.present?
+    shgs = shgs.where(approval_status: approval_statuses) if approval_statuses.present?
     shgs = search_shgs(shgs)
     shgs
   end
@@ -152,7 +188,7 @@ class ShgsController < ApplicationController
   end
 
   def can_filter_shg_state_district_crp?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def shg_filter_crps
@@ -171,6 +207,8 @@ class ShgsController < ApplicationController
           "CAST(shgs.id AS TEXT) ILIKE :query",
           "LOWER(shgs.name) LIKE :query",
           "LOWER(shgs.shg_code) LIKE :query",
+          "LOWER(shgs.office_location) LIKE :query",
+          "LOWER(shgs.borrower_short_address) LIKE :query",
           "LOWER(shgs.approval_status) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
@@ -186,7 +224,8 @@ class ShgsController < ApplicationController
   def stream_shgs_csv(shgs)
     stream_csv("shg-master-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
-        "SHG", "State", "District", "Block", "Village", "Linkage Date",
+        "SHG", "SHG Code", "Office Location", "Borrower Short Address",
+        "State", "District", "Block", "Village", "Linkage Date",
         "Approval", "Meeting Photo Uploaded", "Meeting Register Uploaded",
         "Meeting Photo Download", "Meeting Register Download",
         "Created By", "DC Approval", "Assistant Approval", "Remarks"
@@ -195,6 +234,9 @@ class ShgsController < ApplicationController
       shgs.reorder(nil).find_each(batch_size: 1_000) do |shg|
         stream << CSV.generate_line([
           shg.name,
+          shg.shg_code,
+          shg.office_location,
+          shg.borrower_short_address,
           shg.state.name,
           shg.district.name,
           shg.block.name,
@@ -243,6 +285,28 @@ class ShgsController < ApplicationController
     @shg = visible_shgs.find(params[:id])
   end
 
+  def prepare_group_emi_collections
+    @group_emi_records = group_emi_scope
+    @group_emi_summary = {
+      loans: @shg.shg_loans.where(active: true).count,
+      pending_emis: @group_emi_records.count { |emi| emi.remaining_amount.positive? },
+      due_amount: @group_emi_records.sum(&:due_amount),
+      paid_amount: @group_emi_records.sum(&:paid_amount),
+      remaining_amount: @group_emi_records.sum(&:remaining_amount)
+    }
+  end
+
+  def group_emi_scope
+    @shg.shg_loans.where(active: true).includes(:shg_member, :loan_status).find_each { |loan| loan.ensure_emi_schedule! }
+
+    ShgLoanEmi
+      .joins(shg_loan: :shg_member)
+      .includes(shg_loan: [ :shg_member, :product, :loan_status ])
+      .where(shg_loans: { shg_id: @shg.id, active: true })
+      .order(:due_date, :installment_no, "shg_members.name")
+      .to_a
+  end
+
   def apply_default_location(shg)
     return unless current_user&.crp? || current_user&.district_coordinator?
     return if shg.state_id.present? || shg.district_id.present? || shg.block_id.present? || shg.village_id.present?
@@ -272,6 +336,6 @@ class ShgsController < ApplicationController
   end
 
   def shg_params
-    params.require(:shg).permit(:state_id, :district_id, :block_id, :village_id, :name, :linkage_date, :active, :meeting_register, :meeting_photo)
+    params.require(:shg).permit(:state_id, :district_id, :block_id, :village_id, :name, :office_location, :borrower_short_address, :linkage_date, :active, :meeting_register, :meeting_photo)
   end
 end

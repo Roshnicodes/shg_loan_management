@@ -9,7 +9,7 @@
   </div>
   <%= render "shared/errors", record: @record %>
   <% village_form = controller.record_class == Village %>
-  <% form_data = village_form ? { controller: "location-select" } : {} %>
+  <% form_data = village_form ? { controller: "location-select", location_select_strict_value: true } : {} %>
   <%= form_with model: @record, class: "form-grid", data: form_data do |form| %>
     <% if village_form %>
       <% selected_state_id = params.dig(@record.model_name.param_key, :state_id).presence || @record.block&.district&.state_id %>

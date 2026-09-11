@@ -14,7 +14,7 @@
   <div class="record-hero">
     <div class="record-card">
       <h3><%= @loan.shg_member.name %></h3>
-      <p><%= @loan.product&.name || "Product pending" %></p>
+      <p><%= product_code_label(@loan.product) == "-" ? "Product pending" : product_code_label(@loan.product) %></p>
     </div>
     <div class="record-card">
       <h3>Loan Status</h3>
@@ -34,6 +34,8 @@
     <dt>Term</dt><dd><%= loan_term_display(@loan) %></dd>
     <dt>Reducing Interest</dt><dd><%= @loan.interest_percent.present? ? "#{@loan.interest_percent}% per installment" : "-" %> = <%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
     <dt>Paid</dt><dd><%= number_to_currency(@loan.total_paid, unit: "₹") %></dd>
+    <dt>Product Code</dt><dd><%= product_code_label(@loan.product) %></dd>
+    <dt>Work/Activity</dt><dd><%= @loan.work_activity_name || "-" %></dd>
     <dt>CRP</dt><dd><%= loan_crp_identifier(@loan) %> / <%= loan_crp_name(@loan) %></dd>
   </dl>
 </section>

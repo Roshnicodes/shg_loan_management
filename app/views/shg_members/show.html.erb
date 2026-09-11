@@ -33,11 +33,19 @@
 
   <h3 class="detail-section-title">Profile</h3>
   <dl class="detail-list">
+    <dt>Spouse/Father Name</dt>
+    <dd><%= @member.spouse_father_name.presence || "-" %></dd>
     <dt>Gender</dt>
     <dd><%= @member.gender.presence || "-" %></dd>
     <dt>Date of Birth</dt>
     <dd><%= @member.dob || "-" %></dd>
+    <dt>Aadhaar Number</dt>
+    <dd><%= @member.aadhaar_no.presence || "-" %></dd>
+    <dt>Work/Activity</dt>
+    <dd><%= @member.work_activity_name || "-" %></dd>
+    <dt>Office Location</dt>
+    <dd><%= @member.shg.office_location.presence || "-" %></dd>
     <dt>Address</dt>
-    <dd><%= simple_format(@member.address.presence || "-") %></dd>
+    <dd><%= simple_format(@member.shg.borrower_short_address.presence || "-") %></dd>
   </dl>
 </section>

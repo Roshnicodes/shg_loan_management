@@ -21,20 +21,20 @@
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if can_filter_visit_state_district_crp? %>
-      <% if current_user&.admin? %>
-        <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
+      <% if current_user&.admin? || readonly_admin? %>
+        <%= multi_filter_select(form, :assistant_id, "Assistant Admin", @assistant_admins.map { |user| [user.name, user.id] }, selected_values: filter_param_values(:assistant_id), placeholder: "All Assistant Admin") %>
       <% end %>
-      <label><span>District Coordinator</span><%= form.select :dc_id, options_for_select(user_filter_options(@district_coordinators), params[:dc_id]), { prompt: "All DC" }, data: { location_select_target: "dc", action: "location-select#userChanged" } %></label>
-      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp", action: "location-select#userChanged" } %></label>
+      <%= multi_filter_select(form, :dc_id, "District Coordinator", user_filter_options(@district_coordinators), selected_values: filter_param_values(:dc_id), data: { location_select_target: "dc", action: "location-select#userChanged" }, placeholder: "All DC") %>
+      <%= multi_filter_select(form, :crp_id, "CRP", user_filter_options(@crps), selected_values: filter_param_values(:crp_id), data: { location_select_target: "crp", action: "location-select#userChanged" }, placeholder: "All CRP") %>
     <% end %>
     <% if can_filter_visit_state_district_crp? %>
-      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+      <%= multi_filter_select(form, :state_id, "State", @states.map { |state| [state.name, state.id] }, selected_values: filter_param_values(:state_id), data: { location_select_target: "state", action: "location-select#stateChanged" }, placeholder: "All states") %>
+      <%= multi_filter_select(form, :district_id, "District", district_filter_options(@districts), selected_values: filter_param_values(:district_id), data: { location_select_target: "district", action: "location-select#districtChanged" }, placeholder: "All districts") %>
     <% end %>
-    <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
-    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
-    <label><span>SHG</span><%= form.select :shg_id, options_for_select(shg_filter_options(@shgs), params[:shg_id]), { prompt: "All SHG" }, data: { location_select_target: "shg", action: "location-select#shgChanged" } %></label>
-    <label><span>Approval</span><%= form.select :approval_status, VisitRecord::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, { prompt: "All status", selected: params[:approval_status] } %></label>
+    <%= multi_filter_select(form, :block_id, "Block", block_filter_options(@blocks), selected_values: filter_param_values(:block_id), data: { location_select_target: "block", action: "location-select#blockChanged" }, placeholder: "All blocks") %>
+    <%= multi_filter_select(form, :village_id, "Village", village_filter_options(@villages), selected_values: filter_param_values(:village_id), data: { location_select_target: "village", action: "location-select#villageChanged" }, placeholder: "All villages") %>
+    <%= multi_filter_select(form, :shg_id, "SHG", shg_filter_options(@shgs), selected_values: filter_param_values(:shg_id), data: { location_select_target: "shg", action: "location-select#shgChanged" }, placeholder: "All SHG") %>
+    <%= multi_filter_select(form, :approval_status, "Approval", VisitRecord::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, selected_values: filter_param_values(:approval_status), placeholder: "All status") %>
     <div class="filter-actions">
       <%= link_to "Clear", visit_records_path(clear_filters: 1), class: "secondary-link" %>
       <%= form.submit "Apply", class: "primary-button" %>
@@ -72,7 +72,7 @@
               <%= link_to visit.shg.display_name, visit.shg %><br>
               <small><%= visit.shg_member.name %></small>
             </td>
-            <td><%= visit.product&.name || "-" %></td>
+            <td><%= product_code_label(visit.product) %></td>
             <td>
               <% if visit.photo.attached? %>
                 <% if visit.photo.image? %>
@@ -142,7 +142,7 @@
                           <dl class="compact-detail-list">
                             <dt>Visit Date</dt><dd><%= visit.visit_date %></dd>
                             <dt>Visit No.</dt><dd><%= visit.visit_label %></dd>
-                            <dt>Product</dt><dd><%= visit.product&.name || "-" %></dd>
+                            <dt>Product</dt><dd><%= product_code_label(visit.product) %></dd>
                             <dt>Village</dt><dd><%= visit.village.name %></dd>
                             <dt>SHG</dt><dd><%= visit.shg.display_name %></dd>
                             <dt>Created By</dt><dd><%= visit.created_by&.display_name || "-" %></dd>
@@ -155,7 +155,7 @@
                             <dt>Name</dt><dd><%= visit.shg_member.name %></dd>
                             <dt>Loan No</dt><dd><%= visit.shg_member.loan_no.presence || "-" %></dd>
                             <dt>Mobile</dt><dd><%= visit.shg_member.mobile.presence || "-" %></dd>
-                            <dt>Address</dt><dd><%= visit.shg_member.address.presence || "-" %></dd>
+                            <dt>Address</dt><dd><%= visit.shg.borrower_address || "-" %></dd>
                           </dl>
                         </div>
 

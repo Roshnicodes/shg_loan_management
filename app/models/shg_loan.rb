@@ -111,6 +111,8 @@ class ShgLoan < ApplicationRecord
     shg_loan_emis.sum(:paid_amount)
   end
 
+  def work_activity_name = shg_member&.work_activity_name || activity&.name
+
   def cumulative_due_amount(as_of = Date.current)
     shg_loan_emis.to_a.sum { |emi| emi.due_date <= as_of ? emi.due_amount.to_d : 0.to_d }.round(2)
   end

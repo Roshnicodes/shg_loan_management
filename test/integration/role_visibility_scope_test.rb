@@ -64,6 +64,8 @@ class RoleVisibilityScopeTest < ActionDispatch::IntegrationTest
       village: village,
       name: name,
       shg_code: name.parameterize.upcase.first(24),
+      office_location: "#{village.name} Office",
+      borrower_short_address: village.name,
       linkage_date: Date.current,
       approval_status: "approved",
       created_by: created_by,
@@ -78,13 +80,15 @@ class RoleVisibilityScopeTest < ActionDispatch::IntegrationTest
     member = ShgMember.create!(
       shg: shg,
       occupation: occupations(:one),
+      activity: activities(:one),
       name: "#{shg.name} Member",
+      spouse_father_name: "#{shg.name} Guardian",
       gender: "Female",
       dob: Date.new(1995, 1, 1),
       mobile: "97#{SecureRandom.random_number(10**8).to_s.rjust(8, "0")}",
       loan_no: "LN-#{SecureRandom.hex(4)}",
       monthly_income: 12_000,
-      address: shg.village.name,
+      aadhaar_no: "7#{SecureRandom.random_number(10**11).to_s.rjust(11, "0")}",
       active: true
     )
 

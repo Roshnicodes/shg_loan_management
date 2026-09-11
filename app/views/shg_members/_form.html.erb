@@ -1,29 +1,30 @@
 <%= render "shared/errors", record: @member %>
 <% blocks = visible_blocks.order(:name) %>
 <% active_shg_village_ids = visible_shgs.where(active: true).where.not(village_id: nil).select(:village_id) %>
-<% villages = visible_villages.where(id: active_shg_village_ids).order(:name) %>
 <% form_prefill = @member_form_prefill || {} %>
 <% selected_block_id = form_prefill["block_id"].presence || params[:block_id].presence || @member.shg&.block_id %>
 <% selected_village_id = form_prefill["village_id"].presence || params[:village_id].presence || @member.shg&.village_id %>
-<% villages = villages.where(block_id: selected_block_id) if selected_block_id.present? %>
-<% selected_village_id = nil if selected_village_id.present? && !villages.exists?(id: selected_village_id) %>
-<% shgs = selected_village_id.present? ? visible_shgs.where(active: true, village_id: selected_village_id).order(:name) : Shg.none %>
+<% villages = visible_villages.where(id: active_shg_village_ids).order(:name) %>
+<% selected_village_id = nil if selected_block_id.present? && selected_village_id.present? && !villages.where(block_id: selected_block_id).exists?(id: selected_village_id) %>
+<% shgs = visible_shgs.where(active: true).order(:name) %>
 <% return_params = request.query_parameters.slice(*ShgMembersController::MEMBER_INDEX_PARAMS.map(&:to_s)) %>
 <% form_url = @member.persisted? ? shg_member_path(@member, return_params) : shg_members_path(return_params) %>
 
-<%= form_with model: @member, url: form_url, class: "form-grid", data: { controller: "location-select", location_select_remote_value: true, dependent_dropdown_fallback: true } do |form| %>
+<%= form_with model: @member, url: form_url, class: "form-grid", data: { controller: "location-select", location_select_strict_value: true, dependent_dropdown_fallback: true } do |form| %>
   <label><span>Block</span><%= select_tag "shg_member[block_id]", options_for_select(block_filter_options(blocks), selected_block_id), prompt: "Select block", required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
   <label><span>Village</span><%= select_tag "shg_member[village_id]", options_for_select(village_filter_options(villages), selected_village_id), prompt: "Select village", required: true, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
   <label><span>SHG / ID / Village</span><%= form.select :shg_id, options_for_select(shg_filter_options(shgs), @member.shg_id), { prompt: "Select SHG" }, required: true, data: { location_select_target: "shg", action: "location-select#shgChanged" } %></label>
   <label><span>Member Name</span><%= form.text_field :name, required: true %></label>
+  <label><span>Spouse/Father Name</span><%= form.text_field :spouse_father_name, placeholder: "Spouse or father name" %></label>
   <label><span>Gender</span><%= form.select :gender, [ "Female", "Male", "Other" ], { prompt: "Select gender" }, required: true %></label>
   <label><span>Date of Birth</span><%= form.date_field :dob, required: true %></label>
   <label><span>Mobile</span><%= form.telephone_field :mobile, pattern: "\\d{10}", maxlength: 10, inputmode: "numeric", placeholder: "10 digit mobile number", required: true %></label>
+  <label><span>Aadhaar Number</span><%= form.text_field :aadhaar_no, pattern: "\\d{12}", maxlength: 12, inputmode: "numeric", placeholder: "12 digit Aadhaar" %></label>
+  <label><span>Work/Activity</span><%= form.text_field :work_activity, value: @member.work_activity_name, placeholder: "Enter work/activity" %></label>
   <% if @member.loan_no.present? %>
     <label><span>Loan No</span><input type="text" value="<%= @member.loan_no %>" readonly></label>
   <% end %>
   <label><span>Monthly HH Income</span><%= form.number_field :monthly_income, min: 0, step: "0.01", placeholder: "Monthly HH income", required: true %></label>
-  <label class="full"><span>Address</span><%= form.text_area :address, rows: 3, required: true %></label>
   <label class="checkbox-field"><span>Active</span><%= form.check_box :active %></label>
   <div class="form-actions">
     <%= link_to "Cancel", with_results_anchor(shg_members_path(return_params)), class: "secondary-link" %>

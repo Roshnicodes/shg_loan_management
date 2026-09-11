@@ -29,6 +29,7 @@ class Shg < ApplicationRecord
   validate :meeting_photo_file_size
 
   def display_name = "#{name} / #{id} / #{village&.name}".squeeze(" ").strip
+  def borrower_address = borrower_short_address.presence || office_location.presence || village&.name
   def draft? = approval_status == "draft"
   def pending_approval? = pending_dc? || pending_assistant?
   def pending_dc? = approval_status == "pending_dc"
@@ -37,11 +38,11 @@ class Shg < ApplicationRecord
   def approval_label = approval_status.to_s.titleize
 
   def ready_for_approval?
-    shg_members.exists? && shg_loans.exists?
+    active_shg_members.exists? && active_member_loans.exists?
   end
 
   def loans_missing_product
-    shg_loans.where(active: true, product_id: nil)
+    active_member_loans.where(product_id: nil)
   end
 
   def product_ready_for_approval?
@@ -87,8 +88,13 @@ class Shg < ApplicationRecord
 
   def approve!(user)
     raise ActiveRecord::RecordInvalid, self unless approvable_by?(user)
+    if user.district_coordinator? && !ready_for_approval?
+      errors.add(:base, "At least one active SHG member loan is required before DC approval")
+      raise ActiveRecord::RecordInvalid, self
+    end
+
     if user.district_coordinator? && !product_ready_for_approval?
-      errors.add(:base, "Product Type must be selected for every SHG loan before DC approval")
+      errors.add(:base, "Product Type must be selected for every active SHG loan before DC approval")
       raise ActiveRecord::RecordInvalid, self
     end
 
@@ -149,12 +155,18 @@ class Shg < ApplicationRecord
   end
 
   def assign_member_loan_numbers!
-    shg_members.where(loan_no: [ nil, "" ]).order(:id).find_each do |member|
-      member.assign_next_loan_no!
-    end
+    ShgMember.assign_missing_loan_numbers_for_active_loans(active_member_loans.select(:shg_member_id))
   end
 
   private
+
+  def active_shg_members
+    shg_members.where(active: true)
+  end
+
+  def active_member_loans
+    shg_loans.joins(:shg_member).where(active: true, shg_members: { active: true })
+  end
 
   def set_default_approval_status
     self.approval_status ||= "draft"

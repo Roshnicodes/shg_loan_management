@@ -2,10 +2,11 @@ require "csv"
 
 class UsersController < ApplicationController
   before_action :authenticate_user!
-  before_action :require_user_admin_permission!, except: :profile
+  before_action :require_user_view_permission!, only: %i[index show export]
+  before_action :require_user_admin_permission!, except: %i[index show export profile]
   before_action :require_create_permission!, only: %i[new create new_import import]
   before_action :set_user, only: %i[show edit update destroy reset_password activate disable]
-  before_action :require_manage_permission!, except: %i[index show reset_password export]
+  before_action :require_manage_permission!, except: %i[index show reset_password export profile]
   before_action :require_bulk_delete_permission!, only: %i[destroy activate disable bulk_destroy bulk_activate bulk_disable]
 
   def index

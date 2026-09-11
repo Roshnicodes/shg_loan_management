@@ -16,6 +16,7 @@ admin_type = UserType.find_or_create_by!(code: "ADMIN") { |r| r.name = "Admin"; 
 assist_admin_type = UserType.find_or_create_by!(code: "ASSIST_ADMIN") { |r| r.name = "Assistant Admin"; r.level = "state" }
 district_coordinator_type = UserType.find_or_create_by!(code: "DIST_COORDINATOR") { |r| r.name = "District Coordinator"; r.level = "district" }
 crp_type = UserType.find_or_create_by!(code: "CRP") { |r| r.name = "CRP"; r.level = "village" }
+view_only_type = UserType.find_or_create_by!(code: "VIEW_ONLY") { |r| r.name = "View Only"; r.level = "state" }
 
 LoanStatus.find_or_create_by!(code: "ACTIVE") { |s| s.name = "Active" }
 LoanStatus.find_or_create_by!(code: "CLOSED") { |s| s.name = "Closed" }
@@ -41,7 +42,8 @@ admin.save!
 [
   [ "assistant@shg.local", "002", "Assistant Admin", assist_admin_type, state, nil, nil, nil ],
   [ "dc@shg.local", "003", "District Coordinator", district_coordinator_type, state, district, nil, nil ],
-  [ "crp@shg.local", "004", "CRP User", crp_type, state, district, block, village ]
+  [ "crp@shg.local", "004", "CRP User", crp_type, state, district, block, village ],
+  [ "view@shg.local", "999", "View Only", view_only_type, state, nil, nil, nil ]
 ].each do |email, login_id, name, role, user_state, user_district, user_block, user_village|
   user = User.find_or_initialize_by(email: email)
   user.assign_attributes(
@@ -63,6 +65,8 @@ shg = Shg.find_or_create_by!(name: "Ujjwal Mahila Samuh", village: village) do |
   group.state = state
   group.district = district
   group.block = block
+  group.office_location = "Bhopal Office"
+  group.borrower_short_address = "Khajuri, Bhopal"
   group.linkage_date = Date.current - 1.year
   sample_image = Rails.root.join("app/assets/images/shg-women-hero.png")
   group.meeting_register.attach(io: File.open(sample_image), filename: "sample-meeting-register.png", content_type: "image/png")
@@ -71,9 +75,12 @@ end
 
 ShgMember.find_or_create_by!(shg: shg, name: "Sita Bai") do |member|
   member.occupation = Occupation.find_by!(name: "Farmer")
+  member.activity = Activity.find_by!(name: "Agriculture")
+  member.work_activity = "Agriculture"
+  member.spouse_father_name = "Ramesh"
+  member.aadhaar_no = "123456789012"
   member.gender = "Female"
   member.dob = Date.new(1990, 1, 1)
   member.mobile = "9000000001"
   member.monthly_income = 10_000
-  member.address = "Khajuri, Bhopal"
 end

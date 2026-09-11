@@ -28,6 +28,7 @@ class ShgTest < ActiveSupport::TestCase
     shg = shgs(:one)
     shg.update_column(:approval_status, "pending_dc")
     loan = shg_loans(:one)
+    loan.shg_member.update_columns(active: true)
     loan.update_columns(product_id: nil, active: true)
 
     dc_type = UserType.create!(name: "Approval DC", code: "DIST_COORDINATOR", level: "district", active: true)
@@ -47,19 +48,62 @@ class ShgTest < ActiveSupport::TestCase
     assert_equal "pending_dc", shg.reload.approval_status
   end
 
-  test "district coordinator approval assigns loan numbers to blank members" do
+  test "district coordinator approval ignores inactive member loan missing product" do
     shg = shgs(:one)
     shg.update_column(:approval_status, "pending_dc")
     attach_required_shg_files(shg)
-    member = ShgMember.create!(
+    active_member = ShgMember.create!(
       shg: shg,
       occupation: occupations(:one),
-      name: "DC Approved Member",
+      activity: activities(:one),
+      name: "DC Active Approved Member",
+      spouse_father_name: "DC Guardian",
       gender: "Female",
       dob: Date.new(1990, 1, 1),
       mobile: "9876543216",
       monthly_income: 10_000,
-      address: "Test address"
+      aadhaar_no: "123456789020"
+    )
+    ShgLoan.create!(
+      shg: shg,
+      shg_member: active_member,
+      product: products(:one),
+      activity: activities(:one),
+      loan_status: loan_statuses(:one),
+      created_by: users(:one),
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 10_000,
+      interest_percent: 1.0
+    )
+    inactive_member = ShgMember.create!(
+      shg: shg,
+      occupation: occupations(:one),
+      activity: activities(:one),
+      name: "DC Inactive Extra Member",
+      spouse_father_name: "DC Inactive Guardian",
+      gender: "Female",
+      dob: Date.new(1991, 1, 1),
+      mobile: "9876543217",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789021",
+      active: false
+    )
+    ShgLoan.create!(
+      shg: shg,
+      shg_member: inactive_member,
+      product: nil,
+      activity: activities(:one),
+      loan_status: loan_statuses(:one),
+      created_by: users(:one),
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 10_000,
+      interest_percent: 1.0
     )
 
     dc_type = UserType.create!(name: "Loan Number DC", code: "DIST_COORDINATOR", level: "district", active: true)
@@ -78,6 +122,7 @@ class ShgTest < ActiveSupport::TestCase
     shg.approve!(dc)
 
     assert_equal "pending_assistant", shg.reload.approval_status
-    assert_equal "ASAWO26-01", member.reload.loan_no
+    assert_match(/\AASAWO26-\d{2,}\z/, active_member.reload.loan_no)
+    assert_nil inactive_member.reload.loan_no
   end
 end

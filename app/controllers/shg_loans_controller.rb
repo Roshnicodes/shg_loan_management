@@ -12,6 +12,11 @@ class ShgLoansController < ApplicationController
     page q date_from date_to crp_id
     state_id district_id block_id village_id shg_id
   ].freeze
+  LOAN_PREFILL_PARAMS = %i[
+    shg_id block_id village_id product_id geography_type distribution_date
+    loan_term_type loan_term principal_amount interest_percent active
+  ].freeze
+  LOAN_PREFILL_SESSION_KEY = :shg_loan_prefill_params
 
   IMPORT_BATCH_SIZE = 2_000
   ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
@@ -21,6 +26,7 @@ class ShgLoansController < ApplicationController
 
   before_action :authenticate_user!
   before_action -> { restore_persistent_index_params(:shg_loans_index_params, :shg_loans_path, LOAN_INDEX_PARAMS) }, only: :index
+  before_action :set_loan_form_prefill, only: %i[new create]
   before_action :set_loan, only: %i[show edit update destroy disable passbook update_product]
   before_action :require_create_permission!, only: %i[new create]
   before_action :require_shg_loan_manage_permission!, only: %i[edit update update_product]
@@ -68,6 +74,7 @@ class ShgLoansController < ApplicationController
 
   def new
     @loan = ShgLoan.new(distribution_date: Date.current, loan_status: LoanStatus.default_active, loan_term_type: "Monthly")
+    apply_loan_prefill(@loan)
   end
 
   def create
@@ -85,7 +92,12 @@ class ShgLoansController < ApplicationController
     end
 
     if @loan.save
-      redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loan saved successfully."
+      store_loan_prefill
+      if add_another_loan?
+        redirect_to new_shg_loan_path(loan_prefill_redirect_params), notice: "SHG loan saved successfully. Add another loan."
+      else
+        redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loan saved successfully."
+      end
     else
       render :new, status: :unprocessable_entity
     end
@@ -159,6 +171,63 @@ class ShgLoansController < ApplicationController
     end
   end
 
+  def set_loan_form_prefill
+    @loan_form_prefill = loan_form_prefill_params
+  end
+
+  def loan_form_prefill_params
+    saved_prefill = session[LOAN_PREFILL_SESSION_KEY].is_a?(Hash) ? session[LOAN_PREFILL_SESSION_KEY].slice(*LOAN_PREFILL_PARAMS.map(&:to_s)) : {}
+    index_prefill = {
+      "shg_id" => filter_param_value(:shg_id),
+      "block_id" => filter_param_value(:block_id),
+      "village_id" => filter_param_value(:village_id)
+    }.compact_blank
+
+    merge_loan_prefill(saved_prefill, index_prefill, submitted_loan_prefill_params)
+  end
+
+  def merge_loan_prefill(saved_prefill, index_prefill, submitted_prefill)
+    prefill = saved_prefill.dup
+    prefill.except!("village_id", "shg_id") if index_prefill["block_id"].present? && index_prefill["block_id"] != prefill["block_id"]
+    prefill.except!("shg_id") if index_prefill["village_id"].present? && index_prefill["village_id"] != prefill["village_id"]
+
+    prefill.merge(index_prefill).merge(submitted_prefill)
+  end
+
+  def submitted_loan_prefill_params
+    return {} unless params[:shg_loan].respond_to?(:permit)
+
+    params.require(:shg_loan).permit(*LOAN_PREFILL_PARAMS).to_h.compact_blank
+  end
+
+  def apply_loan_prefill(loan)
+    attributes = @loan_form_prefill.slice(
+      "shg_id", "product_id", "geography_type", "distribution_date",
+      "loan_term_type", "loan_term", "principal_amount", "interest_percent"
+    )
+    if attributes["shg_id"].present?
+      shg = visible_shgs.find_by(id: attributes["shg_id"])
+      attributes.delete("shg_id") if shg.blank? ||
+        (@loan_form_prefill["block_id"].present? && shg.block_id.to_s != @loan_form_prefill["block_id"].to_s) ||
+        (@loan_form_prefill["village_id"].present? && shg.village_id.to_s != @loan_form_prefill["village_id"].to_s)
+    end
+
+    loan.assign_attributes(attributes)
+  end
+
+  def store_loan_prefill
+    prefill = submitted_loan_prefill_params
+    prefill.present? ? session[LOAN_PREFILL_SESSION_KEY] = prefill : session.delete(LOAN_PREFILL_SESSION_KEY)
+  end
+
+  def add_another_loan?
+    params[:add_another].present?
+  end
+
+  def loan_prefill_redirect_params
+    preserved_index_params(LOAN_INDEX_PARAMS).merge(shg_loan: session[LOAN_PREFILL_SESSION_KEY])
+  end
+
   def start_async_loan_import(file)
     filename = file.respond_to?(:original_filename) ? file.original_filename.to_s : File.basename(file.path)
     import = LoanImport.create!(
@@ -177,8 +246,16 @@ class ShgLoansController < ApplicationController
   end
 
   def loan_selection_available?(loan)
-    return false unless visible_shgs.exists?(id: loan.shg_id)
+    shg = visible_shgs.find_by(id: loan.shg_id)
+    return false unless shg
     return false unless visible_shg_members.where(shg_id: loan.shg_id).exists?(id: loan.shg_member_id)
+
+    selection = params[:shg_loan] || {}
+    block_id = selection[:block_id].presence || selection["block_id"].presence
+    village_id = selection[:village_id].presence || selection["village_id"].presence
+
+    return false if block_id.present? && shg.block_id.to_s != block_id.to_s
+    return false if village_id.present? && shg.village_id.to_s != village_id.to_s
 
     true
   end
@@ -186,36 +263,42 @@ class ShgLoansController < ApplicationController
   def set_filter_options
     if can_filter_loan_state_district_crp?
       @states = filter_states
-      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
-      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
+      @districts = limited_filter_records(filter_districts_for_params, filter_param_values(:district_id))
+      @crps = limited_user_filter_records(filter_crps, filter_param_values(:crp_id))
     end
 
-    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
-    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
-    @shgs = limited_filter_records(loan_filter_shgs, params[:shg_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, filter_param_values(:block_id))
+    @villages = limited_filter_records(filter_villages_for_params, filter_param_values(:village_id))
+    @shgs = limited_filter_records(loan_filter_shgs, filter_param_values(:shg_id))
   end
 
   def filtered_loans(preload_emis: true)
     loans = visible_shg_loans
-      .includes(:created_by, :loan_status, :product, :shg_member, shg: [ :state, :district, :block, :village ])
+      .includes(:activity, :created_by, :loan_status, :product, :shg_member, shg: [ :state, :district, :block, :village ])
     loans = loans.includes(:shg_loan_emis) if preload_emis
 
     loans = loans.where(distribution_date: params[:date_from]..) if params[:date_from].present?
     loans = loans.where(distribution_date: ..params[:date_to]) if params[:date_to].present?
     if can_filter_loan_state_district_crp?
-      loans = loans.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
-      loans = loans.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
-      loans = loans.where(created_by_id: params[:crp_id]) if params[:crp_id].present?
+      state_ids = filter_param_ids(:state_id)
+      district_ids = filter_param_ids(:district_id)
+      crp_ids = filter_param_ids(:crp_id)
+      loans = loans.joins(:shg).where(shgs: { state_id: state_ids }) if state_ids.present?
+      loans = loans.joins(:shg).where(shgs: { district_id: district_ids }) if district_ids.present?
+      loans = loans.where(created_by_id: crp_ids) if crp_ids.present?
     end
-    loans = loans.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
-    loans = loans.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
-    loans = loans.where(shg_id: params[:shg_id]) if params[:shg_id].present?
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    shg_ids = filter_param_ids(:shg_id)
+    loans = loans.joins(:shg).where(shgs: { block_id: block_ids }) if block_ids.present?
+    loans = loans.joins(:shg).where(shgs: { village_id: village_ids }) if village_ids.present?
+    loans = loans.where(shg_id: shg_ids) if shg_ids.present?
     loans = search_loans(loans)
     loans
   end
 
   def can_filter_loan_state_district_crp?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def loan_filter_option_scope
@@ -229,10 +312,14 @@ class ShgLoansController < ApplicationController
 
   def loan_filter_shgs
     shgs = visible_shgs
-    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
-    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
-    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
-    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    state_ids = filter_param_ids(:state_id)
+    district_ids = filter_param_ids(:district_id)
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    shgs = shgs.where(state_id: state_ids) if state_ids.present?
+    shgs = shgs.where(district_id: district_ids) if district_ids.present?
+    shgs = shgs.where(block_id: block_ids) if block_ids.present?
+    shgs = shgs.where(village_id: village_ids) if village_ids.present?
     shgs.order(:name)
   end
 
@@ -270,7 +357,9 @@ class ShgLoansController < ApplicationController
   def stream_loans_csv(loans)
     stream_csv("shg-loans-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
-        "SHG Name", "Member", "Loan No", "State", "District", "Block", "Village", "CRP ID",
+        "SHG Name", "Member", "Spouse/Father Name", "Loan No", "Aadhaar Number",
+        "Work/Activity", "Date of Birth", "Office Location", "Borrower Short Address",
+        "State", "District", "Block", "Village", "CRP ID",
         "CRPName", "Product Code", "Disbursement Date", "Loan Status",
         "Term Type", "Loan term", "Principal", "Annual Interest Percent",
         "Interest Amount", "Total Payable", "Principal Collected",
@@ -289,7 +378,13 @@ class ShgLoansController < ApplicationController
           stream << CSV.generate_line([
             loan.shg.name,
             loan.shg_member.name,
+            loan.shg_member.spouse_father_name,
             loan.shg_member.loan_no,
+            loan.shg_member.aadhaar_no,
+            loan.work_activity_name,
+            loan.shg_member.dob,
+            loan.shg.office_location,
+            loan.shg.borrower_short_address,
             loan.shg.state.name,
             loan.shg.district.name,
             loan.shg.block.name,
@@ -400,7 +495,7 @@ class ShgLoansController < ApplicationController
   def product_code_label(product)
     return "-" unless product
 
-    [ product.name, product.code.presence ].compact_blank.join(" / ")
+    product.name.presence || "-"
   end
 
   def product_required_for_current_user?(loan)
@@ -535,7 +630,7 @@ class ShgLoansController < ApplicationController
   def cached_import_product(name)
     canonical_name = name.to_s.squish
     normalized_name = canonical_name.downcase
-    @import_products[normalized_name] ||= Product.where("LOWER(name) = ?", normalized_name).first || Product.create!(name: canonical_name)
+    @import_products[normalized_name] ||= Product.where("LOWER(name) = :value OR LOWER(code) = :value", value: normalized_name).first || Product.create!(name: canonical_name)
   end
 
   def cached_import_activity(name)
@@ -587,11 +682,15 @@ class ShgLoansController < ApplicationController
       product: import_value(row, "product", "product type", "product code", indexes: [ 8 ]).presence || "Imported Loan",
       activity: default_import_activity_name,
       occupation: import_value(row, "occupation").presence || "Imported",
+      member_activity: import_value(row, "work/activity", "work activity", "member activity", "activity", "loan activity").presence || default_import_activity_name,
+      spouse_father_name: import_value(row, "spouse/father name", "spouse father name", "father name", "spouse name"),
+      aadhaar_no: import_digits(row, "aadhaar", "aadhaar no", "aadhaar number", "aadhar", "aadhar no", "aadhar number"),
       gender: import_value(row, "gender"),
       dob: import_date(row, "dob", "date of birth"),
       mobile: import_digits(row, "mobile", "mobile no", "mobile_no", "phone", "phone number", "phone no", "phone_no", "contact", "contact no", "borrower phone number", indexes: [ 21 ]),
       monthly_income: import_value(row, "monthly hh income", "monthly income", "monthly_income", "income", "member income", indexes: [ 22, 23, 24 ]),
-      address: import_value(row, "address"),
+      borrower_short_address: import_value(row, "borrower short address", "short address", "address"),
+      office_location: import_value(row, "office location", "office"),
       distribution_date: import_date(row, "disbursement date", "distribution date", "distribution_date", indexes: [ 9 ]) || Date.current,
       geography_type: import_choice(row, ShgLoan::GEOGRAPHY_TYPES, "geography", "geography type", "type of geography") || "Rural",
       loan_status: import_value(row, "loan status", "loan_status", indexes: [ 10 ]),
@@ -925,6 +1024,8 @@ class ShgLoansController < ApplicationController
       shg.linkage_date = attrs[:distribution_date]
       shg.created_by = created_by || import_crp(attrs) || @import_current_user
       shg.shg_code = next_import_shg_code(village)
+      shg.office_location = attrs[:office_location].presence
+      shg.borrower_short_address = attrs[:borrower_short_address].presence
       shg.save!
     end
   end
@@ -970,6 +1071,8 @@ class ShgLoansController < ApplicationController
         created_by_id: processed.fetch(:created_by)&.id,
         name: processed.dig(:attrs, :shg),
         shg_code: next_import_shg_code(processed.fetch(:village)),
+        office_location: processed.dig(:attrs, :office_location).presence,
+        borrower_short_address: processed.dig(:attrs, :borrower_short_address).presence,
         linkage_date: processed.dig(:attrs, :distribution_date),
         approval_status: auto_approve ? "approved" : "pending_dc",
         assistant_approved_by_id: auto_approve ? current_user.id : nil,
@@ -1032,20 +1135,33 @@ class ShgLoansController < ApplicationController
 
   def create_import_members_for_rows!(processed_rows)
     timestamp = Time.current
+    aadhaar_values = processed_rows.map { |processed| processed.dig(:attrs, :aadhaar_no).presence }.compact_blank.uniq
+    existing_aadhaar = aadhaar_values.present? ? ShgMember.where(aadhaar_no: aadhaar_values).pluck(:aadhaar_no).to_set : Set.new
+    batch_aadhaar = Set.new
+
     rows = processed_rows.map do |processed|
       attrs = processed.fetch(:attrs)
       shg = cached_import_shg(attrs, processed.fetch(:village))
+      aadhaar_no = attrs[:aadhaar_no].presence
+      if aadhaar_no.present? && (existing_aadhaar.include?(aadhaar_no) || batch_aadhaar.include?(aadhaar_no))
+        aadhaar_no = nil
+      else
+        batch_aadhaar.add(aadhaar_no) if aadhaar_no.present?
+      end
 
       {
         shg_id: shg.id,
         occupation_id: cached_import_occupation(attrs[:occupation]).id,
+        activity_id: cached_import_activity(attrs[:member_activity]).id,
+        work_activity: attrs[:member_activity].presence,
         name: attrs[:member],
+        spouse_father_name: attrs[:spouse_father_name],
+        aadhaar_no: aadhaar_no,
         loan_no: nil,
         gender: attrs[:gender],
         dob: attrs[:dob],
         mobile: attrs[:mobile],
         monthly_income: attrs[:monthly_income].presence,
-        address: attrs[:address],
         active: true,
         created_at: timestamp,
         updated_at: timestamp
@@ -1081,7 +1197,7 @@ class ShgLoansController < ApplicationController
       shg_id: shg.id,
       shg_member_id: member.id,
       product_id: cached_import_product(attrs[:product]).id,
-      activity_id: cached_import_activity(attrs[:activity]).id,
+      activity_id: cached_import_activity(attrs[:member_activity].presence || attrs[:activity]).id,
       loan_status_id: imported_loan_status(attrs).id,
       created_by_id: (created_by || import_crp(attrs) || @import_current_user).id,
       source_crp_identifier: attrs[:crp_identifier],
@@ -1328,9 +1444,10 @@ class ShgLoansController < ApplicationController
   end
 
   def loan_params
-    params.require(:shg_loan)
+    permitted = params.require(:shg_loan)
       .except(:block_id, :village_id)
       .permit(:shg_id, :shg_member_id, :product_id, :geography_type, :distribution_date, :loan_term_type, :loan_term, :principal_amount, :interest_percent)
-      .merge(activity_id: default_import_activity.id)
+    permitted[:activity_id] = visible_shg_members.find_by(id: permitted[:shg_member_id])&.activity_id || default_import_activity.id
+    permitted
   end
 end

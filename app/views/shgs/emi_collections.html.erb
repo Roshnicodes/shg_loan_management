@@ -1,0 +1,71 @@
+<% content_for :page_title, "EMI Collections" %>
+<% return_params = request.query_parameters.slice(*ShgsController::SHG_INDEX_PARAMS.map(&:to_s)) %>
+
+<section class="panel">
+  <div class="panel-header">
+    <div>
+      <p class="eyebrow">Group Collection</p>
+      <h2><%= @shg.display_name %></h2>
+    </div>
+    <div class="action-row">
+      <%= link_to "Back", shg_path(@shg, return_params), class: "secondary-link" %>
+      <%= link_to "SHG Master", with_results_anchor(shgs_path(return_params)), class: "secondary-link" %>
+    </div>
+  </div>
+
+  <div class="record-metrics">
+    <div><small>Active Loans</small><strong><%= @group_emi_summary[:loans] %></strong></div>
+    <div><small>Pending EMIs</small><strong><%= @group_emi_summary[:pending_emis] %></strong></div>
+    <div><small>Total Due</small><strong><%= number_to_currency(@group_emi_summary[:due_amount], unit: "₹") %></strong></div>
+    <div><small>Collected</small><strong><%= number_to_currency(@group_emi_summary[:paid_amount], unit: "₹") %></strong></div>
+    <div><small>Remaining</small><strong><%= number_to_currency(@group_emi_summary[:remaining_amount], unit: "₹") %></strong></div>
+  </div>
+
+  <%= form_with url: update_emi_collections_shg_path(@shg, return_params), method: :patch do |form| %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Loan No</th>
+            <th>Product Code</th>
+            <th>Installment</th>
+            <th>Due Date</th>
+            <th>Due</th>
+            <th>Paid</th>
+            <th>Remaining</th>
+            <th>Collect Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @group_emi_records.each do |emi| %>
+            <% loan = emi.shg_loan %>
+            <tr>
+              <td><%= loan.shg_member.name %></td>
+              <td><%= loan.shg_member.loan_no.presence || "-" %></td>
+              <td><%= product_code_label(loan.product) %></td>
+              <td><%= emi.installment_no %></td>
+              <td><%= formatted_import_date(emi.due_date) %></td>
+              <td><%= number_to_currency(emi.due_amount, unit: "₹") %></td>
+              <td><%= number_to_currency(emi.paid_amount, unit: "₹") %></td>
+              <td><%= number_to_currency(emi.remaining_amount, unit: "₹") %></td>
+              <td>
+                <% if can_create_records? && emi.remaining_amount.positive? %>
+                  <%= number_field_tag "emis[#{emi.id}][paid_amount]", nil, step: "0.01", min: 0, max: emi.remaining_amount, placeholder: emi.remaining_amount, class: "compact-number-input" %>
+                <% else %>
+                  <span class="status paid">Paid</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <% if can_create_records? %>
+      <div class="form-actions">
+        <%= form.submit "Update Collections", class: "primary-button" %>
+      </div>
+    <% end %>
+  <% end %>
+</section>

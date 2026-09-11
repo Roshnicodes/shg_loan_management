@@ -7,6 +7,8 @@ one:
   village: one
   name: Ujjwal Mahila Samuh
   shg_code: SHG-ONE
+  office_location: Test Office One
+  borrower_short_address: Test borrower address one
   linkage_date: 2026-07-12
   active: false
 
@@ -17,5 +19,7 @@ two:
   village: two
   name: Pragati Mahila Samuh
   shg_code: SHG-TWO
+  office_location: Test Office Two
+  borrower_short_address: Test borrower address two
   linkage_date: 2026-07-12
   active: false

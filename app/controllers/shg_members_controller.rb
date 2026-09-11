@@ -8,7 +8,7 @@ class ShgMembersController < ApplicationController
     state_id district_id block_id village_id shg_id
   ].freeze
   MEMBER_PREFILL_PARAMS = %i[
-    shg_id block_id village_id gender monthly_income address active
+    shg_id block_id village_id gender monthly_income work_activity active
   ].freeze
   MEMBER_PREFILL_SESSION_KEY = :shg_member_prefill_params
 
@@ -41,10 +41,12 @@ class ShgMembersController < ApplicationController
     @member = ShgMember.new(member_params)
     apply_default_occupation(@member)
 
-    unless visible_shgs.exists?(id: @member.shg_id)
+    unless member_location_selection_available?(@member)
       @member.errors.add(:shg, "is not available for your login")
       return render :new, status: :unprocessable_entity
     end
+
+    sync_member_activity(@member)
 
     if @member.save
       store_member_prefill
@@ -63,10 +65,12 @@ class ShgMembersController < ApplicationController
   def update
     @member.assign_attributes(member_params)
     apply_default_occupation(@member)
-    unless visible_shgs.exists?(id: @member.shg_id)
+    unless member_location_selection_available?(@member)
       @member.errors.add(:shg, "is not available for your login")
       return render :edit, status: :unprocessable_entity
     end
+
+    sync_member_activity(@member)
 
     if @member.save
       redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member updated successfully."
@@ -89,7 +93,10 @@ class ShgMembersController < ApplicationController
   end
 
   def disable
-    @member.update_columns(active: false, updated_at: Time.current)
+    ActiveRecord::Base.transaction do
+      @member.update_columns(active: false, updated_at: Time.current)
+      disable_member_loans([ @member.id ])
+    end
     redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member disabled successfully."
   end
 
@@ -99,7 +106,16 @@ class ShgMembersController < ApplicationController
   end
 
   def bulk_disable
-    result = disable_records(visible_shg_members, params[:ids])
+    member_ids = Array(params[:ids]).compact_blank
+    members = visible_shg_members.where(id: member_ids)
+    disabled = 0
+
+    ActiveRecord::Base.transaction do
+      disabled = members.where(active: true).update_all(active: false, updated_at: Time.current)
+      disable_member_loans(members.select(:id))
+    end
+
+    result = { disabled: disabled, skipped: member_ids.size - members.count }
     redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG members disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
@@ -108,13 +124,13 @@ class ShgMembersController < ApplicationController
   def set_filter_options
     if can_filter_member_state_district_crp?
       @states = filter_states
-      @districts = limited_filter_records(filter_districts_for_params, params[:district_id])
-      @crps = limited_user_filter_records(filter_crps, params[:crp_id])
+      @districts = limited_filter_records(filter_districts_for_params, filter_param_values(:district_id))
+      @crps = limited_user_filter_records(filter_crps, filter_param_values(:crp_id))
     end
 
-    @blocks = limited_filter_records(filter_blocks_for_params, params[:block_id])
-    @villages = limited_filter_records(filter_villages_for_params, params[:village_id])
-    @shgs = limited_filter_records(member_filter_shgs, params[:shg_id])
+    @blocks = limited_filter_records(filter_blocks_for_params, filter_param_values(:block_id))
+    @villages = limited_filter_records(filter_villages_for_params, filter_param_values(:village_id))
+    @shgs = limited_filter_records(member_filter_shgs, filter_param_values(:shg_id))
   end
 
   def set_member_form_prefill
@@ -123,7 +139,11 @@ class ShgMembersController < ApplicationController
 
   def member_form_prefill_params
     saved_prefill = session[MEMBER_PREFILL_SESSION_KEY].is_a?(Hash) ? session[MEMBER_PREFILL_SESSION_KEY].slice(*MEMBER_PREFILL_PARAMS.map(&:to_s)) : {}
-    index_prefill = params.permit(:shg_id, :block_id, :village_id).to_h.compact_blank
+    index_prefill = {
+      "shg_id" => filter_param_value(:shg_id),
+      "block_id" => filter_param_value(:block_id),
+      "village_id" => filter_param_value(:village_id)
+    }.compact_blank
 
     merge_member_prefill(saved_prefill, index_prefill, submitted_member_prefill_params)
   end
@@ -143,7 +163,7 @@ class ShgMembersController < ApplicationController
   end
 
   def apply_member_prefill(member)
-    attributes = @member_form_prefill.slice("shg_id", "gender", "monthly_income", "address", "active")
+    attributes = @member_form_prefill.slice("shg_id", "gender", "monthly_income", "work_activity", "active")
     if attributes["shg_id"].present?
       shg = visible_shgs.find_by(id: attributes["shg_id"])
       attributes.delete("shg_id") if shg.blank? ||
@@ -168,17 +188,23 @@ class ShgMembersController < ApplicationController
   end
 
   def filtered_members
-    members = member_rows_scope.includes(shg: [ :state, :district, :block, :village, :created_by ])
+    members = member_rows_scope.includes(:activity, shg: [ :state, :district, :block, :village, :created_by ])
     members = members.where(created_at: params[:date_from].to_date.beginning_of_day..) if params[:date_from].present?
     members = members.where(created_at: ..params[:date_to].to_date.end_of_day) if params[:date_to].present?
-    members = members.where(shg_id: params[:shg_id]) if params[:shg_id].present?
+    shg_ids = filter_param_ids(:shg_id)
+    members = members.where(shg_id: shg_ids) if shg_ids.present?
     if can_filter_member_state_district_crp?
-      members = members.joins(:shg).where(shgs: { state_id: params[:state_id] }) if params[:state_id].present?
-      members = members.joins(:shg).where(shgs: { district_id: params[:district_id] }) if params[:district_id].present?
-      members = members.joins(:shg).where(shgs: { created_by_id: params[:crp_id] }) if params[:crp_id].present?
+      state_ids = filter_param_ids(:state_id)
+      district_ids = filter_param_ids(:district_id)
+      crp_ids = filter_param_ids(:crp_id)
+      members = members.joins(:shg).where(shgs: { state_id: state_ids }) if state_ids.present?
+      members = members.joins(:shg).where(shgs: { district_id: district_ids }) if district_ids.present?
+      members = members.joins(:shg).where(shgs: { created_by_id: crp_ids }) if crp_ids.present?
     end
-    members = members.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
-    members = members.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    members = members.joins(:shg).where(shgs: { block_id: block_ids }) if block_ids.present?
+    members = members.joins(:shg).where(shgs: { village_id: village_ids }) if village_ids.present?
     members = search_members(members)
     members
   rescue Date::Error
@@ -200,15 +226,19 @@ class ShgMembersController < ApplicationController
 
   def member_filter_shgs
     shgs = visible_shgs
-    shgs = shgs.where(state_id: params[:state_id]) if params[:state_id].present?
-    shgs = shgs.where(district_id: params[:district_id]) if params[:district_id].present?
-    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
-    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    state_ids = filter_param_ids(:state_id)
+    district_ids = filter_param_ids(:district_id)
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    shgs = shgs.where(state_id: state_ids) if state_ids.present?
+    shgs = shgs.where(district_id: district_ids) if district_ids.present?
+    shgs = shgs.where(block_id: block_ids) if block_ids.present?
+    shgs = shgs.where(village_id: village_ids) if village_ids.present?
     shgs.order(:name)
   end
 
   def can_filter_member_state_district_crp?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def search_members(members)
@@ -216,13 +246,17 @@ class ShgMembersController < ApplicationController
     return members if query.blank?
 
     pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
-    members.left_joins(shg: [ :state, :district, :block, :village ])
+    members.left_joins(:activity, shg: [ :state, :district, :block, :village ])
       .where(
         [
           "CAST(shg_members.id AS TEXT) ILIKE :query",
           "LOWER(shg_members.name) LIKE :query",
+          "LOWER(shg_members.spouse_father_name) LIKE :query",
+          "LOWER(shg_members.work_activity) LIKE :query",
+          "LOWER(shg_members.aadhaar_no) LIKE :query",
           "LOWER(shg_members.loan_no) LIKE :query",
           "LOWER(shg_members.mobile) LIKE :query",
+          "LOWER(activities.name) LIKE :query",
           "LOWER(shgs.name) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
@@ -236,17 +270,24 @@ class ShgMembersController < ApplicationController
   def stream_members_csv(members)
     stream_csv("shg-members-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
-        "Member", "SHG", "Loan No", "Mobile", "Monthly HH Income",
-        "State", "District", "Block", "Village", "Created At"
+        "Member", "Spouse/Father Name", "SHG", "Loan No", "Aadhaar Number",
+        "Work/Activity", "Date of Birth", "Mobile", "Monthly HH Income",
+        "Office Location", "Borrower Short Address", "State", "District", "Block", "Village", "Created At"
       ])
 
       members.reorder(nil).find_each(batch_size: 1_000) do |member|
         stream << CSV.generate_line([
           member.name,
+          member.spouse_father_name,
           member.shg.name,
           member.loan_no,
+          member.aadhaar_no,
+          member.work_activity_name,
+          member.dob,
           member.mobile,
           member.monthly_income,
+          member.shg.office_location,
+          member.shg.borrower_short_address,
           member.shg.state.name,
           member.shg.district.name,
           member.shg.block.name,
@@ -261,11 +302,39 @@ class ShgMembersController < ApplicationController
     member.occupation ||= Occupation.find_or_create_by!(name: "Imported")
   end
 
+  def member_location_selection_available?(member)
+    shg = visible_shgs.find_by(id: member.shg_id)
+    return false unless shg
+
+    selection = params[:shg_member] || {}
+    block_id = selection[:block_id].presence || selection["block_id"].presence
+    village_id = selection[:village_id].presence || selection["village_id"].presence
+
+    return false if block_id.present? && shg.block_id.to_s != block_id.to_s
+    return false if village_id.present? && shg.village_id.to_s != village_id.to_s
+
+    true
+  end
+
+  def sync_member_activity(member)
+    member.work_activity = member.work_activity.to_s.squish
+    if member.work_activity.present?
+      member.activity = Activity.where("LOWER(name) = ?", member.work_activity.downcase).first || Activity.create!(name: member.work_activity)
+    else
+      member.activity = nil
+      member.work_activity = nil
+    end
+  end
+
+  def disable_member_loans(member_ids)
+    ShgLoan.where(shg_member_id: member_ids, active: true).update_all(active: false, updated_at: Time.current)
+  end
+
   def set_member
     @member = visible_shg_members.find(params[:id])
   end
 
   def member_params
-    params.require(:shg_member).permit(:shg_id, :name, :gender, :dob, :mobile, :monthly_income, :address, :active)
+    params.require(:shg_member).permit(:shg_id, :name, :spouse_father_name, :gender, :dob, :mobile, :monthly_income, :work_activity, :aadhaar_no, :active)
   end
 end

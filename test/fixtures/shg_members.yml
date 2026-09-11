@@ -3,21 +3,27 @@
 one:
   shg: one
   occupation: one
+  activity: one
+  work_activity: Fixture Activity One
   name: MyString
+  spouse_father_name: My Guardian
   gender: MyString
   dob: 2026-07-12
   mobile: "9876543210"
   loan_no: ASAWO24-9001
-  address: MyText
+  aadhaar_no: "123456789012"
   active: false
 
 two:
   shg: two
   occupation: two
+  activity: two
+  work_activity: Fixture Activity Two
   name: MyString
+  spouse_father_name: My Guardian
   gender: MyString
   dob: 2026-07-12
   mobile: "9876543211"
   loan_no: ASAWO24-9002
-  address: MyText
+  aadhaar_no: "123456789013"
   active: false

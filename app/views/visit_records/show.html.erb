@@ -16,7 +16,7 @@
     <dt>Visit No.</dt>
     <dd><%= @visit_record.visit_label %></dd>
     <dt>Product</dt>
-    <dd><%= @visit_record.product&.name || "-" %></dd>
+    <dd><%= product_code_label(@visit_record.product) %></dd>
     <dt>Village</dt>
     <dd><%= @visit_record.village.name %></dd>
     <dt>SHG</dt>
@@ -28,7 +28,7 @@
     <dt>Mobile</dt>
     <dd><%= @visit_record.shg_member.mobile.presence || "-" %></dd>
     <dt>Member Address</dt>
-    <dd><%= simple_format(@visit_record.shg_member.address.presence || "-") %></dd>
+    <dd><%= simple_format(@visit_record.shg.borrower_address || "-") %></dd>
     <dt>Approval</dt>
     <dd><span class="status <%= @visit_record.approval_status %>"><%= @visit_record.approval_label %></span></dd>
     <dt>Created By</dt>

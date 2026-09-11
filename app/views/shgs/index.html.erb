@@ -29,18 +29,18 @@
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if can_filter_shg_state_district_crp? %>
-      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+      <%= multi_filter_select(form, :state_id, "State", @states.map { |state| [state.name, state.id] }, selected_values: filter_param_values(:state_id), data: { location_select_target: "state", action: "location-select#stateChanged" }, placeholder: "All states") %>
+      <%= multi_filter_select(form, :district_id, "District", district_filter_options(@districts), selected_values: filter_param_values(:district_id), data: { location_select_target: "district", action: "location-select#districtChanged" }, placeholder: "All districts") %>
     <% end %>
-    <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
-    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
-    <label><span>Approval</span><%= form.select :approval_status, Shg::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, { prompt: "All status", selected: params[:approval_status] } %></label>
+    <%= multi_filter_select(form, :block_id, "Block", block_filter_options(@blocks), selected_values: filter_param_values(:block_id), data: { location_select_target: "block", action: "location-select#blockChanged" }, placeholder: "All blocks") %>
+    <%= multi_filter_select(form, :village_id, "Village", village_filter_options(@villages), selected_values: filter_param_values(:village_id), data: { location_select_target: "village", action: "location-select#villageChanged" }, placeholder: "All villages") %>
+    <%= multi_filter_select(form, :approval_status, "Approval", Shg::APPROVAL_STATUSES.map { |status| [ status.titleize, status ] }, selected_values: filter_param_values(:approval_status), placeholder: "All status") %>
     <% if can_filter_shg_state_district_crp? %>
-      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp", action: "location-select#userChanged" } %></label>
-      <label><span>DC</span><%= form.select :dc_id, options_for_select(user_filter_options(@district_coordinators), params[:dc_id]), { prompt: "All DC" }, data: { location_select_target: "dc", action: "location-select#userChanged" } %></label>
+      <%= multi_filter_select(form, :crp_id, "CRP", user_filter_options(@crps), selected_values: filter_param_values(:crp_id), data: { location_select_target: "crp", action: "location-select#userChanged" }, placeholder: "All CRP") %>
+      <%= multi_filter_select(form, :dc_id, "DC", user_filter_options(@district_coordinators), selected_values: filter_param_values(:dc_id), data: { location_select_target: "dc", action: "location-select#userChanged" }, placeholder: "All DC") %>
     <% end %>
-    <% if current_user&.admin? %>
-      <label><span>Assistant Admin</span><%= form.collection_select :assistant_id, @assistant_admins, :id, :name, { prompt: "All Assistant Admin", selected: params[:assistant_id] } %></label>
+    <% if current_user&.admin? || readonly_admin? %>
+      <%= multi_filter_select(form, :assistant_id, "Assistant Admin", @assistant_admins.map { |user| [user.name, user.id] }, selected_values: filter_param_values(:assistant_id), placeholder: "All Assistant Admin") %>
     <% end %>
     <div class="filter-actions">
       <%= link_to "Clear", shgs_path(clear_filters: 1), class: "secondary-link" %>
@@ -67,6 +67,8 @@
           <% if can_bulk_delete_records? %><th class="select-column"><%= check_box_tag "select_all_shgs", "1", false, data: { bulk_select_all: true, bulk_select_forms: "bulk-disable-shgs bulk-activate-shgs" }, aria: { label: "Select all SHGs on this page" } %></th><% end %>
           <th>Name</th>
           <th>Location</th>
+          <th>Office</th>
+          <th>Borrower Address</th>
           <th>Linkage Date</th>
           <th>Status</th>
           <th>Approval</th>
@@ -83,6 +85,8 @@
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", shg.id, false, form: (shg.active? ? "bulk-disable-shgs" : "bulk-activate-shgs") %></td><% end %>
             <td><%= link_to shg.display_name, shg_path(shg, index_params) %></td>
             <td><%= [shg.state.name, shg.district.name, shg.block.name, shg.village.name].join(" / ") %></td>
+            <td><%= shg.office_location.presence || "-" %></td>
+            <td><%= shg.borrower_short_address.presence || "-" %></td>
             <td><%= shg.linkage_date %></td>
             <td><span class="status <%= shg.active? ? "approved" : "rejected" %>"><%= shg.active? ? "Active" : "Inactive" %></span></td>
             <td><span class="status <%= shg.approval_status %>"><%= shg.approval_label %></span></td>
@@ -90,27 +94,11 @@
               <div class="attachment-list">
                 <div class="attachment-item">
                   <span>Photo</span>
-                  <% if shg.meeting_photo.attached? %>
-                    <% if shg.meeting_photo.image? %>
-                      <%= link_to image_tag(url_for(shg.meeting_photo), class: "table-photo", alt: "Meeting photo", loading: "lazy", decoding: "async"), rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
-                    <% else %>
-                      <%= link_to "Download", rails_blob_path(shg.meeting_photo, disposition: "attachment") %>
-                    <% end %>
-                  <% else %>
-                    <small>No photo</small>
-                  <% end %>
+                  <%= attachment_preview_link(shg.meeting_photo, "Meeting photo") %>
                 </div>
                 <div class="attachment-item">
                   <span>Register</span>
-                  <% if shg.meeting_register.attached? %>
-                    <% if shg.meeting_register.image? %>
-                      <%= link_to image_tag(url_for(shg.meeting_register), class: "table-photo", alt: "Meeting register", loading: "lazy", decoding: "async"), rails_blob_path(shg.meeting_register, disposition: "attachment") %>
-                    <% else %>
-                      <%= link_to "Download", rails_blob_path(shg.meeting_register, disposition: "attachment") %>
-                    <% end %>
-                  <% else %>
-                    <small>No register</small>
-                  <% end %>
+                  <%= attachment_preview_link(shg.meeting_register, "Meeting register") %>
                 </div>
               </div>
             </td>

@@ -26,6 +26,8 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
       district: @district,
       block: @block,
       village: @village,
+      office_location: "Retention Office",
+      borrower_short_address: "Retention Village",
       linkage_date: Date.current,
       approval_status: "pending_dc",
       created_by: @crp
@@ -36,12 +38,15 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     @member = ShgMember.create!(
       shg: @shg,
       occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
       name: "Retention Member",
+      spouse_father_name: "Retention Guardian",
       gender: "Female",
       dob: Date.new(1992, 2, 2),
       mobile: "9876500211",
       monthly_income: 6500,
-      address: "Retention Village"
+      aadhaar_no: "123456789121"
     )
 
     @loan = ShgLoan.create!(
@@ -104,16 +109,28 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
       shg_member: {
         shg_id: @shg.id,
         name: "Retention Member Updated",
+        spouse_father_name: @member.spouse_father_name,
         gender: "Female",
         dob: @member.dob,
         mobile: @member.mobile,
         monthly_income: @member.monthly_income,
-        address: @member.address,
+        work_activity: @activity.name,
+        aadhaar_no: @member.aadhaar_no,
         active: "1"
       }
     }
 
     assert_redirected_to "#{shg_members_path(page: 4, block_id: @block.id)}#results"
+  end
+
+  test "member disable also disables active loans for that member" do
+    login_as(@admin)
+
+    patch disable_shg_member_path(@member, page: 4, block_id: @block.id)
+
+    assert_redirected_to "#{shg_members_path(page: 4, block_id: @block.id)}#results"
+    assert_not @member.reload.active?
+    assert_not @loan.reload.active?
   end
 
   test "member add another keeps reusable fields for next entry" do
@@ -127,11 +144,13 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
           village_id: @village.id,
           shg_id: @shg.id,
           name: "Carry Forward Member",
+          spouse_father_name: "Carry Forward Guardian",
           gender: "Female",
           dob: Date.new(1993, 3, 3),
           mobile: "9876500999",
           monthly_income: "7200",
-          address: "Shared member address",
+          work_activity: "Carry Forward Work",
+          aadhaar_no: "123456789122",
           active: "1"
         }
       }
@@ -147,7 +166,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_equal @shg.id.to_s, redirect_params.dig("shg_member", "shg_id")
     assert_equal "Female", redirect_params.dig("shg_member", "gender")
     assert_equal "7200", redirect_params.dig("shg_member", "monthly_income")
-    assert_equal "Shared member address", redirect_params.dig("shg_member", "address")
+    assert_equal "Carry Forward Work", redirect_params.dig("shg_member", "work_activity")
 
     follow_redirect!
 
@@ -156,10 +175,128 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_select "select[name='shg_member[village_id]'] option[selected='selected'][value='#{@village.id}']"
     assert_select "select[name='shg_member[shg_id]'] option[selected='selected'][value='#{@shg.id}']"
     assert_select "select[name='shg_member[gender]'] option[selected='selected']", text: "Female"
-    assert_select "textarea[name='shg_member[address]']", text: "Shared member address"
+    assert_select "input[name='shg_member[work_activity]'][value='Carry Forward Work']"
+    assert_select "textarea[name='shg_member[address]']", false
     assert_select "input[name='shg_member[name]'][value='Carry Forward Member']", false
     assert_select "input[name='shg_member[mobile]'][value='9876500999']", false
+    assert_select "input[name='shg_member[aadhaar_no]'][value='123456789122']", false
     assert_select "input[name='shg_member[dob]'][value='1993-03-03']", false
+  end
+
+  test "new member form renders option data for strict village to shg cascade" do
+    other_village = Village.create!(name: "Retention Other Village", code: "ROV", block: @block)
+    other_shg = Shg.new(
+      name: "Retention Other SHG",
+      shg_code: "RT-OTHER-SHG",
+      state: @state,
+      district: @district,
+      block: @block,
+      village: other_village,
+      office_location: "Retention Other Office",
+      borrower_short_address: "Retention Other Village",
+      linkage_date: Date.current,
+      approval_status: "pending_dc",
+      created_by: @crp
+    )
+    attach_required_shg_files(other_shg)
+    other_shg.save!
+    login_as(@dc)
+
+    get new_shg_member_path(block_id: @block.id, village_id: @village.id)
+
+    assert_response :success
+    assert_select "form[data-location-select-strict-value='true'][data-dependent-dropdown-fallback='true']"
+    assert_select "select[name='shg_member[village_id]'] option[value='#{@village.id}'][data-block-id='#{@block.id}']", text: @village.name
+    assert_select "select[name='shg_member[village_id]'] option[value='#{other_village.id}'][data-block-id='#{@block.id}']", text: other_village.name
+    assert_select "select[name='shg_member[shg_id]'] option[value='#{@shg.id}'][data-village-id='#{@village.id}']", text: @shg.display_name
+    assert_select "select[name='shg_member[shg_id]'] option[value='#{other_shg.id}'][data-village-id='#{other_village.id}']", text: other_shg.display_name
+  end
+
+  test "new member form preloads option data for browser side strict cascade" do
+    login_as(@dc)
+
+    get new_shg_member_path
+
+    assert_response :success
+    assert_select "form[data-location-select-strict-value='true'][data-dependent-dropdown-fallback='true']"
+    assert_select "select[name='shg_member[village_id]'] option[value='#{@village.id}'][data-block-id='#{@block.id}']", text: @village.name
+    assert_select "select[name='shg_member[shg_id]'] option[value='#{@shg.id}'][data-village-id='#{@village.id}']", text: @shg.display_name
+  end
+
+  test "new loan form shows eligible members for selected shg" do
+    other_shg = Shg.new(
+      name: "Retention Same Village Other SHG",
+      shg_code: "RT-SAME-VILLAGE-OTHER-SHG",
+      state: @state,
+      district: @district,
+      block: @block,
+      village: @village,
+      office_location: "Retention Same Village Office",
+      borrower_short_address: "Retention Same Village",
+      linkage_date: Date.current,
+      approval_status: "pending_dc",
+      created_by: @crp
+    )
+    attach_required_shg_files(other_shg)
+    other_shg.save!
+    available_member = ShgMember.create!(
+      shg: @shg,
+      occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
+      name: "Available Loan Member",
+      spouse_father_name: "Available Guardian",
+      gender: "Female",
+      dob: Date.new(1994, 4, 4),
+      mobile: "9876500222",
+      monthly_income: 7500,
+      aadhaar_no: "123456789222"
+    )
+    other_member = ShgMember.create!(
+      shg: other_shg,
+      occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
+      name: "Other SHG Loan Member",
+      spouse_father_name: "Other Guardian",
+      gender: "Female",
+      dob: Date.new(1994, 5, 5),
+      mobile: "9876500223",
+      monthly_income: 7600,
+      aadhaar_no: "123456789223"
+    )
+    login_as(@dc)
+
+    get new_shg_loan_path(shg_loan: { block_id: @block.id, village_id: @village.id, shg_id: @shg.id })
+
+    assert_response :success
+    assert_select "select[name='shg_loan[shg_member_id]'] option[value='#{available_member.id}'][data-shg-id='#{@shg.id}']", text: available_member.name
+    assert_select "select[name='shg_loan[shg_member_id]'] option[value='#{other_member.id}'][data-shg-id='#{other_shg.id}']", text: other_member.name
+  end
+
+  test "new loan form preloads option data for browser side strict cascade" do
+    available_member = ShgMember.create!(
+      shg: @shg,
+      occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
+      name: "Preloaded Loan Member",
+      spouse_father_name: "Preloaded Guardian",
+      gender: "Female",
+      dob: Date.new(1994, 6, 6),
+      mobile: "9876500224",
+      monthly_income: 7700,
+      aadhaar_no: "123456789224"
+    )
+    login_as(@dc)
+
+    get new_shg_loan_path
+
+    assert_response :success
+    assert_select "form[data-controller='loan-member-details'][data-dependent-dropdown-fallback='true']"
+    assert_select "select[name='shg_loan[village_id]'] option[value='#{@village.id}'][data-block-id='#{@block.id}']", text: @village.name
+    assert_select "select[name='shg_loan[shg_id]'] option[value='#{@shg.id}'][data-village-id='#{@village.id}']", text: @shg.display_name
+    assert_select "select[name='shg_loan[shg_member_id]'] option[value='#{available_member.id}'][data-shg-id='#{@shg.id}']", text: available_member.name
   end
 
   test "loan update keeps page and filters" do

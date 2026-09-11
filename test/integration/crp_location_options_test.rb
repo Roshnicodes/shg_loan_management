@@ -30,6 +30,8 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
       village: village,
       name: "Imported Scope SHG",
       shg_code: "IMPORTED-SCOPE-SHG",
+      office_location: "Scope Office",
+      borrower_short_address: "Scope Village",
       linkage_date: Date.current,
       approval_status: "approved",
       active: true
@@ -44,6 +46,8 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
       village: other_village,
       name: "Other Scope SHG",
       shg_code: "OTHER-SCOPE-SHG",
+      office_location: "Other Office",
+      borrower_short_address: "Other Village",
       linkage_date: Date.current,
       approval_status: "approved",
       active: true
@@ -58,6 +62,8 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
       village: inactive_only_village,
       name: "Inactive Scope SHG",
       shg_code: "INACTIVE-SCOPE-SHG",
+      office_location: "Inactive Office",
+      borrower_short_address: "Inactive Only Village",
       linkage_date: Date.current,
       approval_status: "approved",
       active: false
@@ -67,25 +73,29 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
     member = ShgMember.create!(
       shg: imported_shg,
       occupation: occupations(:one),
+      activity: activities(:one),
       name: "Imported Member",
+      spouse_father_name: "Imported Guardian",
       gender: "Female",
       dob: Date.new(1995, 1, 1),
       mobile: "9876500001",
       loan_no: "ASAWO24-9911",
       monthly_income: 12_000,
-      address: "Scope Village",
+      aadhaar_no: "123456789140",
       active: true
     )
     inactive_member = ShgMember.create!(
       shg: inactive_shg,
       occupation: occupations(:one),
+      activity: activities(:one),
       name: "Inactive Member",
+      spouse_father_name: "Inactive Guardian",
       gender: "Female",
       dob: Date.new(1995, 1, 1),
       mobile: "9876500002",
       loan_no: "ASAWO24-9912",
       monthly_income: 12_000,
-      address: "Inactive Only Village",
+      aadhaar_no: "123456789141",
       active: false
     )
     ShgLoan.create!(
@@ -124,6 +134,14 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
     post login_path, params: { login_id: crp.login_id, password: "secret123" }
     assert_redirected_to dashboard_path
 
+    get new_shg_member_path
+    assert_response :success
+    assert_select "form[data-location-select-strict-value='true'][data-dependent-dropdown-fallback='true']"
+    assert_select "select[name='shg_member[block_id]'] option[value='#{block.id}']", text: block.name
+    assert_select "select[name='shg_member[village_id]'] option[value='#{village.id}'][data-block-id='#{block.id}']", text: village.name
+    assert_select "select[name='shg_member[shg_id]'] option[value='#{imported_shg.id}'][data-village-id='#{village.id}']", text: imported_shg.display_name
+    assert_select "select[name='shg_member[village_id]'] option[value='#{inactive_only_village.id}']", false
+
     get location_options_villages_path, params: { block_id: block.id }
     assert_response :success
     villages = response.parsed_body
@@ -139,5 +157,13 @@ class CrpLocationOptionsTest < ActionDispatch::IntegrationTest
     shgs = response.parsed_body
     assert_equal [ imported_shg.id ], shgs.map { |option| option["id"] }
     assert_not_includes shgs.map { |option| option["id"] }, other_shg.id
+
+    get location_options_shgs_path, params: { block_id: block.id }
+    assert_response :success
+    assert_empty response.parsed_body
+
+    get location_options_members_path, params: { block_id: block.id, village_id: village.id }
+    assert_response :success
+    assert_empty response.parsed_body
   end
 end

@@ -25,7 +25,7 @@ export default class extends Controller {
 
   validateMapping(event) {
     const role = this.selectedRole()
-    const adminRole = ["ADMIN", "ASSIST_ADMIN", "ASSISTANT_ADMIN"].includes(role)
+    const adminRole = ["ADMIN", "ASSIST_ADMIN", "ASSISTANT_ADMIN", "VIEW_ONLY", "READ_ONLY", "READONLY_ADMIN", "VIEW_ONLY_ADMIN"].includes(role)
 
     this.clearMappingError(this.districtToggleTarget)
     this.stateTarget.setCustomValidity("")
@@ -110,7 +110,7 @@ export default class extends Controller {
 
   applyRoleVisibility() {
     const role = this.selectedRole()
-    const adminRole = ["ADMIN", "ASSIST_ADMIN", "ASSISTANT_ADMIN"].includes(role)
+    const adminRole = ["ADMIN", "ASSIST_ADMIN", "ASSISTANT_ADMIN", "VIEW_ONLY", "READ_ONLY", "READONLY_ADMIN", "VIEW_ONLY_ADMIN"].includes(role)
     const districtRole = ["DIST_COORDINATOR", "DISTRICT_COORDINATOR"].includes(role)
     const crpRole = role === "CRP"
 

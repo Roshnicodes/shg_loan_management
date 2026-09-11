@@ -12,6 +12,8 @@ class LocationOptionsController < ApplicationController
   end
 
   def shgs
+    return render json: [] if params[:village_id].blank?
+
     shgs = visible_shgs.where(active: true)
     shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
     shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
@@ -20,7 +22,9 @@ class LocationOptionsController < ApplicationController
   end
 
   def members
-    members = visible_shg_members.where(active: true).includes(:shg)
+    return render json: [] if params[:shg_id].blank?
+
+    members = visible_shg_members.where(active: true).includes(:activity, :shg)
     members = members.joins(:shg).where(shgs: { block_id: params[:block_id] }) if params[:block_id].present?
     members = members.joins(:shg).where(shgs: { village_id: params[:village_id] }) if params[:village_id].present?
     members = members.where(shg_id: params[:shg_id]) if params[:shg_id].present?
@@ -54,7 +58,9 @@ class LocationOptionsController < ApplicationController
       group: member.shg.display_name,
       gender: member.gender,
       dob: member.dob,
-      address: member.address
+      spouse_father_name: member.spouse_father_name,
+      work_activity: member.work_activity_name,
+      address: member.shg.borrower_address
     }
   end
 

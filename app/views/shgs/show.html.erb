@@ -9,6 +9,7 @@
     </div>
     <div class="action-row">
       <%= link_to "Back", with_results_anchor(shgs_path(return_params)), class: "secondary-link" %>
+      <%= link_to "EMI Collections", emi_collections_shg_path(@shg, return_params), class: "secondary-link" %>
       <% if can_manage_shg?(@shg) %>
         <%= link_to "Edit", edit_shg_path(@shg, return_params), class: "primary-link" %>
       <% end %>
@@ -31,6 +32,8 @@
     <div><span>Members</span><strong><%= @shg.shg_members.count %></strong></div>
     <div><span>Loans</span><strong><%= @shg.shg_loans.count %></strong></div>
     <div><span>Linkage Date</span><strong><%= @shg.linkage_date || "-" %></strong></div>
+    <div><span>Office Location</span><strong><%= @shg.office_location.presence || "-" %></strong></div>
+    <div><span>Borrower Address</span><strong><%= @shg.borrower_short_address.presence || "-" %></strong></div>
   </div>
 
   <div class="show-section-grid">

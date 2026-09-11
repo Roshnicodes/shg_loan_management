@@ -19,6 +19,8 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
       district: @district,
       block: @block,
       village: @village,
+      office_location: "Pagination Office",
+      borrower_short_address: "Pagination Village",
       linkage_date: Date.current,
       approval_status: "approved",
       created_by: @dc
@@ -28,12 +30,14 @@ class VisitRecordsPaginationTest < ActionDispatch::IntegrationTest
     @member = ShgMember.create!(
       shg: @shg,
       occupation: @occupation,
+      activity: Activity.create!(name: "Pagination Activity"),
       name: "Pagination Member",
+      spouse_father_name: "Pagination Guardian",
       gender: "Female",
       dob: Date.new(1990, 1, 1),
       mobile: "9876500001",
       monthly_income: 5000,
-      address: "Pagination Village"
+      aadhaar_no: "123456789130"
     )
     @visit = create_visit("pending_dc")
   end

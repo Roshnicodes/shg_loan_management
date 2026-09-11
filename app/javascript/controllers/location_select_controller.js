@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["state", "district", "block", "village", "shg", "member", "loan", "crp", "dc"]
-  static values = { autoSubmit: Boolean, remote: Boolean }
+  static values = { autoSubmit: Boolean, remote: Boolean, strict: Boolean }
 
   connect() {
     this.districtOptions = this.hasDistrictTarget ? this.cloneOptions(this.districtTarget) : []
@@ -15,23 +15,30 @@ export default class extends Controller {
     this.dcOptions = this.hasDcTarget ? this.cloneOptions(this.dcTarget) : []
     this.filterAll()
     if (this.remoteValue) this.refreshRemoteOptions()
+    this.scheduleRestoredValueFilter()
+  }
+
+  scheduleRestoredValueFilter() {
+    ;[0, 150, 500].forEach((delay) => {
+      window.setTimeout(() => this.filterAll(), delay)
+    })
   }
 
   filterAll() {
     if (this.hasDistrictTarget && this.hasStateTarget) {
-      this.filterSelect(this.districtTarget, this.districtOptions, "stateId", this.stateTarget.value)
+      this.filterSelect(this.districtTarget, this.districtOptions, "stateId", this.selectedValues(this.stateTarget))
     }
 
     if (this.hasBlockTarget) {
       if (this.hasDistrictTarget) {
-        this.filterSelect(this.blockTarget, this.blockOptions, "districtId", this.districtTarget.value)
+        this.filterSelect(this.blockTarget, this.blockOptions, "districtId", this.selectedValues(this.districtTarget))
       } else if (this.hasStateTarget) {
-        this.filterSelect(this.blockTarget, this.blockOptions, "stateId", this.stateTarget.value)
+        this.filterSelect(this.blockTarget, this.blockOptions, "stateId", this.selectedValues(this.stateTarget))
       }
     }
 
     if (this.hasVillageTarget && this.hasBlockTarget) {
-      this.filterSelect(this.villageTarget, this.villageOptions, "blockId", this.blockTarget.value)
+      this.filterSelect(this.villageTarget, this.villageOptions, "blockId", this.selectedValues(this.blockTarget))
     }
 
     if (this.hasCrpTarget) this.filterUserSelect(this.crpTarget, this.crpOptions)
@@ -43,31 +50,31 @@ export default class extends Controller {
   }
 
   stateChanged() {
-    if (this.hasDistrictTarget) this.districtTarget.value = ""
-    if (this.hasBlockTarget) this.blockTarget.value = ""
-    if (this.hasVillageTarget) this.villageTarget.value = ""
-    if (this.hasShgTarget) this.shgTarget.value = ""
-    if (this.hasMemberTarget) this.memberTarget.value = ""
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasDistrictTarget) this.clearValue(this.districtTarget)
+    if (this.hasBlockTarget) this.clearValue(this.blockTarget)
+    if (this.hasVillageTarget) this.clearValue(this.villageTarget)
+    if (this.hasShgTarget) this.clearValue(this.shgTarget)
+    if (this.hasMemberTarget) this.clearValue(this.memberTarget)
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     this.filterAll()
     this.submitForm()
   }
 
   districtChanged() {
-    if (this.hasBlockTarget) this.blockTarget.value = ""
-    if (this.hasVillageTarget) this.villageTarget.value = ""
-    if (this.hasShgTarget) this.shgTarget.value = ""
-    if (this.hasMemberTarget) this.memberTarget.value = ""
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasBlockTarget) this.clearValue(this.blockTarget)
+    if (this.hasVillageTarget) this.clearValue(this.villageTarget)
+    if (this.hasShgTarget) this.clearValue(this.shgTarget)
+    if (this.hasMemberTarget) this.clearValue(this.memberTarget)
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     this.filterAll()
     this.submitForm()
   }
 
   async blockChanged() {
-    if (this.hasVillageTarget) this.villageTarget.value = ""
-    if (this.hasShgTarget) this.shgTarget.value = ""
-    if (this.hasMemberTarget) this.memberTarget.value = ""
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasVillageTarget) this.clearValue(this.villageTarget)
+    if (this.hasShgTarget) this.clearValue(this.shgTarget)
+    if (this.hasMemberTarget) this.clearValue(this.memberTarget)
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     if (this.remoteValue) {
       this.clearRemoteChildren()
       if (this.hasBlockTarget && this.blockTarget.value) {
@@ -80,11 +87,11 @@ export default class extends Controller {
   }
 
   async villageChanged() {
-    if (this.hasShgTarget) this.shgTarget.value = ""
-    if (this.hasMemberTarget) this.memberTarget.value = ""
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasShgTarget) this.clearValue(this.shgTarget)
+    if (this.hasMemberTarget) this.clearValue(this.memberTarget)
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     if (this.remoteValue) {
-      this.clearSelect(this.shgTarget, "Select SHG")
+      if (this.hasShgTarget) this.clearSelect(this.shgTarget, "Select SHG")
       if (this.hasMemberTarget) this.clearSelect(this.memberTarget, "Select member")
       if (this.hasVillageTarget && this.villageTarget.value) await this.loadRemoteShgs()
       return
@@ -94,16 +101,16 @@ export default class extends Controller {
   }
 
   userChanged() {
-    if (this.hasShgTarget) this.shgTarget.value = ""
-    if (this.hasMemberTarget) this.memberTarget.value = ""
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasShgTarget) this.clearValue(this.shgTarget)
+    if (this.hasMemberTarget) this.clearValue(this.memberTarget)
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     this.filterAll()
     this.submitForm()
   }
 
   shgChanged() {
-    if (this.hasMemberTarget) this.memberTarget.value = ""
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasMemberTarget) this.clearValue(this.memberTarget)
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     if (this.remoteValue) {
       if (this.hasMemberTarget) this.clearSelect(this.memberTarget, "Select member")
       if (this.hasMemberTarget && this.shgTarget.value) this.loadRemoteMembers()
@@ -114,7 +121,7 @@ export default class extends Controller {
   }
 
   memberChanged() {
-    if (this.hasLoanTarget) this.loanTarget.value = ""
+    if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     this.filterAfterMember()
     this.submitForm()
   }
@@ -125,7 +132,7 @@ export default class extends Controller {
 
   filterAfterBlock() {
     if (this.hasVillageTarget && this.hasBlockTarget) {
-      this.filterSelect(this.villageTarget, this.villageOptions, "blockId", this.blockTarget.value)
+      this.filterSelect(this.villageTarget, this.villageOptions, "blockId", this.selectedValues(this.blockTarget))
     }
     this.filterDependentLocationOptions()
   }
@@ -157,23 +164,20 @@ export default class extends Controller {
     return Array.from(select.options).map((option) => option.cloneNode(true))
   }
 
-  filterSelect(select, originalOptions, parentKey, parentValue) {
+  filterSelect(select, originalOptions, parentKey, parentValues) {
     if (!select.options) return
 
-    const selectedValue = select.value
+    const selectedValues = this.selectedValues(select)
+    const parentValueList = Array.isArray(parentValues) ? parentValues : [parentValues].filter(Boolean)
     select.innerHTML = ""
 
     originalOptions.forEach((option) => {
-      if (option.value === "" || !parentValue || this.dataValue(option, parentKey) === parentValue) {
+      if (option.value === "" || (!this.strictValue && parentValueList.length === 0) || parentValueList.includes(this.dataValue(option, parentKey))) {
         select.appendChild(option.cloneNode(true))
       }
     })
 
-    if (Array.from(select.options).some((option) => option.value === selectedValue)) {
-      select.value = selectedValue
-    } else {
-      select.value = ""
-    }
+    this.restoreSelectedValues(select, selectedValues)
 
     this.refreshSearchableSelect(select)
   }
@@ -181,21 +185,21 @@ export default class extends Controller {
   restoreSelect(select, originalOptions) {
     if (!select.options) return
 
-    const selectedValue = select.value
+    const selectedValues = this.selectedValues(select)
     select.innerHTML = ""
     originalOptions.forEach((option) => select.appendChild(option.cloneNode(true)))
 
-    if (Array.from(select.options).some((option) => option.value === selectedValue)) {
-      select.value = selectedValue
-    } else {
-      select.value = ""
-    }
+    this.restoreSelectedValues(select, selectedValues)
 
     this.refreshSearchableSelect(select)
   }
 
   filterShgSelect() {
     if (!this.hasShgTarget) return
+    if (this.strictValue && this.hasVillageTarget && this.selectedValues(this.villageTarget).length === 0) {
+      this.filterSelectByPredicate(this.shgTarget, this.shgOptions, () => false)
+      return
+    }
 
     this.filterSelectByPredicate(this.shgTarget, this.shgOptions, (option) => (
       this.optionMatchesSelectedLocation(option) && this.optionMatchesSelectedUser(option)
@@ -204,29 +208,37 @@ export default class extends Controller {
 
   filterMemberSelect() {
     if (!this.hasMemberTarget) return
+    if (this.strictValue && this.hasShgTarget && this.selectedValues(this.shgTarget).length === 0) {
+      this.filterSelectByPredicate(this.memberTarget, this.memberOptions, () => false)
+      return
+    }
 
     this.filterSelectByPredicate(this.memberTarget, this.memberOptions, (option) => (
       this.optionMatchesSelectedLocation(option) &&
         this.optionMatchesSelectedUser(option) &&
-        (!this.hasShgTarget || !this.shgTarget.value || this.dataValue(option, "shgId") === this.shgTarget.value)
+        (!this.hasShgTarget || this.selectedValues(this.shgTarget).length === 0 || this.selectedValues(this.shgTarget).includes(this.dataValue(option, "shgId")))
     ))
   }
 
   filterLoanSelect() {
     if (!this.hasLoanTarget) return
+    if (this.strictValue && this.hasMemberTarget && this.selectedValues(this.memberTarget).length === 0) {
+      this.filterSelectByPredicate(this.loanTarget, this.loanOptions, () => false)
+      return
+    }
 
     this.filterSelectByPredicate(this.loanTarget, this.loanOptions, (option) => (
       this.optionMatchesSelectedLocation(option) &&
         this.optionMatchesSelectedUser(option) &&
-        (!this.hasShgTarget || !this.shgTarget.value || this.dataValue(option, "shgId") === this.shgTarget.value) &&
-        (!this.hasMemberTarget || !this.memberTarget.value || this.dataValue(option, "memberId") === this.memberTarget.value)
+        (!this.hasShgTarget || this.selectedValues(this.shgTarget).length === 0 || this.selectedValues(this.shgTarget).includes(this.dataValue(option, "shgId"))) &&
+        (!this.hasMemberTarget || this.selectedValues(this.memberTarget).length === 0 || this.selectedValues(this.memberTarget).includes(this.dataValue(option, "memberId")))
     ))
   }
 
   filterSelectByPredicate(select, originalOptions, predicate) {
     if (!select.options) return
 
-    const selectedValue = select.value
+    const selectedValues = this.selectedValues(select)
     select.innerHTML = ""
 
     originalOptions.forEach((option) => {
@@ -235,11 +247,7 @@ export default class extends Controller {
       }
     })
 
-    if (Array.from(select.options).some((option) => option.value === selectedValue)) {
-      select.value = selectedValue
-    } else {
-      select.value = ""
-    }
+    this.restoreSelectedValues(select, selectedValues)
 
     this.refreshSearchableSelect(select)
   }
@@ -247,7 +255,7 @@ export default class extends Controller {
   filterUserSelect(select, originalOptions) {
     if (!select) return
 
-    const selectedValue = select.value
+    const selectedValues = this.selectedValues(select)
     select.innerHTML = ""
 
     originalOptions.forEach((option) => {
@@ -256,11 +264,7 @@ export default class extends Controller {
       }
     })
 
-    if (Array.from(select.options).some((option) => option.value === selectedValue)) {
-      select.value = selectedValue
-    } else {
-      select.value = ""
-    }
+    this.restoreSelectedValues(select, selectedValues)
 
     this.refreshSearchableSelect(select)
   }
@@ -272,60 +276,73 @@ export default class extends Controller {
     const blockIds = this.optionIdSet(option.dataset.blockIds)
     const villageIds = this.optionIdSet(option.dataset.villageIds)
 
-    if (selected.villageId) {
-      return stateIds.has(selected.stateId) ||
-        districtIds.has(selected.districtId) ||
-        blockIds.has(selected.blockId) ||
-        villageIds.has(selected.villageId)
+    if (selected.villageIds.length > 0) {
+      return this.intersects(stateIds, selected.stateIds) ||
+        this.intersects(districtIds, selected.districtIds) ||
+        this.intersects(blockIds, selected.blockIds) ||
+        this.intersects(villageIds, selected.villageIds)
     }
 
-    if (selected.blockId) {
-      return stateIds.has(selected.stateId) ||
-        districtIds.has(selected.districtId) ||
-        blockIds.has(selected.blockId)
+    if (selected.blockIds.length > 0) {
+      return this.intersects(stateIds, selected.stateIds) ||
+        this.intersects(districtIds, selected.districtIds) ||
+        this.intersects(blockIds, selected.blockIds)
     }
 
-    if (selected.districtId) {
-      return stateIds.has(selected.stateId) ||
-        districtIds.has(selected.districtId)
+    if (selected.districtIds.length > 0) {
+      return this.intersects(stateIds, selected.stateIds) ||
+        this.intersects(districtIds, selected.districtIds)
     }
 
-    if (selected.stateId) return stateIds.has(selected.stateId)
+    if (selected.stateIds.length > 0) return this.intersects(stateIds, selected.stateIds)
     return true
   }
 
   selectedLocation() {
-    const districtOption = this.selectedOption(this.hasDistrictTarget ? this.districtTarget : null)
-    const blockOption = this.selectedOption(this.hasBlockTarget ? this.blockTarget : null)
-    const villageOption = this.selectedOption(this.hasVillageTarget ? this.villageTarget : null)
+    const districtOptions = this.selectedOptions(this.hasDistrictTarget ? this.districtTarget : null)
+    const blockOptions = this.selectedOptions(this.hasBlockTarget ? this.blockTarget : null)
+    const villageOptions = this.selectedOptions(this.hasVillageTarget ? this.villageTarget : null)
 
     return {
-      stateId: (this.hasStateTarget && this.stateTarget.value) || this.dataValue(districtOption, "stateId") || this.dataValue(blockOption, "stateId") || this.dataValue(villageOption, "stateId") || "",
-      districtId: (this.hasDistrictTarget && this.districtTarget.value) || this.dataValue(blockOption, "districtId") || this.dataValue(villageOption, "districtId") || "",
-      blockId: (this.hasBlockTarget && this.blockTarget.value) || this.dataValue(villageOption, "blockId") || "",
-      villageId: this.hasVillageTarget ? this.villageTarget.value : ""
+      stateIds: this.uniqueValues([
+        ...this.selectedValues(this.hasStateTarget ? this.stateTarget : null),
+        ...this.dataValues(districtOptions, "stateId"),
+        ...this.dataValues(blockOptions, "stateId"),
+        ...this.dataValues(villageOptions, "stateId")
+      ]),
+      districtIds: this.uniqueValues([
+        ...this.selectedValues(this.hasDistrictTarget ? this.districtTarget : null),
+        ...this.dataValues(blockOptions, "districtId"),
+        ...this.dataValues(villageOptions, "districtId")
+      ]),
+      blockIds: this.uniqueValues([
+        ...this.selectedValues(this.hasBlockTarget ? this.blockTarget : null),
+        ...this.dataValues(villageOptions, "blockId")
+      ]),
+      villageIds: this.selectedValues(this.hasVillageTarget ? this.villageTarget : null)
     }
   }
 
-  selectedOption(select) {
-    if (!select || !select.value) return null
-    return select.selectedOptions[0]
+  selectedOptions(select) {
+    if (!select) return []
+    return Array.from(select.selectedOptions).filter((option) => option.value !== "")
   }
 
   optionMatchesSelectedLocation(option) {
     const selected = this.selectedLocation()
 
-    if (selected.villageId) return this.dataValue(option, "villageId") === selected.villageId
-    if (selected.blockId) return this.dataValue(option, "blockId") === selected.blockId
-    if (selected.districtId) return this.dataValue(option, "districtId") === selected.districtId
-    if (selected.stateId) return this.dataValue(option, "stateId") === selected.stateId
+    if (selected.villageIds.length > 0) return selected.villageIds.includes(this.dataValue(option, "villageId"))
+    if (selected.blockIds.length > 0) return selected.blockIds.includes(this.dataValue(option, "blockId"))
+    if (selected.districtIds.length > 0) return selected.districtIds.includes(this.dataValue(option, "districtId"))
+    if (selected.stateIds.length > 0) return selected.stateIds.includes(this.dataValue(option, "stateId"))
     return true
   }
 
   optionMatchesSelectedUser(option) {
-    if (!this.hasCrpTarget || !this.crpTarget.value) return true
+    const selectedUserIds = this.selectedValues(this.hasCrpTarget ? this.crpTarget : null)
+    if (selectedUserIds.length === 0) return true
 
-    return this.optionIdSet(this.dataValue(option, "userIds")).has(this.crpTarget.value)
+    return this.intersects(this.optionIdSet(this.dataValue(option, "userIds")), selectedUserIds)
   }
 
   optionIdSet(ids) {
@@ -342,9 +359,53 @@ export default class extends Controller {
     return option.getAttribute(`data-${dashedKey}`) || ""
   }
 
+  selectedValues(select) {
+    if (!select) return []
+    if (!select.selectedOptions) return [select.value].filter(Boolean)
+
+    return Array.from(select.selectedOptions || []).map((option) => option.value).filter(Boolean)
+  }
+
+  restoreSelectedValues(select, selectedValues) {
+    const availableValues = new Set(Array.from(select.options).map((option) => option.value))
+    if (select.multiple) {
+      Array.from(select.options).forEach((option) => {
+        option.selected = selectedValues.includes(option.value) && availableValues.has(option.value)
+      })
+    } else {
+      const selectedValue = selectedValues.find((value) => availableValues.has(value))
+      select.value = selectedValue || ""
+    }
+  }
+
+  clearValue(select) {
+    if (!select) return
+
+    if (select.multiple) {
+      Array.from(select.options || []).forEach((option) => {
+        option.selected = false
+      })
+    } else {
+      select.value = ""
+    }
+    this.refreshSearchableSelect(select)
+  }
+
+  dataValues(options, key) {
+    return options.map((option) => this.dataValue(option, key)).filter(Boolean)
+  }
+
+  uniqueValues(values) {
+    return Array.from(new Set(values.filter(Boolean)))
+  }
+
+  intersects(setOrValues, values) {
+    const set = setOrValues instanceof Set ? setOrValues : new Set(setOrValues)
+    return values.some((value) => set.has(value))
+  }
+
   async refreshRemoteOptions() {
     if (!this.hasBlockTarget || !this.blockTarget.value) {
-      this.clearRemoteChildren()
       return
     }
 
@@ -363,6 +424,14 @@ export default class extends Controller {
     if (!this.hasVillageTarget) return
 
     const options = await this.fetchRemoteOptions("/location_options/villages", { block_id: this.blockTarget.value })
+    if (!options) return
+    if (options.length === 0 && this.localOptionExists(this.villageOptions, (option) => (
+      this.selectedValues(this.blockTarget).includes(this.dataValue(option, "blockId"))
+    ))) {
+      this.filterAfterBlock()
+      return
+    }
+
     this.replaceRemoteOptions(this.villageTarget, options, "Select village")
   }
 
@@ -377,6 +446,14 @@ export default class extends Controller {
       block_id: this.hasBlockTarget ? this.blockTarget.value : "",
       village_id: this.hasVillageTarget ? this.villageTarget.value : ""
     })
+    if (!options) return
+    if (options.length === 0 && this.localOptionExists(this.shgOptions, (option) => (
+      this.optionMatchesSelectedLocation(option)
+    ))) {
+      this.filterShgSelect()
+      return
+    }
+
     this.replaceRemoteOptions(this.shgTarget, options, "Select SHG")
   }
 
@@ -388,19 +465,36 @@ export default class extends Controller {
       village_id: this.hasVillageTarget ? this.villageTarget.value : "",
       shg_id: this.hasShgTarget ? this.shgTarget.value : ""
     })
+    if (!options) return
+    if (options.length === 0 && this.localOptionExists(this.memberOptions, (option) => (
+      this.optionMatchesSelectedLocation(option) &&
+        this.selectedValues(this.shgTarget).includes(this.dataValue(option, "shgId"))
+    ))) {
+      this.filterMemberSelect()
+      return
+    }
+
     this.replaceRemoteOptions(this.memberTarget, options, "Select member")
   }
 
+  localOptionExists(options, predicate) {
+    return options.some((option) => option.value !== "" && predicate(option))
+  }
+
   async fetchRemoteOptions(path, params) {
-    const query = new URLSearchParams()
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) query.set(key, value)
-    })
+    try {
+      const query = new URLSearchParams()
+      Object.entries(params).forEach(([key, value]) => {
+        if (value) query.set(key, value)
+      })
 
-    const response = await fetch(`${path}?${query.toString()}`, { headers: { Accept: "application/json" } })
-    if (!response.ok) return []
+      const response = await fetch(`${path}?${query.toString()}`, { headers: { Accept: "application/json" } })
+      if (!response.ok) return null
 
-    return response.json()
+      return response.json()
+    } catch (_error) {
+      return null
+    }
   }
 
   replaceRemoteOptions(select, options, prompt) {

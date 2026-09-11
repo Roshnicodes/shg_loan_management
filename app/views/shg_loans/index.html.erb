@@ -58,14 +58,14 @@
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if can_filter_loan_state_district_crp? %>
-      <label><span>State</span><%= form.collection_select :state_id, @states, :id, :name, { prompt: "All states", selected: params[:state_id] }, data: { location_select_target: "state", action: "location-select#stateChanged" } %></label>
-      <label><span>District</span><%= form.select :district_id, options_for_select(district_filter_options(@districts), params[:district_id]), { prompt: "All districts" }, data: { location_select_target: "district", action: "location-select#districtChanged" } %></label>
+      <%= multi_filter_select(form, :state_id, "State", @states.map { |state| [state.name, state.id] }, selected_values: filter_param_values(:state_id), data: { location_select_target: "state", action: "location-select#stateChanged" }, placeholder: "All states") %>
+      <%= multi_filter_select(form, :district_id, "District", district_filter_options(@districts), selected_values: filter_param_values(:district_id), data: { location_select_target: "district", action: "location-select#districtChanged" }, placeholder: "All districts") %>
     <% end %>
-    <label><span>Block</span><%= form.select :block_id, options_for_select(block_filter_options(@blocks), params[:block_id]), { prompt: "All blocks" }, data: { location_select_target: "block", action: "location-select#blockChanged" } %></label>
-    <label><span>Village</span><%= form.select :village_id, options_for_select(village_filter_options(@villages), params[:village_id]), { prompt: "All villages" }, data: { location_select_target: "village", action: "location-select#villageChanged" } %></label>
-    <label><span>SHG</span><%= form.select :shg_id, options_for_select(shg_filter_options(@shgs), params[:shg_id]), { prompt: "All SHG" }, data: { location_select_target: "shg", action: "location-select#shgChanged" } %></label>
+    <%= multi_filter_select(form, :block_id, "Block", block_filter_options(@blocks), selected_values: filter_param_values(:block_id), data: { location_select_target: "block", action: "location-select#blockChanged" }, placeholder: "All blocks") %>
+    <%= multi_filter_select(form, :village_id, "Village", village_filter_options(@villages), selected_values: filter_param_values(:village_id), data: { location_select_target: "village", action: "location-select#villageChanged" }, placeholder: "All villages") %>
+    <%= multi_filter_select(form, :shg_id, "SHG", shg_filter_options(@shgs), selected_values: filter_param_values(:shg_id), data: { location_select_target: "shg", action: "location-select#shgChanged" }, placeholder: "All SHG") %>
     <% if can_filter_loan_state_district_crp? %>
-      <label><span>CRP</span><%= form.select :crp_id, options_for_select(user_filter_options(@crps), params[:crp_id]), { prompt: "All CRP" }, data: { location_select_target: "crp", action: "location-select#userChanged" } %></label>
+      <%= multi_filter_select(form, :crp_id, "CRP", user_filter_options(@crps), selected_values: filter_param_values(:crp_id), data: { location_select_target: "crp", action: "location-select#userChanged" }, placeholder: "All CRP") %>
     <% end %>
     <div class="filter-actions">
       <%= link_to "Clear", shg_loans_path(clear_filters: 1), class: "secondary-link" %>

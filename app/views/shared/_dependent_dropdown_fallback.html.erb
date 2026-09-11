@@ -54,15 +54,15 @@
       const villageId = targets.village?.value || ""
       const shgId = targets.shg?.value || ""
 
-      replaceOptions(targets.village, (option) => !blockId || dataValue(option, "blockId") === blockId)
+      replaceOptions(targets.village, (option) => blockId && dataValue(option, "blockId") === blockId)
       replaceOptions(targets.shg, (option) => {
         if (villageId) return dataValue(option, "villageId") === villageId
         return false
       })
       replaceOptions(targets.member, (option) => {
-        const blockMatches = !blockId || dataValue(option, "blockId") === blockId
-        const villageMatches = !villageId || dataValue(option, "villageId") === villageId
-        const shgMatches = !shgId || dataValue(option, "shgId") === shgId
+        const blockMatches = blockId && dataValue(option, "blockId") === blockId
+        const villageMatches = villageId && dataValue(option, "villageId") === villageId
+        const shgMatches = shgId && dataValue(option, "shgId") === shgId
         return blockMatches && villageMatches && shgMatches
       })
     }
@@ -81,13 +81,12 @@
       setValue("group", fieldValue("group"))
       setValue("gender", fieldValue("gender"))
       setValue("dob", fieldValue("dob"))
+      setValue("spouseFather", fieldValue("spouseFatherName"))
+      setValue("workActivity", fieldValue("workActivity"))
       setValue("address", fieldValue("address"))
     }
 
     const setupForm = (form) => {
-      const controller = form.dataset.controller || ""
-      if (form.dataset.locationSelectRemoteValue === "true" || controller.includes("loan-member-details")) return
-
       if (form._dependentDropdownFallbackReady) return
       form._dependentDropdownFallbackReady = true
 

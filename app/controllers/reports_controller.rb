@@ -25,7 +25,7 @@ class ReportsController < ApplicationController
     stream_csv("loan-report-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
         "State", "District", "Block", "Village", "CRP", "SHG / ID / Village", "Member", "Loan No",
-        "Product", "Disbursement Date", "Loan Status", "Collection Status", "Principal", "Total Payable",
+        "Product Code", "Disbursement Date", "Loan Status", "Collection Status", "Principal", "Total Payable",
         "Paid Amount", "Pending Amount", "Paid Installments", "Pending Installments", "Mobile"
       ])
 
@@ -40,7 +40,7 @@ class ReportsController < ApplicationController
           loan.shg.display_name,
           loan.shg_member.name,
           loan.shg_member.loan_no,
-          loan.product&.name || "-",
+          helpers.product_code_label(loan.product),
           loan.distribution_date,
           report_loan_status(loan, amount),
           report_collection_status(amount),
@@ -59,19 +59,19 @@ class ReportsController < ApplicationController
   private
 
   def can_filter_report_state_district_user?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def show_report_state_filter?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def show_report_district_filter?
-    current_user&.admin? || current_user&.assistant_admin?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
   end
 
   def show_report_block_filter?
-    current_user&.admin? || current_user&.assistant_admin? || current_user&.district_coordinator?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin? || current_user&.district_coordinator?
   end
 
   def show_report_village_filter?
@@ -79,18 +79,18 @@ class ReportsController < ApplicationController
   end
 
   def show_report_user_filter?
-    current_user&.admin? || current_user&.assistant_admin? || current_user&.district_coordinator?
+    current_user&.admin? || current_user&.assistant_admin? || readonly_admin? || current_user&.district_coordinator?
   end
 
   def set_filter_options
-    @states = limited_filter_records(filter_states, @selected_state_id)
-    @districts = limited_filter_records(report_option_districts, @selected_district_id)
-    @blocks = limited_filter_records(report_option_blocks, @selected_block_id)
-    @villages = limited_filter_records(report_option_villages, @selected_village_id, limit: 5_000)
-    @crps = limited_user_filter_records(report_option_crps, @selected_user_id)
-    @shgs = limited_filter_records(report_option_shgs, @selected_shg_id, limit: 10_000)
-    @members = limited_filter_records(report_option_members, @selected_member_id, limit: 1_000)
-    @loan_filter_records = limited_filter_records(report_option_loans, @selected_loan_id, limit: 1_000)
+    @states = limited_filter_records(filter_states, @selected_state_ids)
+    @districts = limited_filter_records(report_option_districts, @selected_district_ids)
+    @blocks = limited_filter_records(report_option_blocks, @selected_block_ids)
+    @villages = limited_filter_records(report_option_villages, @selected_village_ids, limit: 5_000)
+    @crps = limited_user_filter_records(report_option_crps, @selected_user_ids)
+    @shgs = limited_filter_records(report_option_shgs, @selected_shg_ids, limit: 10_000)
+    @members = limited_filter_records(report_option_members, @selected_member_ids, limit: 1_000)
+    @loan_filter_records = limited_filter_records(report_option_loans, @selected_loan_ids, limit: 1_000)
     @loan_statuses = LoanStatus.order(:name)
     @shg_user_ids_by_id = report_shg_user_ids(@shgs)
     @member_user_ids_by_id = report_member_user_ids(@members)
@@ -98,62 +98,71 @@ class ReportsController < ApplicationController
   end
 
   def set_selected_report_filters
-    @selected_state_id = selected_report_state_id
-    @selected_district_id = selected_report_district_id
-    @selected_block_id = selected_report_block_id
-    @selected_village_id = selected_report_village_id
-    @selected_user = selected_report_user
-    @selected_user_id = @selected_user&.id
-    @selected_shg_id = selected_report_shg_id
-    @selected_member_id = selected_report_member_id
-    @selected_loan_id = selected_report_loan_id
+    @selected_state_ids = selected_report_state_ids
+    @selected_state_id = @selected_state_ids.first
+    @selected_district_ids = selected_report_district_ids
+    @selected_district_id = @selected_district_ids.first
+    @selected_block_ids = selected_report_block_ids
+    @selected_block_id = @selected_block_ids.first
+    @selected_village_ids = selected_report_village_ids
+    @selected_village_id = @selected_village_ids.first
+    @selected_users = selected_report_users
+    @selected_user = @selected_users.first
+    @selected_user_ids = @selected_users.map(&:id)
+    @selected_user_id = @selected_user_ids.first
+    @selected_shg_ids = selected_report_shg_ids
+    @selected_shg_id = @selected_shg_ids.first
+    @selected_member_ids = selected_report_member_ids
+    @selected_member_id = @selected_member_ids.first
+    @selected_loan_ids = selected_report_loan_ids
+    @selected_loan_id = @selected_loan_ids.first
   end
 
   def report_option_districts
     districts = filter_districts
-    districts = districts.where(state_id: @selected_state_id) if @selected_state_id.present?
+    districts = districts.where(state_id: @selected_state_ids) if @selected_state_ids.present?
     districts.order(:name)
   end
 
   def report_option_blocks
     blocks = filter_blocks
-    blocks = blocks.joins(:district).where(districts: { state_id: @selected_state_id }) if @selected_state_id.present?
-    blocks = blocks.where(district_id: @selected_district_id) if @selected_district_id.present?
+    blocks = blocks.joins(:district).where(districts: { state_id: @selected_state_ids }) if @selected_state_ids.present?
+    blocks = blocks.where(district_id: @selected_district_ids) if @selected_district_ids.present?
     blocks.order(:name)
   end
 
   def report_option_villages
     villages = filter_villages
-    if @selected_block_id.present?
-      villages = villages.where(block_id: @selected_block_id)
-    elsif @selected_district_id.present?
-      villages = villages.joins(:block).where(blocks: { district_id: @selected_district_id })
-    elsif @selected_state_id.present?
-      villages = villages.joins(block: :district).where(districts: { state_id: @selected_state_id })
+    if @selected_block_ids.present?
+      villages = villages.where(block_id: @selected_block_ids)
+    elsif @selected_district_ids.present?
+      villages = villages.joins(:block).where(blocks: { district_id: @selected_district_ids })
+    elsif @selected_state_ids.present?
+      villages = villages.joins(block: :district).where(districts: { state_id: @selected_state_ids })
     end
-    villages = villages.where(id: report_user_loan_scope.joins(:shg).select("shgs.village_id")) if @selected_user
+    villages = villages.where(id: report_user_loan_scope.joins(:shg).select("shgs.village_id")) if @selected_users.present?
     villages.order(:name)
   end
 
   def report_option_shgs
-    return Shg.none unless @selected_village_id.present? || @selected_user.present? || params[:shg_id].present?
+    return Shg.none unless @selected_village_ids.present? || @selected_users.present? || filter_param_ids(:shg_id).present?
 
     shgs = visible_shgs.where(active: true, id: report_option_loan_scope.select(:shg_id))
     shgs.order(:name)
   end
 
   def report_option_members
-    return ShgMember.none unless @selected_shg_id.present? || params[:member_id].present?
+    return ShgMember.none unless @selected_shg_ids.present? || filter_param_ids(:member_id).present?
 
     members = visible_shg_members.where(active: true, id: report_option_loan_scope.select(:shg_member_id))
     members.order(:name)
   end
 
   def report_option_loans
-    return ShgLoan.none unless @selected_member_id.present? || params[:loan_id].present?
+    return ShgLoan.none unless @selected_member_ids.present? || filter_param_ids(:loan_id).present?
 
     loans = report_option_loan_scope.includes(:shg_member, :shg)
-    loans = loans.where(shg_member_id: @selected_member_id) if @selected_member_id.present?
+    loans = loans.where(shg_member_id: @selected_member_ids) if @selected_member_ids.present?
     loans.order(distribution_date: :desc, id: :desc)
   end
 
@@ -162,7 +171,7 @@ class ReportsController < ApplicationController
 
     users = users_with_role_codes("CRP")
     users =
-      if current_user&.admin? || current_user&.assistant_admin?
+      if current_user&.admin? || current_user&.assistant_admin? || readonly_admin?
         users.to_a
       else
         visible_district_ids = visible_districts.pluck(:id)
@@ -188,14 +197,15 @@ class ReportsController < ApplicationController
 
     loans = loans.where(distribution_date: params[:date_from]..) if params[:date_from].present?
     loans = loans.where(distribution_date: ..params[:date_to]) if params[:date_to].present?
-    loans = loans.joins(:shg).where(shgs: { state_id: @selected_state_id }) if @selected_state_id.present?
-    loans = loans.joins(:shg).where(shgs: { district_id: @selected_district_id }) if @selected_district_id.present?
-    loans = loans.joins(:shg).where(shgs: { block_id: @selected_block_id }) if @selected_block_id.present?
-    loans = loans.joins(:shg).where(shgs: { village_id: @selected_village_id }) if @selected_village_id.present?
-    loans = loans.where(shg_id: @selected_shg_id) if @selected_shg_id.present?
-    loans = loans.where(shg_member_id: @selected_member_id) if @selected_member_id.present?
-    loans = loans.where(id: @selected_loan_id) if @selected_loan_id.present?
-    loans = loans.where(loan_status_id: params[:loan_status_id]) if params[:loan_status_id].present?
+    loans = loans.joins(:shg).where(shgs: { state_id: @selected_state_ids }) if @selected_state_ids.present?
+    loans = loans.joins(:shg).where(shgs: { district_id: @selected_district_ids }) if @selected_district_ids.present?
+    loans = loans.joins(:shg).where(shgs: { block_id: @selected_block_ids }) if @selected_block_ids.present?
+    loans = loans.joins(:shg).where(shgs: { village_id: @selected_village_ids }) if @selected_village_ids.present?
+    loans = loans.where(shg_id: @selected_shg_ids) if @selected_shg_ids.present?
+    loans = loans.where(shg_member_id: @selected_member_ids) if @selected_member_ids.present?
+    loans = loans.where(id: @selected_loan_ids) if @selected_loan_ids.present?
+    loan_status_ids = filter_param_ids(:loan_status_id)
+    loans = loans.where(loan_status_id: loan_status_ids) if loan_status_ids.present?
     loans = apply_report_user_filter(loans)
     loans = apply_report_collection_filter(loans)
     search_report_loans(loans)
@@ -209,120 +219,124 @@ class ReportsController < ApplicationController
       params[:page].present?
   end
 
-  def selected_report_state_id
-    return unless show_report_state_filter? && params[:state_id].present?
+  def selected_report_state_ids
+    return [] unless show_report_state_filter?
 
-    filter_states.find_by(id: params[:state_id])&.id
+    filter_states.where(id: filter_param_ids(:state_id)).pluck(:id)
   end
 
-  def selected_report_district_id
-    return unless show_report_district_filter? && params[:district_id].present?
+  def selected_report_district_ids
+    return [] unless show_report_district_filter?
 
-    report_option_districts.find_by(id: params[:district_id])&.id
+    report_option_districts.where(id: filter_param_ids(:district_id)).pluck(:id)
   end
 
-  def selected_report_block_id
-    return unless show_report_block_filter? && params[:block_id].present?
+  def selected_report_block_ids
+    return [] unless show_report_block_filter?
 
-    report_option_blocks.find_by(id: params[:block_id])&.id
+    report_option_blocks.where(id: filter_param_ids(:block_id)).pluck(:id)
   end
 
-  def selected_report_user
-    return if params[:user_id].blank?
+  def selected_report_users
+    user_ids = filter_param_ids(:user_id)
+    return [] if user_ids.blank?
 
-    report_option_crps.find { |user| user.id.to_s == params[:user_id].to_s }
+    report_option_crps.select { |user| user_ids.include?(user.id) }
   end
 
-  def selected_report_village_id
-    return if params[:village_id].blank?
+  def selected_report_village_ids
+    village_ids = filter_param_ids(:village_id)
+    return [] if village_ids.blank?
 
-    village = report_option_villages.find_by(id: params[:village_id])
-    village&.id
+    report_option_villages.where(id: village_ids).pluck(:id)
   end
 
-  def selected_report_shg_id
-    return if params[:shg_id].blank?
+  def selected_report_shg_ids
+    shg_ids = filter_param_ids(:shg_id)
+    return [] if shg_ids.blank?
 
-    shg = visible_shgs.find_by(id: params[:shg_id])
-    return unless shg
-    return if @selected_state_id.present? && shg.state_id != @selected_state_id
-    return if @selected_district_id.present? && shg.district_id != @selected_district_id
-    return if @selected_block_id.present? && shg.block_id != @selected_block_id
-    return if @selected_village_id.present? && shg.village_id != @selected_village_id
-    return if @selected_user && !report_user_loan_scope.where(shg_id: shg.id).exists?
+    shgs = visible_shgs.where(id: shg_ids)
+    shgs = shgs.where(state_id: @selected_state_ids) if @selected_state_ids.present?
+    shgs = shgs.where(district_id: @selected_district_ids) if @selected_district_ids.present?
+    shgs = shgs.where(block_id: @selected_block_ids) if @selected_block_ids.present?
+    shgs = shgs.where(village_id: @selected_village_ids) if @selected_village_ids.present?
+    shgs = shgs.where(id: report_user_loan_scope.select(:shg_id)) if @selected_users.present?
 
-    shg.id
+    shgs.pluck(:id)
   end
 
-  def selected_report_member_id
-    return if params[:member_id].blank?
+  def selected_report_member_ids
+    member_ids = filter_param_ids(:member_id)
+    return [] if member_ids.blank?
 
-    member = visible_shg_members.includes(shg: :village).find_by(id: params[:member_id])
-    return unless member
-    return if @selected_shg_id.present? && member.shg_id != @selected_shg_id
-    return if @selected_state_id.present? && member.shg.state_id != @selected_state_id
-    return if @selected_district_id.present? && member.shg.district_id != @selected_district_id
-    return if @selected_block_id.present? && member.shg.block_id != @selected_block_id
-    return if @selected_village_id.present? && member.shg.village_id != @selected_village_id
-    return if @selected_user && !report_user_loan_scope.where(shg_member_id: member.id).exists?
+    members = visible_shg_members.joins(:shg).where(id: member_ids)
+    members = members.where(shg_id: @selected_shg_ids) if @selected_shg_ids.present?
+    members = members.where(shgs: { state_id: @selected_state_ids }) if @selected_state_ids.present?
+    members = members.where(shgs: { district_id: @selected_district_ids }) if @selected_district_ids.present?
+    members = members.where(shgs: { block_id: @selected_block_ids }) if @selected_block_ids.present?
+    members = members.where(shgs: { village_id: @selected_village_ids }) if @selected_village_ids.present?
+    members = members.where(id: report_user_loan_scope.select(:shg_member_id)) if @selected_users.present?
 
-    member.id
+    members.pluck(:id)
   end
 
-  def selected_report_loan_id
-    return if params[:loan_id].blank?
+  def selected_report_loan_ids
+    loan_ids = filter_param_ids(:loan_id)
+    return [] if loan_ids.blank?
 
-    report_option_loans.find_by(id: params[:loan_id])&.id
+    report_option_loans.where(id: loan_ids).pluck(:id)
   end
 
   def apply_report_user_filter(loans)
-    return loans unless @selected_user
+    return loans if @selected_users.blank?
 
-    user_filtered_loans(loans, @selected_user)
+    users_filtered_loans(loans, @selected_users)
   end
 
   def report_user_loan_scope
-    user_filtered_loans(visible_shg_loans.where(active: true), @selected_user)
+    users_filtered_loans(visible_shg_loans.where(active: true), @selected_users)
   end
 
   def report_location_loan_scope
     loans = visible_shg_loans.where(active: true)
-    loans = loans.joins(:shg).where(shgs: { state_id: @selected_state_id }) if @selected_state_id.present?
-    loans = loans.joins(:shg).where(shgs: { district_id: @selected_district_id }) if @selected_district_id.present?
-    loans = loans.joins(:shg).where(shgs: { block_id: @selected_block_id }) if @selected_block_id.present?
-    loans = loans.joins(:shg).where(shgs: { village_id: @selected_village_id }) if @selected_village_id.present?
+    loans = loans.joins(:shg).where(shgs: { state_id: @selected_state_ids }) if @selected_state_ids.present?
+    loans = loans.joins(:shg).where(shgs: { district_id: @selected_district_ids }) if @selected_district_ids.present?
+    loans = loans.joins(:shg).where(shgs: { block_id: @selected_block_ids }) if @selected_block_ids.present?
+    loans = loans.joins(:shg).where(shgs: { village_id: @selected_village_ids }) if @selected_village_ids.present?
     loans
   end
 
   def report_option_loan_scope
     loans = report_location_loan_scope
-    loans = loans.where(shg_id: @selected_shg_id) if @selected_shg_id.present?
-    loans = user_filtered_loans(loans, @selected_user) if @selected_user
+    loans = loans.where(shg_id: @selected_shg_ids) if @selected_shg_ids.present?
+    loans = users_filtered_loans(loans, @selected_users) if @selected_users.present?
     loans
   end
 
   def report_location_filter_selected?
-    @selected_state_id.present? || @selected_district_id.present? || @selected_block_id.present? || @selected_village_id.present?
+    @selected_state_ids.present? || @selected_district_ids.present? || @selected_block_ids.present? || @selected_village_ids.present?
   end
 
-  def user_filtered_loans(loans, user)
-    loans.where(created_by_id: user.id)
-      .or(loans.where("LOWER(shg_loans.source_crp_identifier) = ?", user.login_id.to_s.downcase))
+  def users_filtered_loans(loans, users)
+    users = Array(users).compact
+    return loans.none if users.blank?
+
+    user_ids = users.map(&:id)
+    identifiers = users.map { |user| user.login_id.to_s.downcase }.compact_blank
+    filtered = loans.where(created_by_id: user_ids)
+    identifiers.present? ? filtered.or(loans.where("LOWER(shg_loans.source_crp_identifier) IN (?)", identifiers)) : filtered
   end
 
   def apply_report_collection_filter(loans)
-    return loans if params[:collection_status].blank?
+    collection_statuses = filter_param_values(:collection_status)
+    return loans if collection_statuses.blank?
 
     amounts = loan_amounts_for(loans)
     ids = amounts.filter_map do |loan_id, amount|
-      case params[:collection_status]
-      when "closed"
-        loan_id if amount[:pending_amount].to_d <= 0
-      when "pending"
-        loan_id if amount[:pending_amount].to_d.positive?
-      when "paid_installment", "paid_any"
-        loan_id if amount[:paid_amount].to_d.positive?
-      end
+      matches_closed = collection_statuses.include?("closed") && amount[:pending_amount].to_d <= 0
+      matches_pending = collection_statuses.include?("pending") && amount[:pending_amount].to_d.positive?
+      matches_paid = (collection_statuses & %w[paid_installment paid_any]).present? && amount[:paid_amount].to_d.positive?
+      loan_id if matches_closed || matches_pending || matches_paid
     end
 
     loans.where(id: ids)
@@ -340,6 +354,7 @@ class ReportsController < ApplicationController
           "LOWER(shg_members.name) LIKE :query",
           "LOWER(shg_members.loan_no) LIKE :query",
           "LOWER(products.name) LIKE :query",
+          "LOWER(products.code) LIKE :query",
           "LOWER(states.name) LIKE :query",
           "LOWER(districts.name) LIKE :query",
           "LOWER(blocks.name) LIKE :query",

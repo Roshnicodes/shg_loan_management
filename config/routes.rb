@@ -59,6 +59,8 @@ Rails.application.routes.draw do
     end
 
     member do
+      get :emi_collections
+      patch :update_emi_collections
       patch :activate
       patch :disable
       patch :approve
