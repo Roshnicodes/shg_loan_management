@@ -162,7 +162,7 @@ class ShgLoansController < ApplicationController
   def require_shg_loan_manage_permission!
     return if can_manage_shg_loan?(@loan)
 
-    redirect_back fallback_location: results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "This loan cannot be edited after Assistant Admin approval."
+    redirect_back fallback_location: results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "This loan is not editable for your login."
   end
 
   def product_code_options

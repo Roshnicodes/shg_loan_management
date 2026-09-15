@@ -388,7 +388,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_equal "RTV-GS-99", @village.reload.code
   end
 
-  test "loan cannot be edited after assistant admin approval" do
+  test "dc can edit loan after assistant admin approval while temporary edit access is enabled" do
     @loan.update_columns(product_id: @product.id)
     @shg.update!(
       approval_status: "approved",
@@ -399,26 +399,113 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     )
     login_as(@dc)
 
+    get shg_loans_path(block_id: @block.id)
+    assert_response :success
+    assert_select "a[href*='#{edit_shg_loan_path(@loan)}']", text: "Edit"
+
     get edit_shg_loan_path(@loan, page: 4, block_id: @block.id)
 
-    assert_redirected_to "#{shg_loans_path(page: 4, block_id: @block.id)}#results"
+    assert_response :success
 
     patch shg_loan_path(@loan, page: 4, block_id: @block.id), params: {
       shg_loan: {
         shg_id: @shg.id,
         shg_member_id: @member.id,
-        product_id: nil,
+        product_id: @product.id,
         geography_type: "Rural",
         distribution_date: Date.current,
         loan_term_type: "Monthly",
         loan_term: 12,
-        principal_amount: 12_000,
+        principal_amount: 15_000,
         interest_percent: 1.0
       }
     }
 
     assert_redirected_to "#{shg_loans_path(page: 4, block_id: @block.id)}#results"
     assert_equal @product, @loan.reload.product
+    assert_equal 15_000.to_d, @loan.principal_amount
+  end
+
+  test "crp can edit approved shg member and loan while temporary edit access is enabled" do
+    @loan.update_columns(product_id: @product.id)
+    @shg.update!(
+      approval_status: "approved",
+      assistant_approved_by: @admin,
+      assistant_approved_at: Time.current,
+      approved_by: @admin,
+      approved_at: Time.current
+    )
+    login_as(@crp)
+
+    get shgs_path(block_id: @block.id)
+    assert_response :success
+    assert_select "a[href*='#{edit_shg_path(@shg)}']", text: "Edit"
+
+    get edit_shg_path(@shg, page: 4, block_id: @block.id)
+    assert_response :success
+
+    patch shg_path(@shg, page: 4, block_id: @block.id), params: {
+      shg: {
+        state_id: @state.id,
+        district_id: @district.id,
+        block_id: @block.id,
+        village_id: @village.id,
+        name: "Retention SHG CRP Updated",
+        office_location: @shg.office_location,
+        borrower_short_address: @shg.borrower_short_address,
+        linkage_date: @shg.linkage_date,
+        active: "1"
+      }
+    }
+    assert_redirected_to "#{shgs_path(page: 4, block_id: @block.id)}#results"
+    assert_equal "Retention SHG CRP Updated", @shg.reload.name
+
+    get shg_members_path(block_id: @block.id)
+    assert_response :success
+    assert_select "a[href*='#{edit_shg_member_path(@member)}']", text: "Edit"
+
+    get edit_shg_member_path(@member, page: 4, block_id: @block.id)
+    assert_response :success
+
+    patch shg_member_path(@member, page: 4, block_id: @block.id), params: {
+      shg_member: {
+        shg_id: @shg.id,
+        name: "Retention Member CRP Updated",
+        spouse_father_name: @member.spouse_father_name,
+        gender: @member.gender,
+        dob: @member.dob,
+        mobile: @member.mobile,
+        monthly_income: @member.monthly_income,
+        work_activity: @activity.name,
+        aadhaar_no: @member.aadhaar_no,
+        active: "1"
+      }
+    }
+    assert_redirected_to "#{shg_members_path(page: 4, block_id: @block.id)}#results"
+    assert_equal "Retention Member CRP Updated", @member.reload.name
+
+    get shg_loans_path(block_id: @block.id)
+    assert_response :success
+    assert_select "a[href*='#{edit_shg_loan_path(@loan)}']", text: "Edit"
+
+    get edit_shg_loan_path(@loan, page: 4, block_id: @block.id)
+    assert_response :success
+
+    patch shg_loan_path(@loan, page: 4, block_id: @block.id), params: {
+      shg_loan: {
+        shg_id: @shg.id,
+        shg_member_id: @member.id,
+        product_id: @product.id,
+        geography_type: "Rural",
+        distribution_date: Date.current,
+        loan_term_type: "Monthly",
+        loan_term: 12,
+        principal_amount: 14_000,
+        interest_percent: 1.0
+      }
+    }
+    assert_redirected_to "#{shg_loans_path(page: 4, block_id: @block.id)}#results"
+    assert_equal 14_000.to_d, @loan.reload.principal_amount
   end
 
   private

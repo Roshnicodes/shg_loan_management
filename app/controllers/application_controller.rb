@@ -76,7 +76,7 @@ class ApplicationController < ActionController::Base
 
   def can_manage_shg?(shg)
     return false unless can_manage_records? && shg
-    return shg.created_by_id == current_user.id && (shg.draft? || shg.pending_dc?) if current_user&.crp?
+    return crp_can_manage_shg?(shg) if current_user&.crp?
 
     current_user&.admin? || current_user&.district_coordinator? || current_user&.assistant_admin?
   end
@@ -87,7 +87,6 @@ class ApplicationController < ActionController::Base
 
   def can_manage_shg_loan?(loan)
     return false unless can_manage_records? && loan
-    return false if loan.shg&.approved?
     return loan.created_by_id == current_user.id || can_manage_shg?(loan.shg) if current_user&.crp?
 
     current_user&.admin? || current_user&.assistant_admin? || current_user&.district_coordinator?
@@ -143,11 +142,11 @@ class ApplicationController < ActionController::Base
   end
 
   def require_shg_manage_permission!
-    redirect_back fallback_location: shgs_path, alert: "This SHG cannot be edited after DC approval." unless can_manage_shg?(@shg)
+    redirect_back fallback_location: shgs_path, alert: "This SHG is not editable for your login." unless can_manage_shg?(@shg)
   end
 
   def require_shg_member_manage_permission!
-    redirect_back fallback_location: shg_members_path, alert: "This SHG member cannot be edited after DC approval." unless can_manage_shg_member?(@member)
+    redirect_back fallback_location: shg_members_path, alert: "This SHG member is not editable for your login." unless can_manage_shg_member?(@member)
   end
 
   def require_visit_manage_permission!
@@ -244,6 +243,10 @@ class ApplicationController < ActionController::Base
 
     ShgLoan.where(created_by: current_user)
       .or(ShgLoan.where("LOWER(source_crp_identifier) = ?", login_id))
+  end
+
+  def crp_can_manage_shg?(shg)
+    shg.created_by_id == current_user.id || visible_shgs.exists?(id: shg.id)
   end
 
   def visible_visit_records
