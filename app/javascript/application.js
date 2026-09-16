@@ -20,7 +20,7 @@ const cascadeTargetSelectors = {
 }
 
 function cascadeFormFor(element) {
-  const form = element.closest('form[data-controller*="location-select"], form[data-controller*="loan-member-details"], form[data-controller*="visit-select"]')
+  const form = element.closest('form[data-cascade-fallback="true"]')
   if (!form || form.dataset.dependentDropdownFallback === "true") return null
   if ((form.dataset.controller || "").includes("loan-member-details")) return null
   if ((form.dataset.controller || "").includes("visit-select")) return null
@@ -125,7 +125,7 @@ function clearCascadeChildren(target, form) {
 }
 
 function refreshCascadeForms() {
-  document.querySelectorAll('form[data-controller*="location-select"], form[data-controller*="loan-member-details"], form[data-controller*="visit-select"]').forEach((form) => {
+  document.querySelectorAll('form[data-cascade-fallback="true"]').forEach((form) => {
     if (form.dataset.dependentDropdownFallback === "true") return
     if ((form.dataset.controller || "").includes("loan-member-details")) return
     if ((form.dataset.controller || "").includes("visit-select")) return

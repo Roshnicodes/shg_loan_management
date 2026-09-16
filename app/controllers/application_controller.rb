@@ -434,8 +434,13 @@ class ApplicationController < ActionController::Base
   def crp_visible_blocks
     shg_block_ids = crp_visible_shg_scope.where.not(block_id: nil).select(:block_id)
     mapped_village_block_ids = Village.where(id: current_user.office_village_ids).select(:block_id)
+    blocks = Block.none
+    if crp_district_wide_location_scope?
+      blocks = blocks.or(Block.where(district_id: current_user.office_district_ids))
+    end
 
-    Block.where(id: shg_block_ids)
+    blocks
+      .or(Block.where(id: shg_block_ids))
       .or(Block.where(id: current_user.office_block_ids))
       .or(Block.where(id: mapped_village_block_ids))
       .distinct
@@ -443,10 +448,21 @@ class ApplicationController < ActionController::Base
 
   def crp_visible_villages
     shg_village_ids = crp_visible_shg_scope.where.not(village_id: nil).select(:village_id)
-    Village.where(id: shg_village_ids)
+    district_block_ids = Block.where(district_id: current_user.office_district_ids).select(:id)
+    villages = Village.none
+    villages = villages.or(Village.where(block_id: district_block_ids)) if crp_district_wide_location_scope?
+
+    villages
+      .or(Village.where(id: shg_village_ids))
       .or(Village.where(id: current_user.office_village_ids))
       .or(Village.where(block_id: current_user.office_block_ids))
       .distinct
+  end
+
+  def crp_district_wide_location_scope?
+    current_user.office_district_ids.present? &&
+      current_user.office_block_ids.blank? &&
+      current_user.office_village_ids.blank?
   end
 
   def crp_visible_location_shgs_for(user)

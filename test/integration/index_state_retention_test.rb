@@ -299,6 +299,29 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_select "select[name='shg_loan[shg_member_id]'] option[value='#{available_member.id}'][data-shg-id='#{@shg.id}']", text: available_member.name
   end
 
+  test "district scoped crp can select villages under same district blocks on new shg form" do
+    second_block = Block.create!(name: "Retention Second Block", code: "RTB2", district: @district)
+    second_village = Village.create!(name: "Retention Second Village", code: "RTV2", block: second_block)
+    outside_district = District.create!(name: "Retention Outside District", code: "ROD", state: @state)
+    outside_block = Block.create!(name: "Retention Outside Block", code: "ROB", district: outside_district)
+    outside_village = Village.create!(name: "Retention Outside Village", code: "ROV2", block: outside_block)
+    district_crp = user_for("214", @crp_type)
+
+    login_as(district_crp)
+
+    get new_shg_path
+
+    assert_response :success
+    assert_select "input[name='shg[state_id]'][value='#{@state.id}']"
+    assert_select "input[name='shg[district_id]'][value='#{@district.id}']"
+    assert_select "select[name='shg[block_id]'] option[value='#{@block.id}'][data-district-id='#{@district.id}']", text: @block.name
+    assert_select "select[name='shg[block_id]'] option[value='#{second_block.id}'][data-district-id='#{@district.id}']", text: second_block.name
+    assert_select "select[name='shg[village_id]'] option[value='#{@village.id}'][data-block-id='#{@block.id}']", text: @village.name
+    assert_select "select[name='shg[village_id]'] option[value='#{second_village.id}'][data-block-id='#{second_block.id}']", text: second_village.name
+    assert_select "select[name='shg[block_id]'] option[value='#{outside_block.id}']", false
+    assert_select "select[name='shg[village_id]'] option[value='#{outside_village.id}']", false
+  end
+
   test "loan update keeps page and filters" do
     login_as(@dc)
 
