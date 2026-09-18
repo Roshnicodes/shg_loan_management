@@ -24,6 +24,40 @@ class ShgTest < ActiveSupport::TestCase
     assert_equal "#{shg.name} / #{shg.id} / #{shg.village.name}", shg.display_name
   end
 
+  test "changing shg village syncs location and dependent visits" do
+    shg = shgs(:one)
+    attach_required_shg_files(shg)
+    member = ShgMember.create!(
+      shg: shg,
+      occupation: occupations(:one),
+      activity: activities(:one),
+      name: "Village Sync Member",
+      spouse_father_name: "Village Sync Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543280",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789080"
+    )
+    visit = VisitRecord.create!(
+      village: shg.village,
+      shg: shg,
+      shg_member: member,
+      visit_date: Date.current,
+      purpose: "Follow up",
+      observations: "Checked",
+      created_by: users(:one)
+    )
+
+    shg.update!(village: villages(:two))
+
+    assert_equal villages(:two), shg.reload.village
+    assert_equal villages(:two).block, shg.block
+    assert_equal villages(:two).block.district, shg.district
+    assert_equal villages(:two).block.district.state, shg.state
+    assert_equal villages(:two), visit.reload.village
+  end
+
   test "district coordinator cannot approve when any active loan is missing product" do
     shg = shgs(:one)
     shg.update_column(:approval_status, "pending_dc")

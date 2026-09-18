@@ -30,6 +30,22 @@ class VisitRecordTest < ActiveSupport::TestCase
     assert_equal existing_visit, VisitRecord.duplicate_of(duplicate).first
   end
 
+  test "uses selected member shg and village as source of truth" do
+    visit = VisitRecord.create!(
+      village: shgs(:two).village,
+      shg: shgs(:two),
+      shg_member: @member,
+      product: @product,
+      visit_date: Date.new(2026, 8, 3),
+      purpose: "Follow up",
+      observations: "Checked",
+      created_by: @creator
+    )
+
+    assert_equal @shg, visit.shg
+    assert_equal @village, visit.village
+  end
+
   private
 
   def create_visit(visit_date)

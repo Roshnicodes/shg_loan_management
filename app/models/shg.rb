@@ -17,6 +17,8 @@ class Shg < ApplicationRecord
 
   before_validation :build_shg_code, if: -> { shg_code.blank? && name.present? }
   before_validation :set_default_approval_status
+  before_validation :sync_location_from_village
+  after_update :sync_visit_village_references, if: :saved_change_to_village_id?
 
   validates :state, :district, :block, :village, :name, :shg_code, :linkage_date, presence: true
   validates :name, uniqueness: { case_sensitive: false }
@@ -170,6 +172,18 @@ class Shg < ApplicationRecord
 
   def set_default_approval_status
     self.approval_status ||= "draft"
+  end
+
+  def sync_location_from_village
+    return unless village
+
+    self.block = village.block
+    self.district = village.block&.district
+    self.state = village.block&.district&.state
+  end
+
+  def sync_visit_village_references
+    visit_records.where.not(village_id: village_id).update_all(village_id: village_id, updated_at: Time.current)
   end
 
   def build_shg_code

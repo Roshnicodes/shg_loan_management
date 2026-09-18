@@ -12,6 +12,7 @@ class ShgLoan < ApplicationRecord
   TERM_TYPES = [ "Monthly", "Quarterly", "Half Yearly", "Yearly" ].freeze
   GEOGRAPHY_TYPES = [ "Rural", "Urban" ].freeze
 
+  before_validation :sync_shg_from_member
   before_validation :set_defaults
   before_save :calculate_totals
   after_commit :rebuild_emi_schedule, on: %i[create update], unless: :manual_total_loan?
@@ -162,6 +163,10 @@ class ShgLoan < ApplicationRecord
   end
 
   private
+
+  def sync_shg_from_member
+    self.shg = shg_member.shg if shg_member
+  end
 
   def set_defaults
     self.distribution_date ||= Date.current

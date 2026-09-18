@@ -94,4 +94,53 @@ class ShgMemberTest < ActiveSupport::TestCase
     assert member.valid?
     assert_equal "Manual Work", member.work_activity_name
   end
+
+  test "changing member shg keeps dependent loans and visits in the same shg" do
+    old_shg = shgs(:one)
+    new_shg = shgs(:two)
+    old_shg.update_columns(active: true, approval_status: "pending_dc")
+
+    member = ShgMember.create!(
+      shg: old_shg,
+      occupation: occupations(:one),
+      activity: activities(:one),
+      name: "Transfer Member",
+      spouse_father_name: "Transfer Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543290",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789090"
+    )
+    loan = ShgLoan.create!(
+      shg: old_shg,
+      shg_member: member,
+      product: products(:one),
+      activity: activities(:one),
+      loan_status: loan_statuses(:one),
+      created_by: users(:one),
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 10_000,
+      interest_percent: 1.0
+    )
+    visit = VisitRecord.create!(
+      village: old_shg.village,
+      shg: old_shg,
+      shg_member: member,
+      product: products(:one),
+      visit_date: Date.current,
+      purpose: "Follow up",
+      observations: "Checked",
+      created_by: users(:one)
+    )
+
+    member.update!(shg: new_shg)
+
+    assert_equal new_shg, loan.reload.shg
+    assert_equal new_shg, visit.reload.shg
+    assert_equal new_shg.village, visit.village
+  end
 end

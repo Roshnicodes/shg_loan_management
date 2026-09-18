@@ -10,6 +10,7 @@ class ShgMember < ApplicationRecord
   before_validation :normalize_work_activity
   before_validation :normalize_contact_numbers
   before_validation :normalize_aadhaar_no
+  after_update :sync_dependent_group_references, if: :saved_change_to_shg_id?
 
   validates :shg, :occupation, :gender, :dob, :mobile, :monthly_income, presence: true
   validates :name, presence: true
@@ -97,4 +98,13 @@ class ShgMember < ApplicationRecord
     errors.add(:aadhaar_no, "is already used by #{duplicate.name} in #{duplicate.shg&.name}")
   end
 
+  def sync_dependent_group_references
+    current_shg = shg || Shg.find_by(id: shg_id)
+    return unless current_shg
+
+    timestamp = Time.current
+    ShgLoan.where(shg_member_id: id).where.not(shg_id: current_shg.id).update_all(shg_id: current_shg.id, updated_at: timestamp)
+    VisitRecord.where(shg_member_id: id).where.not(shg_id: current_shg.id).update_all(shg_id: current_shg.id, village_id: current_shg.village_id, updated_at: timestamp)
+    VisitRecord.where(shg_member_id: id, shg_id: current_shg.id).where.not(village_id: current_shg.village_id).update_all(village_id: current_shg.village_id, updated_at: timestamp)
+  end
 end

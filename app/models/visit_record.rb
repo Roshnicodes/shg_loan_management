@@ -14,6 +14,7 @@ class VisitRecord < ApplicationRecord
 
   APPROVAL_STATUSES = [ "pending_dc", "pending_assistant", "approved", "rejected" ].freeze
 
+  before_validation :sync_group_location_from_member
   before_validation :set_default_status, on: :create
   before_validation :set_product_from_member_loan, if: -> { product.blank? && shg_member.present? }
   before_validation :set_visit_number, on: :create
@@ -116,6 +117,13 @@ class VisitRecord < ApplicationRecord
   end
 
   private
+
+  def sync_group_location_from_member
+    return unless shg_member
+
+    self.shg = shg_member.shg
+    self.village = shg_member.shg&.village
+  end
 
   def set_default_status
     apply_default_status_for(created_by)
