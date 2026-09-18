@@ -1119,6 +1119,7 @@ th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: l
 th { background: linear-gradient(135deg, #eaf3ff, #edf9f1); color: #31405b; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 tbody tr:nth-child(even) { background: #fbfdff; }
 tbody tr:hover { background: #f1f8ff; }
+tbody tr.row-anchor-highlight { outline: 3px solid rgba(0, 133, 255, .42); outline-offset: -3px; }
 .select-column {
   width: 58px;
   text-align: center;

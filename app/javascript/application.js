@@ -157,6 +157,24 @@ function refreshBulkSelectAll(master) {
   master.indeterminate = checked > 0 && checked < checkboxes.length
 }
 
+function scrollToLoanHashTarget() {
+  const hash = window.location.hash || ""
+  if (!hash.startsWith("#loan-")) return
+
+  const target = document.getElementById(decodeURIComponent(hash.slice(1)))
+  if (!target) return
+
+  target.scrollIntoView({ block: "center", inline: "nearest" })
+  target.classList.add("row-anchor-highlight")
+  window.setTimeout(() => target.classList.remove("row-anchor-highlight"), 2500)
+}
+
+function scheduleLoanHashScroll() {
+  ;[0, 100, 350, 800].forEach((delay) => {
+    window.setTimeout(scrollToLoanHashTarget, delay)
+  })
+}
+
 document.addEventListener("turbo:load", () => {
   enhanceSearchableSelects()
   refreshCascadeForms()
@@ -168,12 +186,16 @@ document.addEventListener("turbo:load", () => {
     }
   })
   closeMobileMenu()
+  scheduleLoanHashScroll()
 })
 
 document.addEventListener("turbo:frame-load", () => {
   enhanceSearchableSelects()
   refreshCascadeForms()
+  scheduleLoanHashScroll()
 })
+
+window.addEventListener("load", scheduleLoanHashScroll)
 
 document.addEventListener("change", (event) => {
   const target = event.target

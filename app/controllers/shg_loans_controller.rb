@@ -37,7 +37,7 @@ class ShgLoansController < ApplicationController
   def index
     set_filter_options
     @loan_imports = LoanImport.includes(:user).order(created_at: :desc).limit(5) if can_import_loan_data?
-    @loans = paginate_relation(filtered_loans(preload_emis: false).order(created_at: :desc))
+    @loans = paginate_relation(loan_index_scope)
     @loan_emi_totals = emi_totals_by_loan_id(@loans.map(&:id))
     @loan_product_options = product_code_options
   end
@@ -139,13 +139,13 @@ class ShgLoansController < ApplicationController
 
   def update_product
     product_id = params.dig(:shg_loan, :product_id).presence
-    return redirect_to(results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Please select Product Code.") if product_id.blank?
+    return redirect_to(loan_index_row_path(@loan), alert: "Please select Product Code.") if product_id.blank?
 
     product = Product.find_by(id: product_id)
-    return redirect_to(results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Selected Product Code is not available.") unless product
+    return redirect_to(loan_index_row_path(@loan), alert: "Selected Product Code is not available.") unless product
 
     @loan.update_columns(product_id: product.id, updated_at: Time.current)
-    redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "Product Code updated successfully."
+    redirect_to loan_index_row_path(@loan), notice: "Product Code updated successfully."
   end
 
   def bulk_disable
@@ -169,6 +169,35 @@ class ShgLoansController < ApplicationController
     Product.order(:name).map do |product|
       [ product_code_label(product), product.id ]
     end
+  end
+
+  def loan_index_scope
+    filtered_loans(preload_emis: false).order(created_at: :desc, id: :desc)
+  end
+
+  def loan_index_row_path(loan)
+    index_params = preserved_index_params(LOAN_INDEX_PARAMS)
+    index_params[:page] = loan_index_page_for(loan)
+    index_params.delete(:page) if index_params[:page].to_i <= 1
+
+    "#{shg_loans_path(index_params)}#loan-#{loan.id}"
+  end
+
+  def loan_index_page_for(loan)
+    current_page = params[:page].to_i
+    return current_page if current_page.positive?
+
+    preceding_count = filtered_loans(preload_emis: false)
+      .where(
+        "shg_loans.created_at > :created_at OR (shg_loans.created_at = :created_at AND shg_loans.id > :id)",
+        created_at: loan.created_at,
+        id: loan.id
+      )
+      .unscope(:order)
+      .distinct
+      .count("shg_loans.id")
+
+    (preceding_count / DEFAULT_PAGE_SIZE) + 1
   end
 
   def set_loan_form_prefill

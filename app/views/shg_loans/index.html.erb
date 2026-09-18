@@ -93,6 +93,7 @@
           <th>Village</th>
           <th>CRP ID</th>
           <th>CRPName</th>
+          <th>Work/Activity</th>
           <th>Product Code</th>
           <th>Disbursement Date</th>
           <th>Loan Status</th>
@@ -114,7 +115,7 @@
       </thead>
       <tbody>
         <% @loans.each do |loan| %>
-          <tr>
+          <tr id="loan-<%= loan.id %>">
             <% if can_bulk_delete_records? %><td><%= check_box_tag "ids[]", loan.id, false, form: "bulk-disable-loans", disabled: !loan.active? %></td><% end %>
             <td><%= loan.shg.display_name %></td>
             <td><%= link_to loan.shg_member.name, shg_loan_path(loan, index_params) %></td>
@@ -125,9 +126,10 @@
             <td><%= loan.shg.village.name %></td>
             <td><%= loan_crp_identifier(loan).presence || "-" %></td>
             <td><%= loan_crp_name(loan).presence || "-" %></td>
+            <td><%= loan.work_activity_name.presence || "-" %></td>
             <td>
               <% if can_manage_shg_loan?(loan) %>
-                <%= form_with url: update_product_shg_loan_path(loan, index_params), method: :patch, class: "inline-product-form" do %>
+                <%= form_with url: update_product_shg_loan_path(loan, index_params), method: :patch, class: "inline-product-form", data: { turbo: false } do %>
                   <%= select_tag "shg_loan[product_id]", options_for_select(@loan_product_options, loan.product_id), prompt: "Product Code", required: true %>
                   <%= submit_tag "Save", class: "success-link compact-button" %>
                 <% end %>

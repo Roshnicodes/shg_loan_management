@@ -349,7 +349,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
       shg_loan: { product_id: @product.id }
     }
 
-    assert_redirected_to "#{shg_loans_path(page: 4, block_id: @block.id)}#results"
+    assert_redirected_to "#{shg_loans_path(page: 4, block_id: @block.id)}#loan-#{@loan.id}"
     assert_equal @product, @loan.reload.product
   end
 
@@ -370,7 +370,12 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "form[action='#{update_product_shg_loan_path(@loan, block_id: @block.id)}'] select[name='shg_loan[product_id]']"
+    assert_select "form[action='#{update_product_shg_loan_path(@loan, block_id: @block.id)}'][data-turbo='false']"
     assert_select "select[name='shg_loan[product_id]'] option", text: "Product Code"
+    assert_select "tr#loan-#{@loan.id} td", text: @activity.name
+
+    headers = css_select("table.loan-import-table thead th").map { |header| header.text.strip }
+    assert_operator headers.index("Work/Activity"), :<, headers.index("Product Code")
   end
 
   test "shg master approval row does not include product code select" do
