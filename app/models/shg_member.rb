@@ -66,6 +66,19 @@ class ShgMember < ApplicationRecord
     members.order(:id).find_each(&:assign_next_loan_no!)
   end
 
+  def self.clear_stale_loan_numbers_without_loans!(member_ids = nil)
+    members = where.not(loan_no: [ nil, "" ])
+    members = members.where(id: member_ids) if member_ids.present?
+
+    members.left_outer_joins(:shg_loans)
+      .where(shg_loans: { id: nil })
+      .update_all(loan_no: nil, updated_at: Time.current)
+  end
+
+  def clear_stale_loan_number_without_loans!
+    self.class.clear_stale_loan_numbers_without_loans!(id)
+  end
+
   def self.next_loan_no_sequence
     last_number = where("loan_no LIKE ?", "#{LOAN_NO_PREFIX}-%")
       .pluck(:loan_no)

@@ -147,14 +147,16 @@ class ReportsController < ApplicationController
   def report_option_shgs
     return Shg.none unless @selected_village_ids.present? || @selected_users.present? || filter_param_ids(:shg_id).present?
 
-    shgs = visible_shgs.where(active: true, id: report_option_loan_scope.select(:shg_id))
+    shgs = visible_shgs.where(id: report_option_loan_scope.select(:shg_id))
+    shgs = shgs.where(active: true) unless report_searching?
     shgs.order(:name)
   end
 
   def report_option_members
     return ShgMember.none unless @selected_shg_ids.present? || filter_param_ids(:member_id).present?
 
-    members = visible_shg_members.where(active: true, id: report_option_loan_scope.select(:shg_member_id))
+    members = visible_shg_members.where(id: report_option_loan_scope.select(:shg_member_id))
+    members = members.where(active: true) unless report_searching?
     members.order(:name)
   end
 
@@ -191,8 +193,7 @@ class ReportsController < ApplicationController
   end
 
   def report_loans
-    loans = visible_shg_loans
-      .where(active: true)
+    loans = report_base_loans
       .includes(:product, :loan_status, :created_by, :shg_member, shg: [ :state, :district, :block, :village ])
 
     loans = loans.where(distribution_date: params[:date_from]..) if params[:date_from].present?
@@ -294,11 +295,11 @@ class ReportsController < ApplicationController
   end
 
   def report_user_loan_scope
-    users_filtered_loans(visible_shg_loans.where(active: true), @selected_users)
+    users_filtered_loans(report_base_loans, @selected_users)
   end
 
   def report_location_loan_scope
-    loans = visible_shg_loans.where(active: true)
+    loans = report_base_loans
     loans = loans.joins(:shg).where(shgs: { state_id: @selected_state_ids }) if @selected_state_ids.present?
     loans = loans.joins(:shg).where(shgs: { district_id: @selected_district_ids }) if @selected_district_ids.present?
     loans = loans.joins(:shg).where(shgs: { block_id: @selected_block_ids }) if @selected_block_ids.present?
@@ -373,6 +374,15 @@ class ReportsController < ApplicationController
     params[:q].to_s.strip
   end
 
+  def report_searching?
+    report_search_query.present?
+  end
+
+  def report_base_loans
+    loans = visible_shg_loans
+    report_searching? ? loans : loans.where(active: true)
+  end
+
   def loan_amounts_for(loans)
     ids = loans.respond_to?(:pluck) ? loans.pluck(:id) : loans.map(&:id)
     return {} if ids.blank?
@@ -421,7 +431,7 @@ class ReportsController < ApplicationController
     shg_ids = shgs.map(&:id)
     return {} if shg_ids.blank?
 
-    visible_shg_loans.where(active: true, shg_id: shg_ids)
+    report_base_loans.where(shg_id: shg_ids)
       .includes(:created_by)
       .group_by(&:shg_id)
       .transform_values { |loans| report_user_ids_for_loans(loans) }
@@ -431,7 +441,7 @@ class ReportsController < ApplicationController
     member_ids = members.map(&:id)
     return {} if member_ids.blank?
 
-    visible_shg_loans.where(active: true, shg_member_id: member_ids)
+    report_base_loans.where(shg_member_id: member_ids)
       .includes(:created_by)
       .group_by(&:shg_member_id)
       .transform_values { |loans| report_user_ids_for_loans(loans) }

@@ -17,6 +17,8 @@ class ShgLoan < ApplicationRecord
   before_save :calculate_totals
   after_commit :rebuild_emi_schedule, on: %i[create update], unless: :manual_total_loan?
   after_commit :submit_shg_for_approval, on: :create
+  after_update :clear_previous_member_loan_number_if_orphaned, if: :saved_change_to_shg_member_id?
+  after_destroy :clear_current_member_loan_number_if_orphaned
 
   validates :distribution_date, :loan_term_type, :loan_term, presence: true
   validates :geography_type, inclusion: { in: GEOGRAPHY_TYPES }
@@ -163,6 +165,15 @@ class ShgLoan < ApplicationRecord
   end
 
   private
+
+  def clear_previous_member_loan_number_if_orphaned
+    previous_member_id = saved_change_to_shg_member_id&.first
+    ShgMember.clear_stale_loan_numbers_without_loans!(previous_member_id) if previous_member_id.present?
+  end
+
+  def clear_current_member_loan_number_if_orphaned
+    ShgMember.clear_stale_loan_numbers_without_loans!(shg_member_id) if shg_member_id.present?
+  end
 
   def sync_shg_from_member
     self.shg = shg_member.shg if shg_member

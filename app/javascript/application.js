@@ -175,10 +175,51 @@ function scheduleLoanHashScroll() {
   })
 }
 
+function refreshVillageRowRemoveButtons(container) {
+  const rows = Array.from(container.querySelectorAll("[data-village-row]"))
+
+  rows.forEach((row) => {
+    const button = row.querySelector("[data-village-row-remove]")
+    if (button) button.disabled = rows.length <= 1
+  })
+}
+
+function refreshVillageRepeatables() {
+  document.querySelectorAll("[data-village-repeatable]").forEach(refreshVillageRowRemoveButtons)
+}
+
+function addVillageRow(container) {
+  if (!container) return
+
+  const template = container.querySelector("[data-village-row-template]")
+  const list = container.querySelector("[data-village-row-list]")
+  if (!template || !list) return
+
+  const row = template.content.firstElementChild.cloneNode(true)
+  row.querySelectorAll("input").forEach((input) => {
+    input.value = ""
+  })
+  list.appendChild(row)
+  refreshVillageRowRemoveButtons(container)
+  row.querySelector("input")?.focus()
+}
+
+function removeVillageRow(button) {
+  const container = button.closest("[data-village-repeatable]")
+  if (!container) return
+
+  const rows = Array.from(container.querySelectorAll("[data-village-row]"))
+  if (rows.length <= 1) return
+
+  button.closest("[data-village-row]")?.remove()
+  refreshVillageRowRemoveButtons(container)
+}
+
 document.addEventListener("turbo:load", () => {
   enhanceSearchableSelects()
   refreshCascadeForms()
   document.querySelectorAll("[data-bulk-select-all]").forEach(refreshBulkSelectAll)
+  refreshVillageRepeatables()
   document.querySelectorAll("[data-auto-hide-ms]").forEach((element) => {
     const delay = Number.parseInt(element.dataset.autoHideMs, 10)
     if (Number.isFinite(delay) && delay > 0) {
@@ -192,6 +233,7 @@ document.addEventListener("turbo:load", () => {
 document.addEventListener("turbo:frame-load", () => {
   enhanceSearchableSelects()
   refreshCascadeForms()
+  refreshVillageRepeatables()
   scheduleLoanHashScroll()
 })
 
@@ -242,6 +284,18 @@ function openMobileMenu() {
 }
 
 document.addEventListener("click", (event) => {
+  const addVillageButton = event.target.closest("[data-village-row-add]")
+  if (addVillageButton) {
+    addVillageRow(addVillageButton.closest("[data-village-repeatable]"))
+    return
+  }
+
+  const removeVillageButton = event.target.closest("[data-village-row-remove]")
+  if (removeVillageButton) {
+    removeVillageRow(removeVillageButton)
+    return
+  }
+
   if (event.target.closest("[data-mobile-menu-toggle]")) {
     if (document.body.classList.contains("mobile-menu-open")) {
       closeMobileMenu()

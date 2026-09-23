@@ -105,4 +105,53 @@ class ShgLoanTest < ActiveSupport::TestCase
 
     assert_nil member.reload.loan_no
   end
+
+  test "moving only loan away clears stale loan number from previous member" do
+    shg = shgs(:one)
+    shg.update_columns(active: true, approval_status: "pending_dc")
+    old_member = ShgMember.create!(
+      shg: shg,
+      occupation: occupations(:one),
+      activity: activities(:one),
+      name: "Stale Loan Number Member",
+      spouse_father_name: "Stale Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543230",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789040",
+      loan_no: "ASAWO26-77777"
+    )
+    new_member = ShgMember.create!(
+      shg: shg,
+      occupation: occupations(:one),
+      activity: activities(:one),
+      name: "Replacement Loan Member",
+      spouse_father_name: "Replacement Guardian",
+      gender: "Female",
+      dob: Date.new(1991, 1, 1),
+      mobile: "9876543231",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789041"
+    )
+    loan = ShgLoan.create!(
+      shg: shg,
+      shg_member: old_member,
+      product: products(:one),
+      activity: activities(:one),
+      loan_status: loan_statuses(:one),
+      created_by: users(:one),
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 10_000,
+      interest_percent: 1.0
+    )
+
+    loan.update!(shg_member: new_member)
+
+    assert_nil old_member.reload.loan_no
+    assert_empty old_member.shg_loans.reload
+  end
 end

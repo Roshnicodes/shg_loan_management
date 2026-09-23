@@ -9,38 +9,79 @@
   </div>
   <%= render "shared/errors", record: @record %>
   <% village_form = controller.record_class == Village %>
+  <% new_village_form = village_form && !@record.persisted? %>
+  <% village_param_key = @record.model_name.param_key %>
   <% form_data = village_form ? { controller: "location-select", location_select_strict_value: true } : {} %>
   <%= form_with model: @record, class: "form-grid", data: form_data do |form| %>
     <% if village_form %>
-      <% selected_state_id = params.dig(@record.model_name.param_key, :state_id).presence || @record.block&.district&.state_id %>
-      <% selected_district_id = params.dig(@record.model_name.param_key, :district_id).presence || @record.block&.district_id %>
+      <% selected_state_id = params.dig(village_param_key, :state_id).presence || @record.block&.district&.state_id %>
+      <% selected_district_id = params.dig(village_param_key, :district_id).presence || @record.block&.district_id %>
       <label>
         <span>State</span>
-        <%= select_tag "#{@record.model_name.param_key}[state_id]", options_from_collection_for_select(State.order(:name), :id, :display_name, selected_state_id), prompt: "Select State", required: true, data: { location_select_target: "state", action: "location-select#stateChanged" } %>
+        <%= select_tag "#{village_param_key}[state_id]", options_from_collection_for_select(State.order(:name), :id, :display_name, selected_state_id), prompt: "Select State", required: true, data: { location_select_target: "state", action: "location-select#stateChanged" } %>
       </label>
       <label>
         <span>District</span>
-        <%= select_tag "#{@record.model_name.param_key}[district_id]", options_for_select(district_filter_options(District.includes(:state).order(:name)), selected_district_id), prompt: "Select District", required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %>
+        <%= select_tag "#{village_param_key}[district_id]", options_for_select(district_filter_options(District.includes(:state).order(:name)), selected_district_id), prompt: "Select District", required: true, data: { location_select_target: "district", action: "location-select#districtChanged" } %>
       </label>
     <% end %>
     <% controller.record_fields.each do |field| %>
-      <label class="<%= "checkbox-field" if field[:type] == :checkbox %>">
-        <span><%= field[:label] %></span>
-        <% case field[:type] %>
-        <% when :select %>
-          <% if village_form && field[:name] == :block_id %>
-            <%= form.select field[:name], options_for_select(block_filter_options(field[:collection].call), @record.block_id), { prompt: "Select #{field[:label]}" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %>
+      <% if new_village_form && field[:name] == :name %>
+        <% village_rows = Array(params.dig(village_param_key, :bulk_rows)).map { |row| row.respond_to?(:to_unsafe_h) ? row.to_unsafe_h : row }.presence || [ { "name" => @record.name, "code" => @record.code } ] %>
+        <div class="form-field full village-repeatable" data-village-repeatable>
+          <div class="village-repeatable-header">
+            <span>Villages</span>
+            <button type="button" class="village-row-button add" data-village-row-add aria-label="Add village">+</button>
+          </div>
+          <div class="village-row-list" data-village-row-list>
+            <% village_rows.each do |row| %>
+              <div class="village-row" data-village-row>
+                <label>
+                  <span>Village Name</span>
+                  <%= text_field_tag "#{village_param_key}[bulk_rows][][name]", row["name"], required: true, placeholder: "Village name" %>
+                </label>
+                <label>
+                  <span>Village GS Code</span>
+                  <%= text_field_tag "#{village_param_key}[bulk_rows][][code]", row["code"], placeholder: "GS code" %>
+                </label>
+                <button type="button" class="village-row-button remove" data-village-row-remove aria-label="Remove village" <%= "disabled" if village_rows.size <= 1 %>>-</button>
+              </div>
+            <% end %>
+          </div>
+          <template data-village-row-template>
+            <div class="village-row" data-village-row>
+              <label>
+                <span>Village Name</span>
+                <%= text_field_tag "#{village_param_key}[bulk_rows][][name]", nil, required: true, placeholder: "Village name" %>
+              </label>
+              <label>
+                <span>Village GS Code</span>
+                <%= text_field_tag "#{village_param_key}[bulk_rows][][code]", nil, placeholder: "GS code" %>
+              </label>
+              <button type="button" class="village-row-button remove" data-village-row-remove aria-label="Remove village">-</button>
+            </div>
+          </template>
+        </div>
+      <% elsif new_village_form && field[:name] == :code %>
+      <% else %>
+        <label class="<%= "checkbox-field" if field[:type] == :checkbox %>">
+          <span><%= field[:label] %></span>
+          <% case field[:type] %>
+          <% when :select %>
+            <% if village_form && field[:name] == :block_id %>
+              <%= form.select field[:name], options_for_select(block_filter_options(field[:collection].call), @record.block_id || params.dig(village_param_key, :block_id)), { prompt: "Select #{field[:label]}" }, required: true, data: { location_select_target: "block", action: "location-select#blockChanged" } %>
+            <% else %>
+              <%= form.collection_select field[:name], field[:collection].call, :id, :display_name, { prompt: "Select #{field[:label]}" }, required: field.fetch(:required, true) %>
+            <% end %>
+          <% when :static_select %>
+            <%= form.select field[:name], field[:options], { prompt: "Select #{field[:label]}" }, required: field.fetch(:required, true) %>
+          <% when :checkbox %>
+            <%= form.check_box field[:name] %>
           <% else %>
-            <%= form.collection_select field[:name], field[:collection].call, :id, :display_name, { prompt: "Select #{field[:label]}" }, required: field.fetch(:required, true) %>
+            <%= form.text_field field[:name], required: field.fetch(:required, true) %>
           <% end %>
-        <% when :static_select %>
-          <%= form.select field[:name], field[:options], { prompt: "Select #{field[:label]}" }, required: field.fetch(:required, true) %>
-        <% when :checkbox %>
-          <%= form.check_box field[:name] %>
-        <% else %>
-          <%= form.text_field field[:name], required: field.fetch(:required, true) %>
-        <% end %>
-      </label>
+        </label>
+      <% end %>
     <% end %>
     <div class="form-actions">
       <%= link_to "Cancel", polymorphic_path(controller.record_class), class: "secondary-link" %>

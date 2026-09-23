@@ -133,6 +133,76 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_not @loan.reload.active?
   end
 
+  test "admin loan search includes disabled loans" do
+    @member.update_columns(loan_no: "ASAWO26-278", updated_at: Time.current)
+    @loan.update_columns(active: false, updated_at: Time.current)
+    login_as(@admin)
+
+    get shg_loans_path(q: "ASAWO26-278")
+
+    assert_response :success
+    assert_select "tr#loan-#{@loan.id}"
+    assert_select "tr#loan-#{@loan.id} .status.rejected", text: "Inactive"
+  end
+
+  test "admin report search includes disabled loans without changing apply report" do
+    @member.update_columns(loan_no: "ASAWO26-278", updated_at: Time.current)
+    @loan.update_columns(active: false, updated_at: Time.current)
+    login_as(@admin)
+
+    get reports_path(q: "ASAWO26-278")
+
+    assert_response :success
+    assert_select "td", text: "ASAWO26-278"
+    assert_select "td", text: @member.name
+
+    get reports_path(commit: "Apply")
+
+    assert_response :success
+    assert_select "td", text: "ASAWO26-278", count: 0
+  end
+
+  test "admin loan index includes loans from all crps" do
+    other_crp = user_for("215", @crp_type, block: @block, village: @village)
+    other_member = ShgMember.create!(
+      shg: @shg,
+      occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
+      name: "Retention Other CRP Member",
+      spouse_father_name: "Retention Other Guardian",
+      gender: "Female",
+      dob: Date.new(1991, 1, 1),
+      mobile: "9876500215",
+      monthly_income: 6900,
+      aadhaar_no: "123456789215",
+      loan_no: "ASAWO26-279"
+    )
+    other_loan = ShgLoan.create!(
+      shg: @shg,
+      shg_member: other_member,
+      activity: @activity,
+      loan_status: @loan_status,
+      created_by: other_crp,
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 11_000,
+      interest_percent: 1.0,
+      active: true
+    )
+    login_as(@admin)
+
+    get shg_loans_path
+
+    assert_response :success
+    assert_select "select[name='crp_id[]'] option", text: @crp.name
+    assert_select "select[name='crp_id[]'] option", text: other_crp.name
+    assert_select "tr#loan-#{@loan.id}"
+    assert_select "tr#loan-#{other_loan.id}"
+  end
+
   test "member add another keeps reusable fields for next entry" do
     login_as(@dc)
 
@@ -395,7 +465,10 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "select[name='village[state_id]']"
     assert_select "select[name='village[district_id]']"
-    assert_select "input[name='village[code]']"
+    assert_select "[data-village-repeatable]"
+    assert_select "input[name='village[bulk_rows][][name]']"
+    assert_select "input[name='village[bulk_rows][][code]']"
+    assert_select "button[data-village-row-add]", text: "+"
     assert_includes response.body, "data-state-id=\"#{@state.id}\""
     assert_includes response.body, "data-district-id=\"#{@district.id}\""
   end

@@ -1191,6 +1191,63 @@ label > span,
   font-size: 12px;
   font-weight: 800;
 }
+.village-repeatable {
+  display: grid;
+  gap: 12px;
+}
+.village-repeatable-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.village-row-list {
+  display: grid;
+  gap: 12px;
+}
+.village-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr) 42px;
+  gap: 12px;
+  align-items: end;
+}
+.village-row-button {
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  border: 1px solid rgba(25,150,165,.24);
+  border-radius: 12px;
+  background: #eefafa;
+  color: #087d8c;
+  cursor: pointer;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+.village-row-button.add {
+  border: 0;
+  background: linear-gradient(135deg, #057db8, #00ba86);
+  color: #fff;
+}
+.village-row-button.remove {
+  margin-bottom: 0;
+}
+.village-row-button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+@media (max-width: 700px) {
+  .village-row {
+    grid-template-columns: minmax(0, 1fr) 42px;
+  }
+  .village-row label {
+    grid-column: 1 / -1;
+  }
+  .village-row-button.remove {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
 .form-grid input[type="file"] {
   width: 100%;
   min-height: 52px;

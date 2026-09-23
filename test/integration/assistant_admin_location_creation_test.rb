@@ -44,6 +44,33 @@ class AssistantAdminLocationCreationTest < ActionDispatch::IntegrationTest
     assert_redirected_to user_types_path
   end
 
+  test "assistant admin can add multiple villages in one block" do
+    assistant = create_assistant_admin
+    post login_path, params: { login_id: assistant.login_id, password: "secret123" }
+    state = State.create!(name: "Assistant Bulk State", active: true)
+    district = District.create!(state: state, name: "Assistant Bulk District", active: true)
+    block = Block.create!(district: district, name: "Assistant Bulk Block", active: true)
+
+    assert_difference("Village.count", 2) do
+      post villages_path, params: {
+        village: {
+          state_id: state.id,
+          district_id: district.id,
+          block_id: block.id,
+          bulk_rows: [
+            { name: "Assistant Bulk Village One", code: "ABV1" },
+            { name: "Assistant Bulk Village Two", code: "ABV2" }
+          ],
+          active: "1"
+        }
+      }
+    end
+
+    assert_redirected_to villages_path
+    assert_equal block, Village.find_by!(name: "Assistant Bulk Village One").block
+    assert_equal "ABV2", Village.find_by!(name: "Assistant Bulk Village Two").code
+  end
+
   private
 
   def create_assistant_admin
