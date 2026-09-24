@@ -10,7 +10,7 @@ class ShgLoansController < ApplicationController
 
   LOAN_INDEX_PARAMS = %i[
     page q date_from date_to crp_id
-    state_id district_id block_id village_id shg_id
+    state_id district_id block_id village_id shg_id record_status
   ].freeze
   LOAN_PREFILL_PARAMS = %i[
     shg_id block_id village_id product_id geography_type distribution_date
@@ -43,7 +43,14 @@ class ShgLoansController < ApplicationController
   end
 
   def export
-    stream_loans_csv(filtered_loans(preload_emis: false).order(created_at: :desc))
+    stream_loans_csv(loan_number_ordered_loans(filtered_loans(preload_emis: false)))
+  end
+
+  def loan_no_check_export
+    stream_loan_no_check_csv(
+      loan_number_ordered_loans(filtered_loans(preload_emis: false)),
+      loan_number_ordered_members(filtered_stale_loan_no_members)
+    )
   end
 
   def new_import
@@ -133,6 +140,10 @@ class ShgLoansController < ApplicationController
   end
 
   def disable
+    if active_change_locked?(@loan)
+      return redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), alert: "Assistant Admin approved SHG loan cannot be disabled."
+    end
+
     @loan.update_columns(active: false, updated_at: Time.current)
     redirect_to results_redirect_path(:shg_loans_path, LOAN_INDEX_PARAMS), notice: "SHG loan disabled successfully."
   end
@@ -322,8 +333,48 @@ class ShgLoansController < ApplicationController
     loans = loans.joins(:shg).where(shgs: { block_id: block_ids }) if block_ids.present?
     loans = loans.joins(:shg).where(shgs: { village_id: village_ids }) if village_ids.present?
     loans = loans.where(shg_id: shg_ids) if shg_ids.present?
+    loans = active_record_filter(loans)
     loans = search_loans(loans)
     loans
+  end
+
+  def filtered_stale_loan_no_members
+    members = visible_shg_members
+      .left_outer_joins(:shg_loans)
+      .where.not(loan_no: [ nil, "" ])
+      .where(shg_loans: { id: nil })
+
+    if can_filter_loan_state_district_crp?
+      state_ids = filter_param_ids(:state_id)
+      district_ids = filter_param_ids(:district_id)
+      crp_ids = filter_param_ids(:crp_id)
+      members = members.joins(:shg).where(shgs: { state_id: state_ids }) if state_ids.present?
+      members = members.joins(:shg).where(shgs: { district_id: district_ids }) if district_ids.present?
+      members = members.joins(:shg).where(shgs: { created_by_id: crp_ids }) if crp_ids.present?
+    end
+
+    block_ids = filter_param_ids(:block_id)
+    village_ids = filter_param_ids(:village_id)
+    shg_ids = filter_param_ids(:shg_id)
+    members = members.joins(:shg).where(shgs: { block_id: block_ids }) if block_ids.present?
+    members = members.joins(:shg).where(shgs: { village_id: village_ids }) if village_ids.present?
+    members = members.where(shg_id: shg_ids) if shg_ids.present?
+    members = active_record_filter(members)
+    search_stale_loan_no_members(members)
+  end
+
+  def search_stale_loan_no_members(members)
+    query = params[:q].to_s.strip
+    return members if query.blank?
+
+    pattern = "%#{ActiveRecord::Base.sanitize_sql_like(query.downcase)}%"
+    members.where(
+      [
+        "CAST(shg_members.id AS TEXT) ILIKE :query",
+        "LOWER(shg_members.loan_no) LIKE :query"
+      ].join(" OR "),
+      query: pattern
+    ).distinct
   end
 
   def can_filter_loan_state_district_crp?
@@ -383,6 +434,83 @@ class ShgLoansController < ApplicationController
       ).distinct
   end
 
+  def stream_loan_no_check_csv(loans, stale_members)
+    stream_csv("loan-no-check-#{Date.current}.csv") do |stream|
+      stream << CSV.generate_line([
+        "Issue", "Loan Sequence", "Loan No", "Loan ID", "Loan Record",
+        "Member ID", "Member Record", "SHG ID"
+      ])
+
+      each_ordered_batch(loans) do |batch|
+        batch.each do |loan|
+          stream << CSV.generate_line(loan_no_check_loan_row(loan))
+        end
+      end
+
+      each_ordered_batch(stale_members) do |batch|
+        batch.each do |member|
+          stream << CSV.generate_line(loan_no_check_stale_member_row(member))
+        end
+      end
+    end
+  end
+
+  def loan_no_check_loan_row(loan)
+    member = loan.shg_member
+
+    [
+      "OK - loan record exists",
+      loan_no_sequence(member.loan_no),
+      member.loan_no,
+      loan.id,
+      loan.active? ? "Active" : "Inactive",
+      member.id,
+      member.active? ? "Active" : "Inactive",
+      loan.shg_id
+    ]
+  end
+
+  def loan_no_check_stale_member_row(member)
+    [
+      "NO LOAN RECORD - stale member loan no",
+      loan_no_sequence(member.loan_no),
+      member.loan_no,
+      nil,
+      nil,
+      member.id,
+      member.active? ? "Active" : "Inactive",
+      member.shg_id
+    ]
+  end
+
+  def loan_no_sequence(loan_no)
+    loan_no.to_s[/-(\d+)\z/, 1]&.to_i
+  end
+
+  def loan_number_ordered_loans(loans)
+    loans.left_joins(:shg_member).distinct(false).reorder(Arel.sql(loan_number_order_sql), Arel.sql("shg_loans.id ASC"))
+  end
+
+  def loan_number_ordered_members(members)
+    members.distinct(false).reorder(Arel.sql(loan_number_order_sql), Arel.sql("shg_members.id ASC"))
+  end
+
+  def loan_number_order_sql
+    "COALESCE(NULLIF(substring(shg_members.loan_no FROM '-([0-9]+)$'), '')::integer, 2147483647) ASC, shg_members.loan_no ASC"
+  end
+
+  def each_ordered_batch(relation, batch_size: 1_000)
+    offset = 0
+
+    loop do
+      batch = relation.limit(batch_size).offset(offset).to_a
+      break if batch.empty?
+
+      yield batch
+      offset += batch_size
+    end
+  end
+
   def stream_loans_csv(loans)
     stream_csv("shg-loans-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
@@ -396,7 +524,7 @@ class ShgLoansController < ApplicationController
         "Monthly hh income"
       ])
 
-      loans.reorder(nil).find_in_batches(batch_size: 1_000) do |batch|
+      each_ordered_batch(loans) do |batch|
         emi_totals = emi_totals_by_loan_id(batch.map(&:id))
 
         batch.each do |loan|

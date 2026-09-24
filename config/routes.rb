@@ -102,6 +102,7 @@ Rails.application.routes.draw do
 
     collection do
       get :export
+      get :loan_no_check_export
       get :import, action: :new_import
       post :import
       patch :bulk_disable

@@ -123,6 +123,42 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{shg_members_path(page: 4, block_id: @block.id)}#results"
   end
 
+  test "record status filters disabled shgs members and loans" do
+    login_as(@admin)
+
+    @shg.update_columns(active: false, updated_at: Time.current)
+    get shgs_path(record_status: [ "disabled" ])
+    assert_response :success
+    assert_select "select[name='record_status[]'] option[selected='selected'][value='disabled']"
+    assert_select "td", text: /#{Regexp.escape(@shg.name)}/
+
+    get shgs_path(record_status: [ "active" ])
+    assert_response :success
+    assert_select "td", text: /#{Regexp.escape(@shg.name)}/, count: 0
+
+    @shg.update_columns(active: true, updated_at: Time.current)
+    @member.update_columns(active: false, updated_at: Time.current)
+    get shg_members_path(record_status: [ "disabled" ])
+    assert_response :success
+    assert_select "select[name='record_status[]'] option[selected='selected'][value='disabled']"
+    assert_select "td", text: @member.name
+
+    get shg_members_path(record_status: [ "active" ])
+    assert_response :success
+    assert_select "td", text: @member.name, count: 0
+
+    @member.update_columns(active: true, updated_at: Time.current)
+    @loan.update_columns(active: false, updated_at: Time.current)
+    get shg_loans_path(record_status: [ "disabled" ])
+    assert_response :success
+    assert_select "select[name='record_status[]'] option[selected='selected'][value='disabled']"
+    assert_select "tr#loan-#{@loan.id}"
+
+    get shg_loans_path(record_status: [ "active" ])
+    assert_response :success
+    assert_select "tr#loan-#{@loan.id}", count: 0
+  end
+
   test "member disable also disables active loans for that member" do
     login_as(@admin)
 
@@ -131,6 +167,86 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_redirected_to "#{shg_members_path(page: 4, block_id: @block.id)}#results"
     assert_not @member.reload.active?
     assert_not @loan.reload.active?
+  end
+
+  test "assistant approved shg locks individual activate and disable status changes" do
+    login_as(@admin)
+    mark_shg_assistant_approved!
+
+    patch disable_shg_path(@shg, page: 4)
+    assert_redirected_to "#{shgs_path(page: 4)}#results"
+    assert @shg.reload.active?
+
+    @shg.update_columns(active: false, updated_at: Time.current)
+    patch activate_shg_path(@shg, page: 4)
+    assert_redirected_to "#{shgs_path(page: 4)}#results"
+    assert_not @shg.reload.active?
+
+    @shg.update_columns(active: true, updated_at: Time.current)
+    patch disable_shg_member_path(@member, page: 4)
+    assert_redirected_to "#{shg_members_path(page: 4)}#results"
+    assert @member.reload.active?
+    assert @loan.reload.active?
+
+    @member.update_columns(active: false, updated_at: Time.current)
+    patch activate_shg_member_path(@member, page: 4)
+    assert_redirected_to "#{shg_members_path(page: 4)}#results"
+    assert_not @member.reload.active?
+
+    @member.update_columns(active: true, updated_at: Time.current)
+    patch disable_shg_loan_path(@loan, page: 4)
+    assert_redirected_to "#{shg_loans_path(page: 4)}#results"
+    assert @loan.reload.active?
+  end
+
+  test "assistant approved shg locks bulk activate and disable status changes" do
+    login_as(@admin)
+    mark_shg_assistant_approved!
+
+    patch bulk_disable_shgs_path(page: 4), params: { ids: [ @shg.id ] }
+    assert_redirected_to "#{shgs_path(page: 4)}#results"
+    assert @shg.reload.active?
+
+    @shg.update_columns(active: false, updated_at: Time.current)
+    patch bulk_activate_shgs_path(page: 4), params: { ids: [ @shg.id ] }
+    assert_redirected_to "#{shgs_path(page: 4)}#results"
+    assert_not @shg.reload.active?
+
+    @shg.update_columns(active: true, updated_at: Time.current)
+    patch bulk_disable_shg_members_path(page: 4), params: { ids: [ @member.id ] }
+    assert_redirected_to "#{shg_members_path(page: 4)}#results"
+    assert @member.reload.active?
+    assert @loan.reload.active?
+
+    @member.update_columns(active: false, updated_at: Time.current)
+    patch bulk_activate_shg_members_path(page: 4), params: { ids: [ @member.id ] }
+    assert_redirected_to "#{shg_members_path(page: 4)}#results"
+    assert_not @member.reload.active?
+
+    @member.update_columns(active: true, updated_at: Time.current)
+    patch bulk_disable_shg_loans_path(page: 4), params: { ids: [ @loan.id ] }
+    assert_redirected_to "#{shg_loans_path(page: 4)}#results"
+    assert @loan.reload.active?
+  end
+
+  test "approved rows show locked status controls" do
+    login_as(@admin)
+    mark_shg_assistant_approved!
+
+    get shgs_path
+    assert_response :success
+    assert_select "span.muted-cell", text: "Locked"
+    assert_select "input[name=\"ids[]\"][disabled=\"disabled\"][value=\"#{@shg.id}\"]"
+
+    get shg_members_path
+    assert_response :success
+    assert_select "span.muted-cell", text: "Locked"
+    assert_select "input[name=\"ids[]\"][disabled=\"disabled\"][value=\"#{@member.id}\"]"
+
+    get shg_loans_path
+    assert_response :success
+    assert_select "span.muted-cell", text: "Locked"
+    assert_select "input[name=\"ids[]\"][disabled=\"disabled\"][value=\"#{@loan.id}\"]"
   end
 
   test "admin loan search includes disabled loans" do
@@ -143,6 +259,74 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "tr#loan-#{@loan.id}"
     assert_select "tr#loan-#{@loan.id} .status.rejected", text: "Inactive"
+  end
+
+  test "loan exports are ordered by numeric loan number" do
+    @member.update_columns(loan_no: "ASAWO26-279", updated_at: Time.current)
+    earlier_member = ShgMember.create!(
+      shg: @shg,
+      occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
+      name: "Retention Earlier Loan Member",
+      spouse_father_name: "Retention Earlier Guardian",
+      gender: "Female",
+      dob: Date.new(1991, 1, 1),
+      mobile: "9876500217",
+      monthly_income: 6900,
+      aadhaar_no: "123456789217",
+      loan_no: "ASAWO26-277"
+    )
+    ShgLoan.create!(
+      shg: @shg,
+      shg_member: earlier_member,
+      activity: @activity,
+      loan_status: @loan_status,
+      created_by: @crp,
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 11_000,
+      interest_percent: 1.0,
+      active: true
+    )
+    login_as(@admin)
+
+    get export_shg_loans_path(q: "ASAWO26-2")
+
+    assert_response :success
+    assert_operator response.body.index("ASAWO26-277"), :<, response.body.index("ASAWO26-279")
+  end
+
+  test "loan number check export shows stale member loan numbers separately" do
+    @member.update_columns(loan_no: "ASAWO26-277", updated_at: Time.current)
+    stale_member = ShgMember.create!(
+      shg: @shg,
+      occupation: @occupation,
+      activity: @activity,
+      work_activity: @activity.name,
+      name: "Retention Stale Loan Number Member",
+      spouse_father_name: "Retention Stale Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876500216",
+      monthly_income: 6800,
+      aadhaar_no: "123456789216",
+      loan_no: "ASAWO26-278"
+    )
+    login_as(@admin)
+
+    get loan_no_check_export_shg_loans_path(q: "ASAWO26")
+
+    assert_response :success
+    assert_includes response.headers["Content-Disposition"], "loan-no-check"
+    assert_includes response.body, "OK - loan record exists"
+    assert_includes response.body, "NO LOAN RECORD - stale member loan no"
+    assert_includes response.body, "ASAWO26-277"
+    assert_includes response.body, "ASAWO26-278"
+    assert_includes response.body, @loan.id.to_s
+    assert_includes response.body, stale_member.id.to_s
   end
 
   test "admin report search includes disabled loans without changing apply report" do
@@ -439,6 +623,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     get shg_loans_path(block_id: @block.id)
 
     assert_response :success
+    assert_select "a[href*='#{loan_no_check_export_shg_loans_path}']", text: "Loan No Check Excel"
     assert_select "form[action='#{update_product_shg_loan_path(@loan, block_id: @block.id)}'] select[name='shg_loan[product_id]']"
     assert_select "form[action='#{update_product_shg_loan_path(@loan, block_id: @block.id)}'][data-turbo='false']"
     assert_select "select[name='shg_loan[product_id]'] option", text: "Product Code"
@@ -610,6 +795,20 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def mark_shg_assistant_approved!
+    timestamp = Time.current
+    @shg.update_columns(
+      approval_status: "approved",
+      dc_approved_by_id: @dc.id,
+      dc_approved_at: timestamp,
+      assistant_approved_by_id: @admin.id,
+      assistant_approved_at: timestamp,
+      approved_by_id: @admin.id,
+      approved_at: timestamp,
+      updated_at: timestamp
+    )
+  end
 
   def user_for(login_id, user_type, district: @district, block: nil, village: nil)
     User.create!(

@@ -5,7 +5,7 @@ class ShgMembersController < ApplicationController
 
   MEMBER_INDEX_PARAMS = %i[
     page q date_from date_to crp_id
-    state_id district_id block_id village_id shg_id
+    state_id district_id block_id village_id shg_id record_status
   ].freeze
   MEMBER_PREFILL_PARAMS = %i[
     shg_id block_id village_id gender monthly_income work_activity active
@@ -88,11 +88,19 @@ class ShgMembersController < ApplicationController
   end
 
   def activate
+    if active_change_locked?(@member)
+      return redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), alert: "Assistant Admin approved SHG member cannot be activated or disabled."
+    end
+
     @member.update_columns(active: true, updated_at: Time.current)
     redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member activated successfully."
   end
 
   def disable
+    if active_change_locked?(@member)
+      return redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), alert: "Assistant Admin approved SHG member cannot be activated or disabled."
+    end
+
     ActiveRecord::Base.transaction do
       @member.update_columns(active: false, updated_at: Time.current)
       disable_member_loans([ @member.id ])
@@ -108,14 +116,15 @@ class ShgMembersController < ApplicationController
   def bulk_disable
     member_ids = Array(params[:ids]).compact_blank
     members = visible_shg_members.where(id: member_ids)
+    unlocked_members = members.joins(:shg).where.not(shgs: { approval_status: "approved" })
     disabled = 0
 
     ActiveRecord::Base.transaction do
-      disabled = members.where(active: true).update_all(active: false, updated_at: Time.current)
-      disable_member_loans(members.select(:id))
+      disabled = unlocked_members.where(active: true).update_all(active: false, updated_at: Time.current)
+      disable_member_loans(unlocked_members.select(:id))
     end
 
-    result = { disabled: disabled, skipped: member_ids.size - members.count }
+    result = { disabled: disabled, skipped: member_ids.size - unlocked_members.count }
     redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG members disabled: #{result[:disabled]}, skipped: #{result[:skipped]}."
   end
 
@@ -205,6 +214,7 @@ class ShgMembersController < ApplicationController
     village_ids = filter_param_ids(:village_id)
     members = members.joins(:shg).where(shgs: { block_id: block_ids }) if block_ids.present?
     members = members.joins(:shg).where(shgs: { village_id: village_ids }) if village_ids.present?
+    members = active_record_filter(members)
     members = search_members(members)
     members
   rescue Date::Error

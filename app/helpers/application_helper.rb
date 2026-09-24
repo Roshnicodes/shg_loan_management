@@ -135,6 +135,10 @@ module ApplicationHelper
     end
   end
 
+  def record_status_filter_options
+    [ [ "Active", "active" ], [ "Disabled", "disabled" ] ]
+  end
+
   def multi_filter_select(form, key, label, choices, selected_values:, data: {}, placeholder: nil)
     placeholder ||= "All #{label.to_s.downcase}"
     select_data = data.dup

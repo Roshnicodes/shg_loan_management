@@ -5,7 +5,7 @@ class ShgsController < ApplicationController
 
   SHG_INDEX_PARAMS = %i[
     page q date_from date_to assistant_id dc_id crp_id
-    state_id district_id block_id village_id approval_status
+    state_id district_id block_id village_id approval_status record_status
   ].freeze
 
   before_action :authenticate_user!
@@ -68,11 +68,19 @@ class ShgsController < ApplicationController
   end
 
   def activate
+    if active_change_locked?(@shg)
+      return redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "Assistant Admin approved SHG cannot be activated or disabled."
+    end
+
     @shg.update_columns(active: true, updated_at: Time.current)
     redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG activated successfully."
   end
 
   def disable
+    if active_change_locked?(@shg)
+      return redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), alert: "Assistant Admin approved SHG cannot be activated or disabled."
+    end
+
     @shg.update_columns(active: false, updated_at: Time.current)
     redirect_to results_redirect_path(:shgs_path, SHG_INDEX_PARAMS), notice: "SHG disabled successfully."
   end
@@ -179,6 +187,7 @@ class ShgsController < ApplicationController
     shgs = shgs.where(block_id: block_ids) if block_ids.present?
     shgs = shgs.where(village_id: village_ids) if village_ids.present?
     shgs = shgs.where(approval_status: approval_statuses) if approval_statuses.present?
+    shgs = active_record_filter(shgs)
     shgs = search_shgs(shgs)
     shgs
   end

@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
     :can_manage_shg_loan?, :can_bulk_delete_records?, :can_create_records?, :can_create_location_records?, :can_import_loan_data?,
     :visible_states, :visible_districts, :visible_blocks, :visible_villages, :visible_shgs,
     :manageable_shgs, :visible_shg_members, :visible_visit_records, :with_results_anchor,
-    :filter_param_values, :filter_param_ids, :filter_param_value
+    :filter_param_values, :filter_param_ids, :filter_param_value, :active_change_locked?
 
   DEFAULT_PAGE_SIZE = 30
   FILTER_OPTION_LIMIT = 250
@@ -90,6 +90,17 @@ class ApplicationController < ActionController::Base
     return loan.created_by_id == current_user.id || can_manage_shg?(loan.shg) if current_user&.crp?
 
     current_user&.admin? || current_user&.assistant_admin? || current_user&.district_coordinator?
+  end
+
+  def active_change_locked?(record)
+    case record
+    when Shg
+      record.approved?
+    when ShgMember, ShgLoan
+      record.shg&.approved? || false
+    else
+      false
+    end
   end
 
   def can_approve_visit?(visit = nil)
@@ -487,7 +498,9 @@ class ApplicationController < ActionController::Base
     skipped = 0
 
     records.find_each do |record|
-      if record.respond_to?(:active=)
+      if active_change_locked?(record)
+        skipped += 1
+      elsif record.respond_to?(:active=)
         record.update_columns(active: false, updated_at: Time.current)
         disabled += 1
       else
@@ -506,7 +519,9 @@ class ApplicationController < ActionController::Base
     skipped = 0
 
     records.find_each do |record|
-      if record.respond_to?(:active=)
+      if active_change_locked?(record)
+        skipped += 1
+      elsif record.respond_to?(:active=)
         record.update_columns(active: true, updated_at: Time.current)
         activated += 1
       else
@@ -641,6 +656,13 @@ class ApplicationController < ActionController::Base
 
   def filter_param_value(key)
     filter_param_values(key).first
+  end
+
+  def active_record_filter(relation)
+    statuses = filter_param_values(:record_status) & %w[active disabled]
+    return relation if statuses.blank? || statuses.size == 2
+
+    relation.where(active: statuses.first == "active")
   end
 
   def sliced_request_params(permitted_keys)
