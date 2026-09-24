@@ -696,6 +696,7 @@ class ShgLoansController < ApplicationController
           end
 
           insert_imported_loan_batch!(loan_batch, emi_batch)
+          result[:approved_shgs] += submit_ready_import_shgs!(processed_rows)
         end
         update_import_progress(progress_import, result)
       end
@@ -1274,6 +1275,19 @@ class ShgLoansController < ApplicationController
       .each do |shg|
       result[:approved_shgs] += 1 if shg.is_a?(Shg) && approve_imported_shg!(shg)
     end
+  end
+
+  def submit_ready_import_shgs!(processed_rows)
+    shg_ids = processed_rows
+      .filter_map { |processed| cached_import_shg(processed.fetch(:attrs), processed.fetch(:village))&.id }
+      .uniq
+    return 0 if shg_ids.blank?
+
+    submitted = 0
+    Shg.where(id: shg_ids, approval_status: "draft").find_each do |shg|
+      submitted += 1 if shg.submit_for_approval_if_ready!
+    end
+    submitted
   end
 
   def cached_import_shg(attrs, village)

@@ -51,11 +51,21 @@ class Shg < ApplicationRecord
     loans_missing_product.none?
   end
 
+  def approval_submission_actor
+    active_member_loans.includes(:created_by).order(:created_at, :id).last&.created_by || created_by
+  end
+
+  def submit_for_approval_if_ready!(user = nil)
+    submit_for_approval!(user || approval_submission_actor)
+  rescue ActiveRecord::RecordInvalid
+    false
+  end
+
   def submit_for_approval!(user = nil)
     return false unless draft?
     return false unless ready_for_approval?
 
-    actor = user || created_by
+    actor = user || approval_submission_actor
     timestamp = Time.current
 
     if actor&.assistant_admin?
