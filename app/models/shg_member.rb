@@ -80,12 +80,23 @@ class ShgMember < ApplicationRecord
   end
 
   def self.next_loan_no_sequence
-    last_number = where("loan_no LIKE ?", "#{LOAN_NO_PREFIX}-%")
+    expected_sequence = 1
+
+    existing_loan_no_sequences.each do |sequence|
+      next if sequence < expected_sequence
+      return expected_sequence if sequence > expected_sequence
+
+      expected_sequence += 1
+    end
+
+    expected_sequence
+  end
+
+  def self.existing_loan_no_sequences
+    where("loan_no LIKE ?", "#{LOAN_NO_PREFIX}-%")
       .pluck(:loan_no)
       .filter_map { |value| value.to_s.split("-").last.to_i if value.to_s.match?(/\A#{Regexp.escape(LOAN_NO_PREFIX)}-\d+\z/) }
-      .max
-
-    last_number.to_i + 1
+      .sort
   end
 
   private

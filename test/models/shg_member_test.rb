@@ -35,6 +35,53 @@ class ShgMemberTest < ActiveSupport::TestCase
     assert_equal "ASAWO26-01", member.assign_next_loan_no!
   end
 
+  test "assigns first missing ASAWO26 loan number before max plus one" do
+    shg = shgs(:one)
+    occupation = occupations(:one)
+    activity = activities(:one)
+
+    ShgMember.create!(
+      shg: shg,
+      occupation: occupation,
+      activity: activity,
+      name: "Sequence One Member",
+      spouse_father_name: "Sequence One Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543220",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789020",
+      loan_no: "ASAWO26-01"
+    )
+    ShgMember.create!(
+      shg: shg,
+      occupation: occupation,
+      activity: activity,
+      name: "Sequence Three Member",
+      spouse_father_name: "Sequence Three Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543221",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789021",
+      loan_no: "ASAWO26-03"
+    )
+    member = ShgMember.create!(
+      shg: shg,
+      occupation: occupation,
+      activity: activity,
+      name: "Sequence Gap Member",
+      spouse_father_name: "Sequence Gap Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543222",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789022"
+    )
+
+    assert_equal "ASAWO26-02", member.assign_next_loan_no!
+  end
+
   test "allows duplicate member names in same shg" do
     shg = shgs(:one)
     occupation = occupations(:one)

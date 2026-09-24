@@ -19,6 +19,7 @@ class ShgLoansController < ApplicationController
   LOAN_PREFILL_SESSION_KEY = :shg_loan_prefill_params
 
   IMPORT_BATCH_SIZE = 2_000
+  PLACEHOLDER_IMPORT_LOAN_VALUES = %w[ww].freeze
   ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
   ImportShgReference = Struct.new(:id, :village_id, :name, :approved, keyword_init: true) do
     def approved? = approved
@@ -747,9 +748,15 @@ class ShgLoansController < ApplicationController
   end
 
   def import_blank_row?(row)
-    return true if row.fields.all?(&:blank?)
+    fields = row.fields.map { |field| field.to_s.strip }
+    return true if fields.all?(&:blank?)
+    return true if placeholder_import_loan_row?(fields)
 
-    [ 0, 1, 2, 3, 4, 5 ].all? { |index| row.fields[index].blank? }
+    [ 0, 1, 2, 3, 4, 5 ].all? { |index| fields[index].blank? }
+  end
+
+  def placeholder_import_loan_row?(fields)
+    PLACEHOLDER_IMPORT_LOAN_VALUES.include?(fields.first.to_s.downcase) && fields.drop(1).all?(&:blank?)
   end
 
   def initialize_import_context
