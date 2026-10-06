@@ -60,6 +60,7 @@ module ApplicationHelper
         district_id: shg.district_id,
         block_id: shg.block_id,
         village_id: shg.village_id,
+        linkage_date: shg.linkage_date&.iso8601,
         user_ids: Array(@shg_user_ids_by_id&.[](shg.id)).uniq.join(" ")
       } } ]
     end

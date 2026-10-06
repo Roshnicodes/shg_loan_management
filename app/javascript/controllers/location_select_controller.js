@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["state", "district", "block", "village", "shg", "member", "loan", "crp", "dc"]
-  static values = { autoSubmit: Boolean, remote: Boolean, strict: Boolean }
+  static values = { autoSubmit: Boolean, remote: Boolean, remoteShgs: Boolean, includeInactiveShgs: Boolean, strict: Boolean }
 
   connect() {
     this.districtOptions = this.hasDistrictTarget ? this.cloneOptions(this.districtTarget) : []
@@ -93,7 +93,17 @@ export default class extends Controller {
     if (this.remoteValue) {
       if (this.hasShgTarget) this.clearSelect(this.shgTarget, "Select SHG")
       if (this.hasMemberTarget) this.clearSelect(this.memberTarget, "Select member")
-      if (this.hasVillageTarget && this.villageTarget.value) await this.loadRemoteShgs()
+      if (this.hasVillageTarget && this.selectedValues(this.villageTarget).length > 0) await this.loadRemoteShgs()
+      return
+    }
+    if (this.remoteShgsValue) {
+      if (this.hasShgTarget) this.clearSelect(this.shgTarget, "Select SHG")
+      if (this.hasVillageTarget && this.selectedValues(this.villageTarget).length > 0) {
+        await this.loadRemoteShgs()
+        this.filterRemoteShgDependents()
+      } else {
+        this.filterAfterVillage()
+      }
       return
     }
     this.filterAfterVillage()
@@ -154,6 +164,13 @@ export default class extends Controller {
     if (this.hasCrpTarget) this.filterUserSelect(this.crpTarget, this.crpOptions)
     if (this.hasDcTarget) this.filterUserSelect(this.dcTarget, this.dcOptions)
     if (this.hasShgTarget) this.filterShgSelect()
+    if (this.hasMemberTarget) this.filterMemberSelect()
+    if (this.hasLoanTarget) this.filterLoanSelect()
+  }
+
+  filterRemoteShgDependents() {
+    if (this.hasCrpTarget) this.filterUserSelect(this.crpTarget, this.crpOptions)
+    if (this.hasDcTarget) this.filterUserSelect(this.dcTarget, this.dcOptions)
     if (this.hasMemberTarget) this.filterMemberSelect()
     if (this.hasLoanTarget) this.filterLoanSelect()
   }
@@ -437,14 +454,16 @@ export default class extends Controller {
 
   async loadRemoteShgs() {
     if (!this.hasShgTarget) return
-    if (this.hasVillageTarget && !this.villageTarget.value) {
+    const villageIds = this.hasVillageTarget ? this.selectedValues(this.villageTarget) : []
+    if (this.hasVillageTarget && villageIds.length === 0) {
       this.clearSelect(this.shgTarget, "Select SHG")
       return
     }
 
     const options = await this.fetchRemoteOptions("/location_options/shgs", {
-      block_id: this.hasBlockTarget ? this.blockTarget.value : "",
-      village_id: this.hasVillageTarget ? this.villageTarget.value : ""
+      block_id: this.hasBlockTarget ? this.selectedValues(this.blockTarget) : [],
+      village_id: villageIds,
+      include_inactive: this.includeInactiveShgsValue ? "1" : ""
     })
     if (!options) return
     if (options.length === 0 && this.localOptionExists(this.shgOptions, (option) => (
@@ -485,7 +504,11 @@ export default class extends Controller {
     try {
       const query = new URLSearchParams()
       Object.entries(params).forEach(([key, value]) => {
-        if (value) query.set(key, value)
+        if (Array.isArray(value)) {
+          value.filter(Boolean).forEach((item) => query.append(`${key}[]`, item))
+        } else if (value) {
+          query.set(key, value)
+        }
       })
 
       const response = await fetch(`${path}?${query.toString()}`, { headers: { Accept: "application/json" } })
@@ -498,7 +521,7 @@ export default class extends Controller {
   }
 
   replaceRemoteOptions(select, options, prompt) {
-    const selectedValue = select.value
+    const selectedValues = this.selectedValues(select)
     select.innerHTML = ""
     select.appendChild(new Option(prompt, ""))
 
@@ -512,7 +535,7 @@ export default class extends Controller {
       select.appendChild(element)
     })
 
-    select.value = Array.from(select.options).some((option) => option.value === selectedValue) ? selectedValue : ""
+    this.restoreSelectedValues(select, selectedValues)
     this.refreshSearchableSelect(select)
   }
 

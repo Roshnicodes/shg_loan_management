@@ -86,6 +86,18 @@
       setValue("address", fieldValue("address"))
     }
 
+    const setLoanDisbursementDate = (form) => {
+      if (form.dataset.loanMemberDetailsNewLoanValue !== "true") return
+
+      const targets = targetsFor(form)
+      const linkageDate = dataValue(targets.shg?.selectedOptions[0], "linkageDate")
+      const distributionDate = form.querySelector("[name='shg_loan[distribution_date]']")
+      if (!linkageDate || !distributionDate) return
+
+      distributionDate.value = linkageDate
+      distributionDate.dispatchEvent(new Event("change", { bubbles: true }))
+    }
+
     const setupForm = (form) => {
       if (form._dependentDropdownFallbackReady) return
       form._dependentDropdownFallbackReady = true
@@ -111,6 +123,7 @@
       targets.shg?.addEventListener("change", () => {
         clearSelect(targets.member)
         filterForm(form)
+        setLoanDisbursementDate(form)
         updateLoanSummary(form)
       })
 

@@ -12,11 +12,15 @@ class LocationOptionsController < ApplicationController
   end
 
   def shgs
-    return render json: [] if params[:village_id].blank?
+    village_ids = filter_param_ids(:village_id)
+    return render json: [] if village_ids.blank?
 
-    shgs = visible_shgs.where(active: true)
-    shgs = shgs.where(block_id: params[:block_id]) if params[:block_id].present?
-    shgs = shgs.where(village_id: params[:village_id]) if params[:village_id].present?
+    shgs = visible_shgs
+    shgs = shgs.where(active: true) unless params[:include_inactive] == "1"
+
+    block_ids = filter_param_ids(:block_id)
+    shgs = shgs.where(block_id: block_ids) if block_ids.present?
+    shgs = shgs.where(village_id: village_ids)
 
     render json: shgs.order(:name).map { |shg| shg_option(shg) }
   end
@@ -44,7 +48,8 @@ class LocationOptionsController < ApplicationController
       id: shg.id,
       text: shg.display_name,
       block_id: shg.block_id,
-      village_id: shg.village_id
+      village_id: shg.village_id,
+      linkage_date: shg.linkage_date&.iso8601
     }
   end
 

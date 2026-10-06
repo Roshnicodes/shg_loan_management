@@ -10,7 +10,8 @@ export default class extends Controller {
 
   static values = {
     paid: Number,
-    loanId: Number
+    loanId: Number,
+    newLoan: Boolean
   }
 
   connect() {
@@ -62,6 +63,7 @@ export default class extends Controller {
     this.memberTarget.value = ""
     this.clearSelect(this.memberTarget, "Select member")
     this.filterMembers()
+    this.setDistributionDateFromShg()
     if (this.shgTarget.value) this.loadRemoteMembers()
     this.update()
   }
@@ -276,6 +278,16 @@ export default class extends Controller {
 
   camelize(value) {
     return value.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+  }
+
+  setDistributionDateFromShg() {
+    if (!this.newLoanValue || !this.hasDistributionDateTarget) return
+
+    const linkageDate = this.shgTarget.selectedOptions[0]?.dataset.linkageDate
+    if (!linkageDate) return
+
+    this.distributionDateTarget.value = linkageDate
+    this.calculate()
   }
 
   update() {

@@ -54,7 +54,7 @@
     <% end %>
   <% end %>
 
-  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select" } do |form| %>
+  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select", location_select_remote_shgs_value: true, location_select_include_inactive_shgs_value: true } do |form| %>
     <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>

@@ -547,10 +547,48 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     get new_shg_loan_path
 
     assert_response :success
-    assert_select "form[data-controller='loan-member-details'][data-dependent-dropdown-fallback='true']"
+    assert_select "form[data-controller='loan-member-details'][data-loan-member-details-new-loan-value='true'][data-dependent-dropdown-fallback='true']"
     assert_select "select[name='shg_loan[village_id]'] option[value='#{@village.id}'][data-block-id='#{@block.id}']", text: @village.name
-    assert_select "select[name='shg_loan[shg_id]'] option[value='#{@shg.id}'][data-village-id='#{@village.id}']", text: @shg.display_name
+    assert_select "select[name='shg_loan[shg_id]'] option[value='#{@shg.id}'][data-village-id='#{@village.id}'][data-linkage-date='#{@shg.linkage_date.iso8601}']", text: @shg.display_name
     assert_select "select[name='shg_loan[shg_member_id]'] option[value='#{available_member.id}'][data-shg-id='#{@shg.id}']", text: available_member.name
+  end
+
+  test "loan filters load SHGs for all selected villages, including disabled SHGs" do
+    other_village = Village.create!(name: "Retention Filter Village", code: "RFV", block: @block)
+    inactive_shg = Shg.new(
+      name: "Retention Disabled Filter SHG",
+      shg_code: "RT-DISABLED-FILTER-SHG",
+      state: @state,
+      district: @district,
+      block: @block,
+      village: other_village,
+      office_location: "Retention Filter Office",
+      borrower_short_address: "Retention Filter Village",
+      linkage_date: Date.new(2026, 9, 15),
+      approval_status: "pending_dc",
+      created_by: @crp,
+      active: false
+    )
+    attach_required_shg_files(inactive_shg)
+    inactive_shg.save!
+    login_as(@admin)
+
+    get shg_loans_path
+
+    assert_response :success
+    assert_select "form[data-controller='location-select'][data-location-select-remote-shgs-value='true'][data-location-select-include-inactive-shgs-value='true']"
+
+    get location_options_shgs_path, params: {
+      block_id: [ @block.id ],
+      village_id: [ @village.id, other_village.id ],
+      include_inactive: "1"
+    }
+
+    assert_response :success
+    shg_options = response.parsed_body.index_by { |option| option["id"] }
+    assert_equal [ @shg.id, inactive_shg.id ].sort, shg_options.keys.sort
+    assert_equal @shg.linkage_date.iso8601, shg_options.fetch(@shg.id)["linkage_date"]
+    assert_equal inactive_shg.linkage_date.iso8601, shg_options.fetch(inactive_shg.id)["linkage_date"]
   end
 
   test "district scoped crp can select villages under same district blocks on new shg form" do
