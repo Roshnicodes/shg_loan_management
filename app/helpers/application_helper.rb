@@ -55,14 +55,15 @@ module ApplicationHelper
 
   def shg_filter_options(shgs)
     shgs.map do |shg|
-      [ shg.display_name, shg.id, { data: {
+      data = {
         state_id: shg.state_id,
         district_id: shg.district_id,
         block_id: shg.block_id,
         village_id: shg.village_id,
-        linkage_date: shg.linkage_date&.iso8601,
-        user_ids: Array(@shg_user_ids_by_id&.[](shg.id)).uniq.join(" ")
-      } } ]
+        linkage_date: shg.linkage_date&.iso8601
+      }
+      data[:user_ids] = Array(@shg_user_ids_by_id[shg.id]).uniq.join(" ") if @shg_user_ids_by_id
+      [ shg.display_name, shg.id, { data: data } ]
     end
   end
 
@@ -241,7 +242,7 @@ module ApplicationHelper
   end
 
   def display_loan_status_label(value)
-    value.to_s.casecmp?("overdue") ? "Paid" : value
+    value.to_s.casecmp?("overdue") ? "Active" : value
   end
 
   def loan_term_display(loan)

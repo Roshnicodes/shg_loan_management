@@ -12,12 +12,11 @@
         <% end %>
       <% end %>
       <% if can_create_records? %><%= link_to "Add Visit", new_visit_record_path(index_params), class: "primary-link" %><% end %>
-      <%= server_search_box(visit_records_path, placeholder: "Search visits...") %>
     </div>
   </div>
 
-  <%= form_with url: visit_records_path, method: :get, class: "filter-grid visit-filter-grid", data: { controller: "location-select" } do |form| %>
-    <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
+  <%= form_with url: visit_records_path, method: :get, class: "filter-grid visit-filter-grid", data: { controller: "location-select", location_select_filter_remote_value: true } do |form| %>
+    <label><span>Search</span><%= form.search_field :q, value: params[:q], placeholder: "Search visits..." %></label>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if can_filter_visit_state_district_crp? %>

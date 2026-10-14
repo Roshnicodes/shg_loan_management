@@ -15,12 +15,11 @@
         <% end %>
       <% end %>
       <% if @can_add_member %><%= link_to "Add Member", new_shg_member_path(index_params), class: "primary-link" %><% end %>
-      <%= server_search_box(shg_members_path, placeholder: "Search members...") %>
     </div>
   </div>
 
-  <%= form_with url: shg_members_path, method: :get, class: "filter-grid", data: { controller: "location-select" } do |form| %>
-    <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
+  <%= form_with url: shg_members_path, method: :get, class: "filter-grid", data: { controller: "location-select", location_select_filter_remote_value: true } do |form| %>
+    <label><span>Search</span><%= form.search_field :q, value: params[:q], placeholder: "Search members..." %></label>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if can_filter_member_state_district_crp? %>
@@ -55,7 +54,7 @@
             <td><%= member.loan_no.presence || "-" %></td>
             <td><%= member.aadhaar_no.presence || "-" %></td>
             <td><%= member.work_activity_name || "-" %></td>
-            <td><span class="status <%= member.active? ? "approved" : "rejected" %>"><%= member.active? ? "Active" : "Inactive" %></span></td>
+            <td><span class="status <%= member.active? ? "approved" : "rejected" %>"><%= member.active? ? "Active" : "Disabled" %></span></td>
             <td><%= member.monthly_income.present? ? number_to_currency(member.monthly_income, unit: "₹") : "-" %></td>
             <td><%= member.mobile %></td>
             <td><div class="action-row"><%= link_to "Details", shg_member_path(member, index_params) %><% if can_manage_shg_member?(member) %><%= link_to "Edit", edit_shg_member_path(member, index_params) %><% end %><% if active_change_locked?(member) %><span class="muted-cell">Locked</span><% elsif can_bulk_delete_records? && member.active? %><%= button_to "Disable", disable_shg_member_path(member, index_params), method: :patch, class: "warning-link", form: { data: { turbo_confirm: "Disable this member?" } } %><% elsif can_bulk_delete_records? %><%= button_to "Activate", activate_shg_member_path(member, index_params), method: :patch, class: "success-link", form: { data: { turbo_confirm: "Activate this member?" } } %><% elsif !member.active? %><span class="muted-cell">Disabled</span><% end %></div></td>

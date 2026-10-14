@@ -20,6 +20,7 @@ Rails.application.routes.draw do
   get "location_options/villages", to: "location_options#villages"
   get "location_options/shgs", to: "location_options#shgs"
   get "location_options/members", to: "location_options#members"
+  get "location_options/filters", to: "location_options#filters"
   resource :location_import, only: %i[new create]
   resource :location_export, only: :show
 

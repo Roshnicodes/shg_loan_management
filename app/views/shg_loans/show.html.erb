@@ -18,7 +18,7 @@
     </div>
     <div class="record-card">
       <h3>Loan Status</h3>
-      <p><span class="status <%= @loan.loan_status.name.to_s.casecmp?("overdue") ? "paid" : (@loan.closed? ? "paid" : "pending") %>"><%= display_loan_status_label(@loan.loan_status.name) %></span></p>
+      <p><span class="status <%= @loan.closed? ? "paid" : "pending" %>"><%= display_loan_status_label(@loan.loan_status.name) %></span></p>
     </div>
   </div>
 
@@ -30,7 +30,9 @@
 
   <h3 class="detail-section-title">Loan Summary</h3>
   <dl class="detail-list">
+    <dt>Linkage Date</dt><dd><%= formatted_import_date(@loan.shg.linkage_date) %></dd>
     <dt>Disbursement Date</dt><dd><%= formatted_import_date(@loan.distribution_date) %></dd>
+    <dt>First Collection Due</dt><dd><%= formatted_import_date(@loan.collection_start_date) %></dd>
     <dt>Term</dt><dd><%= loan_term_display(@loan) %></dd>
     <dt>Reducing Interest</dt><dd><%= @loan.interest_percent.present? ? "#{@loan.interest_percent}% per installment" : "-" %> = <%= number_to_currency(@loan.interest_amount, unit: "₹") %></dd>
     <dt>Paid</dt><dd><%= number_to_currency(@loan.total_paid, unit: "₹") %></dd>

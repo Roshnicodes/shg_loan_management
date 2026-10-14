@@ -353,19 +353,38 @@ export default class extends Controller {
       return "Enter principal amount, interest percent and loan term to see EMI details."
     }
 
-    const interval = this.intervalMonths(termType)
-    const firstDueDate = this.firstDueDate(interval)
-    const dueText = firstDueDate ? ` First EMI due date: ${firstDueDate}.` : ""
+    const firstDueDate = this.firstDueDate()
+    const dueText = firstDueDate ? ` First EMI due date: ${firstDueDate}, based on the linkage date.` : ""
 
     return `${term} reducing balance installment(s) will be generated. Principal is fixed every installment and interest is calculated on opening balance. First EMI will be around ${this.currency(emiAmount)}.${dueText}`
   }
 
-  firstDueDate(interval) {
-    if (!this.hasDistributionDateTarget || !this.distributionDateTarget.value) return null
+  firstDueDate() {
+    const linkageDate = this.shgTarget.selectedOptions[0]?.dataset.linkageDate
+    const date = this.dateFromIso(linkageDate || this.distributionDateTarget?.value)
+    if (!date) return null
 
-    const date = new Date(`${this.distributionDateTarget.value}T00:00:00`)
-    date.setMonth(date.getMonth() + interval)
-    return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    const monthsUntilFirstCollection = date.getDate() <= 15 ? 1 : 2
+    return this.addMonths(date, monthsUntilFirstCollection)
+      .toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+  }
+
+  dateFromIso(value) {
+    const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (!match) return null
+
+    const [year, month, day] = match.slice(1).map(Number)
+    const date = new Date(year, month - 1, day)
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null
+  }
+
+  addMonths(date, months) {
+    const targetMonth = date.getMonth() + months
+    const targetYear = date.getFullYear() + Math.floor(targetMonth / 12)
+    const normalizedMonth = ((targetMonth % 12) + 12) % 12
+    const lastDayOfTargetMonth = new Date(targetYear, normalizedMonth + 1, 0).getDate()
+
+    return new Date(targetYear, normalizedMonth, Math.min(date.getDate(), lastDayOfTargetMonth))
   }
 
   intervalMonths(termType) {

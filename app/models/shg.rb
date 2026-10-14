@@ -1,4 +1,6 @@
 class Shg < ApplicationRecord
+  include ApprovalNotifications
+
   belongs_to :state
   belongs_to :district
   belongs_to :block
@@ -19,6 +21,7 @@ class Shg < ApplicationRecord
   before_validation :set_default_approval_status
   before_validation :sync_location_from_village
   after_update :sync_visit_village_references, if: :saved_change_to_village_id?
+  after_update_commit :refresh_loan_emi_schedules, if: :saved_change_to_linkage_date?
 
   validates :state, :district, :block, :village, :name, :shg_code, :linkage_date, presence: true
   validates :name, uniqueness: { case_sensitive: false }
@@ -66,6 +69,7 @@ class Shg < ApplicationRecord
     return false unless ready_for_approval?
 
     actor = user || approval_submission_actor
+    self.approval_actor = actor
     timestamp = Time.current
 
     if actor&.assistant_admin?
@@ -100,6 +104,7 @@ class Shg < ApplicationRecord
 
   def approve!(user)
     raise ActiveRecord::RecordInvalid, self unless approvable_by?(user)
+    self.approval_actor = user
     if user.district_coordinator? && !ready_for_approval?
       errors.add(:base, "At least one active SHG member loan is required before DC approval")
       raise ActiveRecord::RecordInvalid, self
@@ -132,12 +137,15 @@ class Shg < ApplicationRecord
 
   def reject!(user, remarks = nil)
     raise ActiveRecord::RecordInvalid, self unless rejectable_by?(user)
+    self.approval_actor = user
 
     update!(approval_status: "rejected", approved_by: user, approved_at: Time.current, approval_remarks: remarks)
   end
 
   def return_for_correction!(user, remarks = nil)
     raise ActiveRecord::RecordInvalid, self unless returnable_by?(user)
+    self.approval_actor = user
+    self.approval_returned = true
 
     update!(
       approval_status: "pending_dc",
@@ -194,6 +202,10 @@ class Shg < ApplicationRecord
 
   def sync_visit_village_references
     visit_records.where.not(village_id: village_id).update_all(village_id: village_id, updated_at: Time.current)
+  end
+
+  def refresh_loan_emi_schedules
+    shg_loans.find_each(&:ensure_emi_schedule!)
   end
 
   def build_shg_code

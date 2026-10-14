@@ -13,7 +13,6 @@
         <% end %>
       <% end %>
       <% if can_create_records? %><%= link_to "Add Loan", new_shg_loan_path(index_params), class: "primary-link" %><% end %>
-      <%= server_search_box(shg_loans_path, placeholder: "Search loans...") %>
     </div>
   </div>
 
@@ -54,8 +53,8 @@
     <% end %>
   <% end %>
 
-  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select", location_select_remote_shgs_value: true, location_select_include_inactive_shgs_value: true } do |form| %>
-    <%= form.hidden_field :q, value: params[:q] if params[:q].present? %>
+  <%= form_with url: shg_loans_path, method: :get, class: "filter-grid", data: { controller: "location-select", location_select_remote_shgs_value: true, location_select_filter_remote_value: true, location_select_include_inactive_shgs_value: true } do |form| %>
+    <label><span>Search</span><%= form.search_field :q, value: params[:q], placeholder: "Search loans..." %></label>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if can_filter_loan_state_district_crp? %>
@@ -141,7 +140,7 @@
             </td>
             <td><%= formatted_import_date(loan.distribution_date) %></td>
             <td><span class="status"><%= loan_status_label(loan) %></span></td>
-            <td><span class="status <%= loan.active? ? "approved" : "rejected" %>"><%= loan.active? ? "Active" : "Inactive" %></span></td>
+            <td><span class="status <%= loan.active? ? "approved" : "rejected" %>"><%= loan.active? ? "Active" : "Disabled" %></span></td>
             <td><%= loan.loan_term_type %></td>
             <td><%= loan_term_display(loan) %></td>
             <td><%= number_to_currency(loan.principal_amount, unit: "₹") %></td>

@@ -53,6 +53,34 @@ class ShgLoan < ApplicationRecord
     principal / installments
   end
 
+  # Collection dates are anchored to the SHG linkage date, rather than the
+  # disbursement date. This keeps every member loan in a linkage on the same
+  # collection cycle.
+  def collection_start_date
+    self.class.first_collection_date_for(shg&.linkage_date || distribution_date)
+  end
+
+  def collection_due_date(installment_no)
+    self.class.collection_due_date_for(
+      shg&.linkage_date || distribution_date,
+      installment_no: installment_no,
+      interval_months: emi_interval_months
+    )
+  end
+
+  def self.first_collection_date_for(linkage_date)
+    return if linkage_date.blank?
+
+    linkage_date + (linkage_date.day <= 15 ? 1 : 2).months
+  end
+
+  def self.collection_due_date_for(linkage_date, installment_no:, interval_months: 1)
+    first_collection_date = first_collection_date_for(linkage_date)
+    return unless first_collection_date
+
+    first_collection_date + ((installment_no.to_i - 1) * interval_months).months
+  end
+
   def reducing_balance_schedule
     installments = loan_term.to_i
     return [] if installments <= 0
@@ -68,7 +96,7 @@ class ShgLoan < ApplicationRecord
 
       {
         installment_no: index + 1,
-        due_date: distribution_date + ((index + 1) * emi_interval_months).months,
+        due_date: collection_due_date(index + 1),
         principal_amount: principal_component.round(2),
         interest_amount: interest.round(2),
         due_amount: due.round(2)
@@ -102,7 +130,7 @@ class ShgLoan < ApplicationRecord
 
       {
         installment_no: index + 1,
-        due_date: distribution_date + ((index + 1) * emi_interval_months).months,
+        due_date: collection_due_date(index + 1),
         principal_amount: principal_component.round(2),
         interest_amount: interest_component.round(2),
         due_amount: due_amount.round(2)

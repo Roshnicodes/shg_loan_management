@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["state", "district", "block", "village", "shg", "member", "loan", "crp", "dc"]
-  static values = { autoSubmit: Boolean, remote: Boolean, remoteShgs: Boolean, includeInactiveShgs: Boolean, strict: Boolean }
+  static values = { autoSubmit: Boolean, remote: Boolean, remoteShgs: Boolean, includeInactiveShgs: Boolean, strict: Boolean, filterRemote: Boolean }
 
   connect() {
     this.districtOptions = this.hasDistrictTarget ? this.cloneOptions(this.districtTarget) : []
@@ -49,23 +49,25 @@ export default class extends Controller {
     if (this.hasLoanTarget) this.filterLoanSelect()
   }
 
-  stateChanged() {
+  async stateChanged() {
     if (this.hasDistrictTarget) this.clearValue(this.districtTarget)
     if (this.hasBlockTarget) this.clearValue(this.blockTarget)
     if (this.hasVillageTarget) this.clearValue(this.villageTarget)
     if (this.hasShgTarget) this.clearValue(this.shgTarget)
     if (this.hasMemberTarget) this.clearValue(this.memberTarget)
     if (this.hasLoanTarget) this.clearValue(this.loanTarget)
+    if (this.filterRemoteValue) await this.refreshFilterOptions()
     this.filterAll()
     this.submitForm()
   }
 
-  districtChanged() {
+  async districtChanged() {
     if (this.hasBlockTarget) this.clearValue(this.blockTarget)
     if (this.hasVillageTarget) this.clearValue(this.villageTarget)
     if (this.hasShgTarget) this.clearValue(this.shgTarget)
     if (this.hasMemberTarget) this.clearValue(this.memberTarget)
     if (this.hasLoanTarget) this.clearValue(this.loanTarget)
+    if (this.filterRemoteValue) await this.refreshFilterOptions()
     this.filterAll()
     this.submitForm()
   }
@@ -82,6 +84,7 @@ export default class extends Controller {
       }
       return
     }
+    if (this.filterRemoteValue) await this.refreshFilterOptions()
     this.filterAfterBlock()
     this.submitForm()
   }
@@ -94,6 +97,12 @@ export default class extends Controller {
       if (this.hasShgTarget) this.clearSelect(this.shgTarget, "Select SHG")
       if (this.hasMemberTarget) this.clearSelect(this.memberTarget, "Select member")
       if (this.hasVillageTarget && this.selectedValues(this.villageTarget).length > 0) await this.loadRemoteShgs()
+      return
+    }
+    if (this.filterRemoteValue) {
+      await this.refreshFilterOptions()
+      this.filterAfterVillage()
+      this.submitForm()
       return
     }
     if (this.remoteShgsValue) {
@@ -358,6 +367,8 @@ export default class extends Controller {
   optionMatchesSelectedUser(option) {
     const selectedUserIds = this.selectedValues(this.hasCrpTarget ? this.crpTarget : null)
     if (selectedUserIds.length === 0) return true
+    // Options without user data (index-page filters) are narrowed by the server instead.
+    if (!option.hasAttribute("data-user-ids")) return true
 
     return this.intersects(this.optionIdSet(this.dataValue(option, "userIds")), selectedUserIds)
   }
@@ -496,6 +507,38 @@ export default class extends Controller {
     this.replaceRemoteOptions(this.memberTarget, options, "Select member")
   }
 
+  // Reloads the District/Block/Village/SHG option lists for the current location
+  // selection, so child filters work before the form is applied.
+  async refreshFilterOptions() {
+    const requestId = (this.filterRequestId || 0) + 1
+    this.filterRequestId = requestId
+
+    const data = await this.fetchRemoteOptions("/location_options/filters", {
+      state_id: this.selectedValues(this.hasStateTarget ? this.stateTarget : null),
+      district_id: this.selectedValues(this.hasDistrictTarget ? this.districtTarget : null),
+      block_id: this.selectedValues(this.hasBlockTarget ? this.blockTarget : null),
+      village_id: this.selectedValues(this.hasVillageTarget ? this.villageTarget : null)
+    })
+    if (!data || requestId !== this.filterRequestId) return
+
+    if (this.hasDistrictTarget && data.districts) this.districtOptions = this.buildOptions(data.districts)
+    if (this.hasBlockTarget && data.blocks) this.blockOptions = this.buildOptions(data.blocks)
+    if (this.hasVillageTarget && data.villages) this.villageOptions = this.buildOptions(data.villages)
+    if (this.hasShgTarget && data.shgs) this.shgOptions = this.buildOptions(data.shgs)
+  }
+
+  buildOptions(options) {
+    return options.map((option) => {
+      const element = new Option(option.text, option.id)
+      Object.entries(option).forEach(([key, value]) => {
+        if (key !== "id" && key !== "text" && value !== null && value !== undefined) {
+          element.dataset[this.camelize(key)] = value
+        }
+      })
+      return element
+    })
+  }
+
   localOptionExists(options, predicate) {
     return options.some((option) => option.value !== "" && predicate(option))
   }
@@ -524,16 +567,7 @@ export default class extends Controller {
     const selectedValues = this.selectedValues(select)
     select.innerHTML = ""
     select.appendChild(new Option(prompt, ""))
-
-    options.forEach((option) => {
-      const element = new Option(option.text, option.id)
-      Object.entries(option).forEach(([key, value]) => {
-        if (key !== "id" && key !== "text" && value !== null && value !== undefined) {
-          element.dataset[this.camelize(key)] = value
-        }
-      })
-      select.appendChild(element)
-    })
+    this.buildOptions(options).forEach((element) => select.appendChild(element))
 
     this.restoreSelectedValues(select, selectedValues)
     this.refreshSearchableSelect(select)

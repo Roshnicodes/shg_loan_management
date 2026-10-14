@@ -8,11 +8,11 @@
     </div>
     <div class="action-row">
       <%= link_to "Download Excel", export_reports_path(request.query_parameters.except(:commit, :refresh_filters, :page)), class: "secondary-link" %>
-      <%= server_search_box(reports_path, placeholder: "Search report...") %>
     </div>
   </div>
 
   <%= form_with url: reports_path, method: :get, class: "filter-grid report-filter-grid", data: { controller: "location-select" } do |form| %>
+    <label><span>Search</span><%= form.search_field :q, value: params[:q], placeholder: "Search report..." %></label>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>
     <label><span>To Date</span><%= form.date_field :date_to, value: params[:date_to] %></label>
     <% if show_report_state_filter? %>

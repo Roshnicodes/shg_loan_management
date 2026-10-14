@@ -268,6 +268,7 @@ class VisitRecordsController < ApplicationController
 
   def deduplicate_visits_by_member(visits)
     latest_visit_ids = visits
+      .distinct(false)
       .reselect("DISTINCT ON (visit_records.shg_member_id) visit_records.id")
       .reorder("visit_records.shg_member_id, visit_records.visit_number DESC, visit_records.visit_date DESC, visit_records.updated_at DESC, visit_records.id DESC")
 

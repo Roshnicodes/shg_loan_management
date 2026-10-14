@@ -20,6 +20,7 @@ class ShgLoansController < ApplicationController
 
   IMPORT_BATCH_SIZE = 2_000
   PLACEHOLDER_IMPORT_LOAN_VALUES = %w[ww].freeze
+  DISABLED_IMPORT_STATUS_VALUES = %w[disabled disable inactive deactive deactivated].freeze
   ImportMemberReference = Struct.new(:id, :shg_id, :name, keyword_init: true)
   ImportShgReference = Struct.new(:id, :village_id, :name, :approved, keyword_init: true) do
     def approved? = approved
@@ -607,7 +608,8 @@ class ShgLoansController < ApplicationController
       loan.loan_status.name
     end
 
-    label.to_s.casecmp?("overdue") ? "Paid" : label
+    # An overdue loan still has an outstanding balance, so it is shown as Active.
+    label.to_s.casecmp?("overdue") ? "Active" : label
   end
 
   def loan_interest_amount(loan)
@@ -673,32 +675,35 @@ class ShgLoansController < ApplicationController
     result = { rows: 0, loans: 0, approved_shgs: 0, skipped: 0, errors: [] }
     initialize_import_context
 
-    quiet_import_logging do
-      import_rows(file).each_with_index.each_slice(IMPORT_BATCH_SIZE) do |indexed_rows|
-        loan_batch = []
-        emi_batch = []
+    # Bulk imports submit many SHGs at once; skip one approval mail per SHG.
+    ApprovalNotifier.silence do
+      quiet_import_logging do
+        import_rows(file).each_with_index.each_slice(IMPORT_BATCH_SIZE) do |indexed_rows|
+          loan_batch = []
+          emi_batch = []
 
-        ActiveRecord::Base.transaction do
-          processed_rows = normalize_import_batch(indexed_rows, result)
-          cache_existing_import_shgs!(processed_rows)
-          result[:approved_shgs] += insert_missing_import_shgs!(processed_rows)
-          approve_existing_import_shgs!(processed_rows, result)
-          create_import_members_for_rows!(processed_rows)
+          ActiveRecord::Base.transaction do
+            processed_rows = normalize_import_batch(indexed_rows, result)
+            cache_existing_import_shgs!(processed_rows)
+            result[:approved_shgs] += insert_missing_import_shgs!(processed_rows)
+            approve_existing_import_shgs!(processed_rows, result)
+            create_import_members_for_rows!(processed_rows)
 
-          processed_rows.each do |processed|
-            attrs = processed.fetch(:attrs)
-            shg = cached_import_shg(attrs, processed.fetch(:village))
-            member = processed.fetch(:member)
-            loan_attributes = imported_loan_attributes(attrs, shg, member, processed.fetch(:created_by))
-            loan_batch << loan_attributes
-            emi_batch << imported_summary_emi_attributes(attrs, loan_attributes)
-            result[:loans] += 1
+            processed_rows.each do |processed|
+              attrs = processed.fetch(:attrs)
+              shg = cached_import_shg(attrs, processed.fetch(:village))
+              member = processed.fetch(:member)
+              loan_attributes = imported_loan_attributes(attrs, shg, member, processed.fetch(:created_by))
+              loan_batch << loan_attributes
+              emi_batch << imported_summary_emi_attributes(attrs, loan_attributes, shg.linkage_date)
+              result[:loans] += 1
+            end
+
+            insert_imported_loan_batch!(loan_batch, emi_batch)
+            result[:approved_shgs] += submit_ready_import_shgs!(processed_rows)
           end
-
-          insert_imported_loan_batch!(loan_batch, emi_batch)
-          result[:approved_shgs] += submit_ready_import_shgs!(processed_rows)
+          update_import_progress(progress_import, result)
         end
-        update_import_progress(progress_import, result)
       end
     end
 
@@ -859,6 +864,7 @@ class ShgLoansController < ApplicationController
       distribution_date: import_date(row, "disbursement date", "distribution date", "distribution_date", indexes: [ 9 ]) || Date.current,
       geography_type: import_choice(row, ShgLoan::GEOGRAPHY_TYPES, "geography", "geography type", "type of geography") || "Rural",
       loan_status: import_value(row, "loan status", "loan_status", indexes: [ 10 ]),
+      member_status: import_value(row, "member status", "borrower status", "record status", "record", "status", "active status"),
       loan_term_type: import_choice(row, ShgLoan::TERM_TYPES, "term type", "loan term type", "loan_term_type") || "Monthly",
       loan_term: import_value(row, "loan term", "loan_term", "term", indexes: [ 12 ]).presence || 1,
       principal_amount: required_import_value(row, "principal", "principal amount", "principal_amount", indexes: [ 13 ]),
@@ -1340,7 +1346,7 @@ class ShgLoansController < ApplicationController
         dob: attrs[:dob],
         mobile: attrs[:mobile],
         monthly_income: attrs[:monthly_income].presence,
-        active: true,
+        active: !imported_record_disabled?(attrs),
         created_at: timestamp,
         updated_at: timestamp
       }
@@ -1395,6 +1401,7 @@ class ShgLoansController < ApplicationController
       interest_percent: attrs[:interest_percent],
       interest_amount: imported_interest_amount(attrs),
       total_payable: imported_total_payable(attrs),
+      active: !imported_record_disabled?(attrs),
       created_at: timestamp,
       updated_at: timestamp
     }
@@ -1412,6 +1419,8 @@ class ShgLoansController < ApplicationController
   end
 
   def imported_loan_status_label(attrs)
+    return "Disabled" if imported_record_disabled?(attrs)
+
     status = attrs[:loan_status].to_s.strip
     total = imported_total_payable(attrs).to_d
     paid = attrs[:paid_amount].to_d
@@ -1421,6 +1430,14 @@ class ShgLoansController < ApplicationController
     return "Active" if remaining.to_d.positive? || paid <= 0
 
     status.presence || "Active"
+  end
+
+  # A row is disabled when its member/record status (or loan status) column says
+  # so. Such members and their loans are imported disabled, matching a manual disable.
+  def imported_record_disabled?(attrs)
+    [ attrs[:member_status], attrs[:loan_status] ].any? do |value|
+      DISABLED_IMPORT_STATUS_VALUES.include?(value.to_s.downcase.gsub(/[^a-z]/, ""))
+    end
   end
 
   def default_import_loan_status
@@ -1468,11 +1485,11 @@ class ShgLoansController < ApplicationController
     ShgLoanEmi.insert_all!(rows) if rows.any?
   end
 
-  def imported_summary_emi_attributes(attrs, loan_attributes)
+  def imported_summary_emi_attributes(attrs, loan_attributes, linkage_date)
     timestamp = loan_attributes[:created_at]
     paid_remaining = attrs[:paid_amount].to_d
 
-    imported_equal_installment_schedule(loan_attributes).map do |emi|
+    imported_equal_installment_schedule(loan_attributes, linkage_date).map do |emi|
       paid_amount = [ paid_remaining, emi[:due_amount].to_d ].min
       paid_remaining -= paid_amount
 
@@ -1501,7 +1518,7 @@ class ShgLoansController < ApplicationController
     ShgLoanEmi.insert_all!(emi_rows) if emi_rows.any?
   end
 
-  def imported_equal_installment_schedule(loan_attributes)
+  def imported_equal_installment_schedule(loan_attributes, linkage_date = nil)
     installments = loan_attributes[:loan_term].to_i
     return [] if installments <= 0
 
@@ -1527,7 +1544,11 @@ class ShgLoansController < ApplicationController
 
       {
         installment_no: index + 1,
-        due_date: loan_attributes[:distribution_date] + ((index + 1) * emi_interval_months_for(loan_attributes[:loan_term_type])).months,
+        due_date: ShgLoan.collection_due_date_for(
+          linkage_date || loan_attributes[:distribution_date],
+          installment_no: index + 1,
+          interval_months: emi_interval_months_for(loan_attributes[:loan_term_type])
+        ),
         principal_amount: principal_component.round(2),
         interest_amount: interest_component.round(2),
         due_amount: due_amount.round(2)

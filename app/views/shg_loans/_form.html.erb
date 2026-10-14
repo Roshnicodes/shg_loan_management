@@ -52,6 +52,7 @@ end %>
   <% end %>
   <label><span>Type of Geography</span><%= form.select :geography_type, ShgLoan::GEOGRAPHY_TYPES, { prompt: "Rural / Urban" }, required: true %></label>
   <label><span>Disbursement Date</span><%= form.date_field :distribution_date, required: true, data: { loan_member_details_target: "distributionDate", action: "loan-member-details#calculate" } %></label>
+  <p class="form-help full">Collection dates are set automatically from the linkage date: 1st–15th starts next month; 16th–31st starts in the second following month.</p>
   <label><span>Loan Term Type</span><%= form.select :loan_term_type, ShgLoan::TERM_TYPES, { prompt: "Select term type" }, required: true, data: { loan_member_details_target: "termType", action: "loan-member-details#calculate" } %></label>
   <label>
     <span>Loan Term</span>

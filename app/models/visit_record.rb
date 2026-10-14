@@ -1,4 +1,6 @@
 class VisitRecord < ApplicationRecord
+  include ApprovalNotifications
+
   attr_writer :block_id
 
   belongs_to :village
@@ -43,6 +45,7 @@ class VisitRecord < ApplicationRecord
 
   def approve!(user)
     raise ActiveRecord::RecordInvalid, self unless approvable_by?(user)
+    self.approval_actor = user
 
     if user.district_coordinator?
       update!(
@@ -63,12 +66,15 @@ class VisitRecord < ApplicationRecord
 
   def reject!(user, remarks = nil)
     raise ActiveRecord::RecordInvalid, self unless rejectable_by?(user)
+    self.approval_actor = user
 
     update!(approval_status: "rejected", approved_by: user, approved_at: Time.current, approval_remarks: remarks)
   end
 
   def return_for_correction!(user, remarks = nil)
     raise ActiveRecord::RecordInvalid, self unless returnable_by?(user)
+    self.approval_actor = user
+    self.approval_returned = true
 
     update!(
       approval_status: "pending_dc",
@@ -112,6 +118,7 @@ class VisitRecord < ApplicationRecord
       created_by: user
     )
     self.visit_number = visit_number.to_i + 1 if increment_visit_number
+    self.approval_actor = user
     apply_default_status_for(user)
     save!
   end

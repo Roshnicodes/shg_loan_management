@@ -258,7 +258,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "tr#loan-#{@loan.id}"
-    assert_select "tr#loan-#{@loan.id} .status.rejected", text: "Inactive"
+    assert_select "tr#loan-#{@loan.id} .status.rejected", text: "Disabled"
   end
 
   test "loan exports are ordered by numeric loan number" do
