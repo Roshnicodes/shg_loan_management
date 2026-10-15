@@ -49,7 +49,7 @@ class ShgLoansController < ApplicationController
   end
 
   def emi_schedule_export
-    stream_emi_schedule_csv(loan_number_ordered_loans(filtered_loans(preload_emis: true)))
+    stream_emi_schedule_csv(loan_number_ordered_loans(filtered_loans(preload_emis: false)))
   end
 
   def loan_no_check_export
@@ -505,15 +505,18 @@ class ShgLoansController < ApplicationController
     "COALESCE(NULLIF(substring(shg_members.loan_no FROM '-([0-9]+)$'), '')::integer, 2147483647) ASC, shg_members.loan_no ASC"
   end
 
+  # Reads the ordered ids once, then loads each batch by id. LIMIT/OFFSET made
+  # every batch re-sort the whole result, which got slow on large exports.
   def each_ordered_batch(relation, batch_size: 1_000)
-    offset = 0
+    table = relation.klass.arel_table
+    ids = relation.except(:select, :includes, :preload, :eager_load).pluck(table[:id])
+    batch_scope = relation.klass.where(nil)
+    batch_scope = batch_scope.includes(*relation.includes_values) if relation.includes_values.any?
+    batch_scope = batch_scope.preload(*relation.preload_values) if relation.preload_values.any?
 
-    loop do
-      batch = relation.limit(batch_size).offset(offset).to_a
-      break if batch.empty?
-
-      yield batch
-      offset += batch_size
+    ids.each_slice(batch_size) do |batch_ids|
+      records = batch_scope.where(id: batch_ids).index_by(&:id)
+      yield batch_ids.filter_map { |id| records[id] }
     end
   end
 
@@ -589,33 +592,46 @@ class ShgLoansController < ApplicationController
       ])
 
       each_ordered_batch(loans) do |batch|
+        # Plain values instead of EMI records keep this large export fast.
+        emis_by_loan = ShgLoanEmi.where(shg_loan_id: batch.map(&:id))
+          .order(:shg_loan_id, :installment_no)
+          .pluck(:shg_loan_id, :installment_no, :due_date, :principal_amount, :interest_amount, :due_amount, :paid_amount)
+          .group_by(&:first)
         batch.each do |loan|
-          loan.shg_loan_emis.sort_by(&:installment_no).each do |emi|
+          loan_status = record_status_label(loan)
+          member_status = record_status_label(loan.shg_member)
+          linkage_date = formatted_import_date(loan.shg.linkage_date)
+          distribution_date = formatted_import_date(loan.distribution_date)
+          crp_identifier = loan_crp_identifier(loan)
+          crp_name = loan_crp_name(loan)
+
+          emis_by_loan.fetch(loan.id, []).each do |_loan_id, installment_no, due_date, principal, interest, due, paid|
+            remaining = due.to_d - paid.to_d
             stream << CSV.generate_line([
               loan.shg.state.name,
               loan.shg.district.name,
               loan.shg.block.name,
               loan.shg.village.name,
               loan.shg.name,
-              formatted_import_date(loan.shg.linkage_date),
+              linkage_date,
               loan.shg_member.name,
               loan.shg_member.loan_no,
-              loan_crp_identifier(loan),
-              loan_crp_name(loan),
-              formatted_import_date(loan.distribution_date),
+              crp_identifier,
+              crp_name,
+              distribution_date,
               loan.loan_term_type,
               loan.loan_term,
-              emi.installment_no,
-              formatted_import_date(emi.due_date),
-              emi.due_date&.strftime("%b %Y"),
-              emi.principal_amount,
-              emi.interest_amount,
-              emi.due_amount,
-              emi.paid_amount,
-              emi.remaining_amount,
-              emi.remaining_amount.positive? ? "Pending" : "Paid",
-              record_status_label(loan),
-              record_status_label(loan.shg_member)
+              installment_no,
+              formatted_import_date(due_date),
+              due_date&.strftime("%b %Y"),
+              principal,
+              interest,
+              due,
+              paid,
+              remaining,
+              remaining.positive? ? "Pending" : "Paid",
+              loan_status,
+              member_status
             ])
           end
         end
