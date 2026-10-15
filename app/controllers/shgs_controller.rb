@@ -25,8 +25,6 @@ class ShgsController < ApplicationController
   end
 
   def export
-    return enqueue_background_export("shgs") unless background_export?
-
     stream_shgs_csv(filtered_shgs.order(created_at: :desc))
   end
 

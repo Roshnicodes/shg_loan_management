@@ -16,12 +16,6 @@ module ShgLoanManagement
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
-    # CSV exports are large and compress about 30x, so gzip them on the way out.
-    # sync: false lets zlib compress across lines instead of flushing per row.
-    config.middleware.use Rack::Deflater,
-      sync: false,
-      if: ->(_env, _status, headers, _body) { headers["content-type"].to_s.start_with?("text/csv") }
-
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

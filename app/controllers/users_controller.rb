@@ -109,8 +109,6 @@ class UsersController < ApplicationController
   end
 
   def export
-    return enqueue_background_export("users") unless background_export?
-
     stream_csv("wash360-users-#{Date.current.strftime('%Y%m%d')}.csv") do |stream|
       stream << CSV.generate_line([ "ID", "Name", "Username", "Email", "Mobile", "Role", "State", "Districts", "Blocks", "Villages", "Active", "Password" ])
 

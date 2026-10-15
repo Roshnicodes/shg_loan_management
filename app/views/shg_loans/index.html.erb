@@ -17,8 +17,6 @@
     </div>
   </div>
 
-  <%= render "shared/data_exports", kinds: %w[loans emi_schedule loan_no_check] %>
-
   <% if can_import_loan_data? %>
     <div class="inline-import-panel">
       <%= form_with url: import_shg_loans_path(index_params), multipart: true, class: "inline-import-form" do |form| %>

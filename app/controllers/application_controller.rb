@@ -585,13 +585,6 @@ class ApplicationController < ActionController::Base
   end
 
   def stream_csv(filename)
-    # Inside DataExportJob the CSV goes to a file instead of the browser.
-    if background_export?
-      @background_export_filename = filename
-      yield @background_export_writer
-      return
-    end
-
     headers["Content-Type"] = "text/csv; charset=utf-8"
     headers["Content-Disposition"] = ActionDispatch::Http::ContentDisposition.format(
       disposition: "attachment",
@@ -600,11 +593,52 @@ class ApplicationController < ActionController::Base
     headers["Cache-Control"] = "no-cache"
     headers["X-Accel-Buffering"] = "no"
     headers.delete("Content-Length")
+    gzip = request.headers["Accept-Encoding"].to_s.include?("gzip")
+    if gzip
+      headers["Content-Encoding"] = "gzip"
+      headers["Vary"] = "Accept-Encoding"
+    end
 
     self.response_body = Enumerator.new do |stream|
-      yield stream
+      output = gzip ? GzipCsvStream.new(stream) : stream
+      yield output
+      output.finish if gzip
     ensure
       stream.close if stream.respond_to?(:close)
+    end
+  end
+
+  # Gzips a streamed CSV (about 30x smaller) while still sending data every
+  # few hundred rows, so the proxy keeps receiving bytes and never times out.
+  class GzipCsvStream
+    FLUSH_EVERY = 500
+
+    def initialize(stream)
+      @stream = stream
+      @gzip = Zlib::GzipWriter.new(self)
+      @pending = 0
+      @first_line = true
+    end
+
+    def <<(line)
+      @gzip.write(line)
+      @pending += 1
+      if @first_line || @pending >= FLUSH_EVERY
+        @gzip.flush(Zlib::SYNC_FLUSH)
+        @pending = 0
+        @first_line = false
+      end
+      self
+    end
+
+    def finish
+      @gzip.finish
+    end
+
+    # Called by GzipWriter with compressed bytes.
+    def write(data)
+      @stream << data unless data.empty?
+      data.bytesize
     end
   end
 
@@ -663,25 +697,6 @@ class ApplicationController < ActionController::Base
 
   def filter_param_value(key)
     filter_param_values(key).first
-  end
-
-  def background_export?
-    @background_export_writer.present?
-  end
-
-  # Large downloads are built by DataExportJob; the page lists them with a
-  # Download button once ready, so no request waits long enough to time out.
-  def enqueue_background_export(kind)
-    export = DataExport.create!(
-      user: current_user,
-      kind: kind,
-      filter_params: request.query_parameters.except("commit", "page", "refresh_filters"),
-      request_host: request.host_with_port,
-      request_protocol: request.protocol
-    )
-    DataExportJob.perform_later(export.id)
-    redirect_back fallback_location: dashboard_path,
-      notice: "#{export.label} is being prepared. It will show under Downloads on this page with a Download button when ready."
   end
 
   def record_status_label(record)

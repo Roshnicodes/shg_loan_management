@@ -45,20 +45,14 @@ class ShgLoansController < ApplicationController
   end
 
   def export
-    return enqueue_background_export("loans") unless background_export?
-
     stream_loans_csv(loan_number_ordered_loans(filtered_loans(preload_emis: false)))
   end
 
   def emi_schedule_export
-    return enqueue_background_export("emi_schedule") unless background_export?
-
     stream_emi_schedule_csv(loan_number_ordered_loans(filtered_loans(preload_emis: false)))
   end
 
   def loan_no_check_export
-    return enqueue_background_export("loan_no_check") unless background_export?
-
     stream_loan_no_check_csv(
       loan_number_ordered_loans(filtered_loans(preload_emis: false)),
       loan_number_ordered_members(filtered_stale_loan_no_members)

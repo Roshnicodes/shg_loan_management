@@ -23,9 +23,6 @@ Rails.application.routes.draw do
   get "location_options/filters", to: "location_options#filters"
   resource :location_import, only: %i[new create]
   resource :location_export, only: :show
-  resources :data_exports, only: :index do
-    member { get :download }
-  end
 
   soft_disable_routes = lambda do
     member { patch :disable }

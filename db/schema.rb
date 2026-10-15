@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_15_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_15_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -65,25 +65,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_120000) do
     t.index ["active", "created_at"], name: "index_blocks_on_active_and_created_at"
     t.index ["district_id", "name"], name: "index_blocks_on_district_id_and_name"
     t.index ["district_id"], name: "index_blocks_on_district_id"
-  end
-
-  create_table "data_exports", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "error_message"
-    t.string "file_path"
-    t.string "filename"
-    t.jsonb "filter_params", default: {}, null: false
-    t.datetime "finished_at"
-    t.string "kind", null: false
-    t.string "request_host"
-    t.string "request_protocol"
-    t.datetime "started_at"
-    t.string "status", default: "queued", null: false
-    t.integer "total_rows", default: 0, null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["user_id", "created_at"], name: "index_data_exports_on_user_id_and_created_at"
-    t.index ["user_id"], name: "index_data_exports_on_user_id"
   end
 
   create_table "districts", force: :cascade do |t|
@@ -418,7 +399,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_120000) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "blocks", "districts"
-  add_foreign_key "data_exports", "users", on_delete: :cascade
   add_foreign_key "districts", "states"
   add_foreign_key "loan_imports", "users"
   add_foreign_key "shg_loan_emis", "shg_loans"

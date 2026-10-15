@@ -18,8 +18,6 @@ class ReportsController < ApplicationController
   end
 
   def export
-    return enqueue_background_export("reports") unless background_export?
-
     set_selected_report_filters
     loans = report_loans.order(distribution_date: :desc, id: :desc)
     amounts = loan_amounts_for(loans)

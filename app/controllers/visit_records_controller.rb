@@ -22,8 +22,6 @@ class VisitRecordsController < ApplicationController
   end
 
   def export
-    return enqueue_background_export("visits") unless background_export?
-
     stream_visits_csv(filtered_visit_records(include_attachments: false).order(visit_date: :desc, created_at: :desc))
   end
 

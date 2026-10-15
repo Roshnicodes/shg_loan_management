@@ -1621,13 +1621,6 @@ select[data-user-mapping-target="village"] {
   gap: 8px;
   margin: -6px 0 16px;
 }
-.data-export-list {
-  margin-top: 0;
-}
-.data-export-title {
-  color: var(--navy);
-  font-size: 13px;
-}
 .import-status-item {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) auto;
