@@ -27,6 +27,8 @@ class ShgMembersController < ApplicationController
   end
 
   def export
+    return enqueue_background_export("members") unless background_export?
+
     stream_members_csv(filtered_members.order(created_at: :desc))
   end
 

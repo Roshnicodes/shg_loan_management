@@ -11,6 +11,8 @@
     </div>
   </div>
 
+  <%= render "shared/data_exports", kinds: %w[reports] %>
+
   <%= form_with url: reports_path, method: :get, class: "filter-grid report-filter-grid", data: { controller: "location-select" } do |form| %>
     <label><span>Search</span><%= form.search_field :q, value: params[:q], placeholder: "Search report..." %></label>
     <label><span>From Date</span><%= form.date_field :date_from, value: params[:date_from] %></label>

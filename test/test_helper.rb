@@ -25,3 +25,21 @@ module ActiveSupport
     end
   end
 end
+
+module DataExportTestHelper
+  include ActiveJob::TestHelper
+
+  # Clicks an export button, runs the background job, and downloads the file,
+  # leaving the CSV in response.body.
+  def get_export(path)
+    perform_enqueued_jobs(only: DataExportJob) { get path }
+    assert_response :redirect
+    export = DataExport.order(:id).last
+    assert_equal "completed", export.status, export.error_message
+    get download_data_export_path(export)
+  end
+end
+
+class ActionDispatch::IntegrationTest
+  include DataExportTestHelper
+end

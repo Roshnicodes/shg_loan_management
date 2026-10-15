@@ -92,16 +92,60 @@ class IndexFiltersTest < ActionDispatch::IntegrationTest
     @shg.update_columns(active: false)
     login_as(@admin)
 
-    get export_shgs_path
+    get_export export_shgs_path
     rows = CSV.parse(response.body, headers: true)
     assert_equal "Disabled", rows.find { |row| row["SHG"] == @shg.name }["Record Status"]
     assert_equal "Active", rows.find { |row| row["SHG"] == @other_shg.name }["Record Status"]
   end
 
+  test "every export is prepared in the background and downloaded from the list" do
+    login_as(@admin)
+
+    {
+      export_shg_loans_path => "Loan Record Status",
+      emi_schedule_export_shg_loans_path => "Collection Due Date",
+      loan_no_check_export_shg_loans_path => "Loan No",
+      export_shg_members_path => "Record Status",
+      export_shgs_path => "Record Status",
+      export_visit_records_path => "Visit Date",
+      export_reports_path => "First Collection Date",
+      export_users_path => "Username"
+    }.each do |path, header|
+      get_export path
+      assert_response :success
+      assert_includes response.media_type, "csv"
+      assert_includes response.body.lines.first, header, path
+    end
+  end
+
+  test "export button returns at once and the list shows the download" do
+    login_as(@admin)
+
+    assert_enqueued_with(job: DataExportJob) { get emi_schedule_export_shg_loans_path, headers: { "Referer" => shg_loans_url } }
+    assert_redirected_to shg_loans_url
+    follow_redirect!
+    assert_select ".data-export-list[data-export-status-running-value='true']", text: /EMI Schedule Excel/
+  end
+
+  test "a download belongs only to the user who asked for it" do
+    login_as(@admin)
+    get_export export_shgs_path
+    export = DataExport.order(:id).last
+
+    other = User.create!(
+      name: "Other Admin", email: "other-admin@example.com", login_id: "253", mobile: "9876543253",
+      user_type: @admin.user_type, state: @state, password: "secret123", active: true
+    )
+    login_as(other)
+    get download_data_export_path(export)
+    assert_redirected_to dashboard_path
+    assert_not_includes response.media_type.to_s, "csv"
+  end
+
   test "emi schedule excel lists each installment with its collection date" do
     login_as(@admin)
 
-    get emi_schedule_export_shg_loans_path
+    get_export emi_schedule_export_shg_loans_path
     assert_response :success
     assert_includes response.body.lines.first, "Collection Due Date"
   end

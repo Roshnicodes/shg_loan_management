@@ -293,7 +293,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     )
     login_as(@admin)
 
-    get export_shg_loans_path(q: "ASAWO26-2")
+    get_export export_shg_loans_path(q: "ASAWO26-2")
 
     assert_response :success
     assert_operator response.body.index("ASAWO26-277"), :<, response.body.index("ASAWO26-279")
@@ -317,7 +317,7 @@ class IndexStateRetentionTest < ActionDispatch::IntegrationTest
     )
     login_as(@admin)
 
-    get loan_no_check_export_shg_loans_path(q: "ASAWO26")
+    get_export loan_no_check_export_shg_loans_path(q: "ASAWO26")
 
     assert_response :success
     assert_includes response.headers["Content-Disposition"], "loan-no-check"
