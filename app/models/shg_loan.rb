@@ -168,17 +168,42 @@ class ShgLoan < ApplicationRecord
   end
 
   def ensure_emi_schedule!
-    rebuild_emi_schedule(preserve_payments: true) if shg_loan_emis.empty? || emi_schedule_outdated?
+    if shg_loan_emis.empty? || emi_amounts_outdated?
+      rebuild_emi_schedule(preserve_payments: true)
+    else
+      refresh_collection_due_dates!
+    end
+  end
+
+  # Moves existing EMIs onto the linkage-date collection cycle without touching
+  # amounts or payments. Returns the number of EMIs whose due date changed.
+  def refresh_collection_due_dates!
+    changed = 0
+    transaction do
+      shg_loan_emis.order(:installment_no).each do |emi|
+        due_date = collection_due_date(emi.installment_no)
+        next if due_date.blank? || emi.due_date == due_date
+
+        emi.update!(due_date: due_date)
+        changed += 1
+      end
+    end
+    changed
   end
 
   def emi_schedule_outdated?
+    emi_amounts_outdated? || shg_loan_emis.any? { |emi| emi.due_date != collection_due_date(emi.installment_no) }
+  end
+
+  # Only a change in installments or amounts needs a full rebuild; a due-date
+  # change alone is handled by refresh_collection_due_dates!.
+  def emi_amounts_outdated?
     expected_schedule = expected_emi_schedule
     current_schedule = shg_loan_emis.order(:installment_no).to_a
     return true if expected_schedule.size != current_schedule.size
 
     expected_schedule.zip(current_schedule).any? do |expected, current|
-      current.due_date != expected[:due_date] ||
-        current.principal_amount.to_d.round(2) != expected[:principal_amount].to_d.round(2) ||
+      current.principal_amount.to_d.round(2) != expected[:principal_amount].to_d.round(2) ||
         current.interest_amount.to_d.round(2) != expected[:interest_amount].to_d.round(2) ||
         current.due_amount.to_d.round(2) != expected[:due_amount].to_d.round(2)
     end

@@ -25,7 +25,7 @@ class ReportsController < ApplicationController
     stream_csv("loan-report-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
         "State", "District", "Block", "Village", "CRP", "SHG / ID / Village", "Member", "Loan No",
-        "Product Code", "Disbursement Date", "Loan Status", "Collection Status", "Principal", "Total Payable",
+        "Product Code", "Disbursement Date", "Linkage Date", "First Collection Date", "Loan Status", "Collection Status", "Principal", "Total Payable",
         "Paid Amount", "Pending Amount", "Paid Installments", "Pending Installments", "Mobile"
       ])
 
@@ -42,6 +42,8 @@ class ReportsController < ApplicationController
           loan.shg_member.loan_no,
           helpers.product_code_label(loan.product),
           loan.distribution_date,
+          loan.shg.linkage_date,
+          loan.collection_start_date,
           report_loan_status(loan, amount),
           report_collection_status(amount),
           loan.principal_amount,

@@ -48,6 +48,10 @@ class ShgLoansController < ApplicationController
     stream_loans_csv(loan_number_ordered_loans(filtered_loans(preload_emis: false)))
   end
 
+  def emi_schedule_export
+    stream_emi_schedule_csv(loan_number_ordered_loans(filtered_loans(preload_emis: true)))
+  end
+
   def loan_no_check_export
     stream_loan_no_check_csv(
       loan_number_ordered_loans(filtered_loans(preload_emis: false)),
@@ -523,7 +527,7 @@ class ShgLoansController < ApplicationController
         "Term Type", "Loan term", "Principal", "Annual Interest Percent",
         "Interest Amount", "Total Payable", "Principal Collected",
         "Interest collected", "Paid", "Remaining", "Mobile",
-        "Monthly hh income"
+        "Monthly hh income", "Loan Record Status", "Member Status", "SHG Status"
       ])
 
       each_ordered_batch(loans) do |batch|
@@ -564,8 +568,56 @@ class ShgLoansController < ApplicationController
             paid_amount,
             source_import_loan?(loan) ? loan_remaining_amount(loan) : total_payable.to_d - paid_amount.to_d,
             loan.shg_member.mobile,
-            loan.shg_member.monthly_income
+            loan.shg_member.monthly_income,
+            record_status_label(loan),
+            record_status_label(loan.shg_member),
+            record_status_label(loan.shg)
           ])
+        end
+      end
+    end
+  end
+
+  # One row per EMI, with collection dates from the SHG linkage date.
+  def stream_emi_schedule_csv(loans)
+    stream_csv("emi-collection-schedule-#{Date.current}.csv") do |stream|
+      stream << CSV.generate_line([
+        "State", "District", "Block", "Village", "SHG Name", "Linkage Date", "Member", "Loan No",
+        "CRP ID", "CRPName", "Disbursement Date", "Term Type", "Loan term", "Installment No",
+        "Collection Due Date", "Collection Month", "Principal", "Interest", "Due Amount",
+        "Paid Amount", "Remaining", "Collection Status", "Loan Record Status", "Member Status"
+      ])
+
+      each_ordered_batch(loans) do |batch|
+        batch.each do |loan|
+          loan.shg_loan_emis.sort_by(&:installment_no).each do |emi|
+            stream << CSV.generate_line([
+              loan.shg.state.name,
+              loan.shg.district.name,
+              loan.shg.block.name,
+              loan.shg.village.name,
+              loan.shg.name,
+              formatted_import_date(loan.shg.linkage_date),
+              loan.shg_member.name,
+              loan.shg_member.loan_no,
+              loan_crp_identifier(loan),
+              loan_crp_name(loan),
+              formatted_import_date(loan.distribution_date),
+              loan.loan_term_type,
+              loan.loan_term,
+              emi.installment_no,
+              formatted_import_date(emi.due_date),
+              emi.due_date&.strftime("%b %Y"),
+              emi.principal_amount,
+              emi.interest_amount,
+              emi.due_amount,
+              emi.paid_amount,
+              emi.remaining_amount,
+              emi.remaining_amount.positive? ? "Pending" : "Paid",
+              record_status_label(loan),
+              record_status_label(loan.shg_member)
+            ])
+          end
         end
       end
     end

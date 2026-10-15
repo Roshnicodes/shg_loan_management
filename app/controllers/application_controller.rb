@@ -658,6 +658,10 @@ class ApplicationController < ActionController::Base
     filter_param_values(key).first
   end
 
+  def record_status_label(record)
+    record&.active? ? "Active" : "Disabled"
+  end
+
   def active_record_filter(relation)
     statuses = filter_param_values(:record_status) & %w[active disabled]
     return relation if statuses.blank? || statuses.size == 2

@@ -282,7 +282,7 @@ class ShgMembersController < ApplicationController
       stream << CSV.generate_line([
         "Member", "Spouse/Father Name", "SHG", "Loan No", "Aadhaar Number",
         "Work/Activity", "Date of Birth", "Mobile", "Monthly HH Income",
-        "Office Location", "Borrower Short Address", "State", "District", "Block", "Village", "Created At"
+        "Office Location", "Borrower Short Address", "State", "District", "Block", "Village", "Created At", "Record Status"
       ])
 
       members.reorder(nil).find_each(batch_size: 1_000) do |member|
@@ -302,7 +302,8 @@ class ShgMembersController < ApplicationController
           member.shg.district.name,
           member.shg.block.name,
           member.shg.village.name,
-          member.created_at
+          member.created_at,
+          record_status_label(member)
         ])
       end
     end

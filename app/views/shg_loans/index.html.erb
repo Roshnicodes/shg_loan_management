@@ -7,6 +7,7 @@
     <div class="action-row">
       <%= link_to "Export CSV", export_shg_loans_path(request.query_parameters), class: "secondary-link" %>
       <%= link_to "Loan No Check Excel", loan_no_check_export_shg_loans_path(request.query_parameters), class: "secondary-link" %>
+      <%= link_to "EMI Schedule Excel", emi_schedule_export_shg_loans_path(request.query_parameters), class: "secondary-link" %>
       <% if can_bulk_delete_records? %>
         <%= form_with url: bulk_disable_shg_loans_path(request.query_parameters), method: :patch, id: "bulk-disable-loans" do |form| %>
           <%= form.submit "Disable Selected", class: "warning-link", data: { turbo_confirm: "Disable selected loans?" } %>

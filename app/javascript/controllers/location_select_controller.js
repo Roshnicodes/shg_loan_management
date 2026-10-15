@@ -5,6 +5,7 @@ export default class extends Controller {
   static values = { autoSubmit: Boolean, remote: Boolean, remoteShgs: Boolean, includeInactiveShgs: Boolean, strict: Boolean, filterRemote: Boolean }
 
   connect() {
+    this.stateOptions = this.hasStateTarget ? this.cloneOptions(this.stateTarget) : []
     this.districtOptions = this.hasDistrictTarget ? this.cloneOptions(this.districtTarget) : []
     this.blockOptions = this.hasBlockTarget ? this.cloneOptions(this.blockTarget) : []
     this.villageOptions = this.hasVillageTarget ? this.cloneOptions(this.villageTarget) : []
@@ -25,6 +26,8 @@ export default class extends Controller {
   }
 
   filterAll() {
+    if (this.filterRemoteValue && this.hasStateTarget) this.restoreSelect(this.stateTarget, this.stateOptions)
+
     if (this.hasDistrictTarget && this.hasStateTarget) {
       this.filterSelect(this.districtTarget, this.districtOptions, "stateId", this.selectedValues(this.stateTarget))
     }
@@ -119,20 +122,27 @@ export default class extends Controller {
     this.submitForm()
   }
 
-  userChanged() {
+  async userChanged() {
     if (this.hasShgTarget) this.clearValue(this.shgTarget)
     if (this.hasMemberTarget) this.clearValue(this.memberTarget)
     if (this.hasLoanTarget) this.clearValue(this.loanTarget)
+    if (this.filterRemoteValue) await this.refreshFilterOptions()
     this.filterAll()
     this.submitForm()
   }
 
-  shgChanged() {
+  async shgChanged() {
     if (this.hasMemberTarget) this.clearValue(this.memberTarget)
     if (this.hasLoanTarget) this.clearValue(this.loanTarget)
     if (this.remoteValue) {
       if (this.hasMemberTarget) this.clearSelect(this.memberTarget, "Select member")
       if (this.hasMemberTarget && this.shgTarget.value) this.loadRemoteMembers()
+      return
+    }
+    if (this.filterRemoteValue) {
+      await this.refreshFilterOptions()
+      this.filterAll()
+      this.submitForm()
       return
     }
     this.filterAfterShg()
@@ -284,8 +294,9 @@ export default class extends Controller {
     const selectedValues = this.selectedValues(select)
     select.innerHTML = ""
 
+    // A chosen user stays chosen even when the location filters narrow the list.
     originalOptions.forEach((option) => {
-      if (option.value === "" || this.optionMatchesLocation(option)) {
+      if (option.value === "" || (this.filterRemoteValue && selectedValues.includes(option.value)) || this.optionMatchesLocation(option)) {
         select.appendChild(option.cloneNode(true))
       }
     })
@@ -517,10 +528,13 @@ export default class extends Controller {
       state_id: this.selectedValues(this.hasStateTarget ? this.stateTarget : null),
       district_id: this.selectedValues(this.hasDistrictTarget ? this.districtTarget : null),
       block_id: this.selectedValues(this.hasBlockTarget ? this.blockTarget : null),
-      village_id: this.selectedValues(this.hasVillageTarget ? this.villageTarget : null)
+      village_id: this.selectedValues(this.hasVillageTarget ? this.villageTarget : null),
+      crp_id: this.selectedValues(this.hasCrpTarget ? this.crpTarget : null),
+      shg_id: this.selectedValues(this.hasShgTarget ? this.shgTarget : null)
     })
     if (!data || requestId !== this.filterRequestId) return
 
+    if (this.hasStateTarget && data.states) this.stateOptions = this.buildOptions(data.states)
     if (this.hasDistrictTarget && data.districts) this.districtOptions = this.buildOptions(data.districts)
     if (this.hasBlockTarget && data.blocks) this.blockOptions = this.buildOptions(data.blocks)
     if (this.hasVillageTarget && data.villages) this.villageOptions = this.buildOptions(data.villages)

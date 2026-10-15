@@ -1346,6 +1346,18 @@ select[data-user-mapping-target="village"] {
 .multi-select-menu[hidden] {
   display: none;
 }
+.multi-select-search {
+  position: sticky;
+  top: -10px;
+  z-index: 1;
+  background: #fff;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid rgba(25,150,165,.32);
+  border-radius: 10px;
+  font-size: 14px;
+}
 .multi-select-options {
   display: grid;
   gap: 4px;

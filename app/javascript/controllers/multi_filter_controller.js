@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["select", "toggle", "menu", "options", "selected"]
+  static targets = ["select", "toggle", "menu", "options", "selected", "search"]
   static values = { placeholder: String }
 
   connect() {
@@ -23,6 +23,7 @@ export default class extends Controller {
     const opening = this.menuTarget.hidden
     this.menuTarget.hidden = !opening
     this.toggleTarget.classList.toggle("open", opening)
+    if (opening && this.hasSearchTarget) this.searchTarget.focus()
   }
 
   close() {
@@ -30,6 +31,20 @@ export default class extends Controller {
 
     this.menuTarget.hidden = true
     this.toggleTarget.classList.remove("open")
+    if (this.hasSearchTarget && this.searchTarget.value) {
+      this.searchTarget.value = ""
+      this.renderOptions()
+    }
+  }
+
+  search() {
+    this.renderOptions()
+  }
+
+  // Enter in the search box must not submit the filter form.
+  searchKeydown(event) {
+    if (event.key === "Enter") event.preventDefault()
+    if (event.key === "Escape") this.close()
   }
 
   selectChanged() {
@@ -70,12 +85,15 @@ export default class extends Controller {
 
   renderOptions() {
     this.optionsTarget.innerHTML = ""
-    const options = Array.from(this.selectTarget.options).filter((option) => option.value !== "")
+    const query = this.hasSearchTarget ? this.searchTarget.value.trim().toLowerCase() : ""
+    const options = Array.from(this.selectTarget.options).filter((option) => (
+      option.value !== "" && (!query || option.textContent.toLowerCase().includes(query))
+    ))
 
     if (options.length === 0) {
       const empty = document.createElement("div")
       empty.className = "multi-select-empty"
-      empty.textContent = "No options"
+      empty.textContent = query ? "No matching options" : "No options"
       this.optionsTarget.appendChild(empty)
       return
     }

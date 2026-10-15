@@ -237,7 +237,7 @@ class ShgsController < ApplicationController
         "State", "District", "Block", "Village", "Linkage Date",
         "Approval", "Meeting Photo Uploaded", "Meeting Register Uploaded",
         "Meeting Photo Download", "Meeting Register Download",
-        "Created By", "DC Approval", "Assistant Approval", "Remarks"
+        "Created By", "DC Approval", "Assistant Approval", "Remarks", "Record Status"
       ])
 
       shgs.reorder(nil).find_each(batch_size: 1_000) do |shg|
@@ -259,7 +259,8 @@ class ShgsController < ApplicationController
           shg.created_by&.name,
           shg.dc_approved_by&.name,
           shg.assistant_approved_by&.name,
-          shg.approval_remarks
+          shg.approval_remarks,
+          record_status_label(shg)
         ])
       end
     end

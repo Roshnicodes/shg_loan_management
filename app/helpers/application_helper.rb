@@ -159,6 +159,7 @@ module ApplicationHelper
             button_tag(placeholder, type: "button", class: "multi-select-toggle", data: { multi_filter_target: "toggle", action: "multi-filter#toggle" }),
             content_tag(:div, class: "multi-select-menu", hidden: true, data: { multi_filter_target: "menu" }) do
               safe_join([
+                tag.input(type: "search", class: "multi-select-search", placeholder: "Type to search...", autocomplete: "off", aria: { label: "Search #{label}" }, data: { multi_filter_target: "search", action: "input->multi-filter#search keydown->multi-filter#searchKeydown" }),
                 content_tag(:div, "", class: "selected-options-bar", data: { multi_filter_target: "selected" }),
                 content_tag(:div, "", class: "multi-select-options", data: { multi_filter_target: "options" })
               ])

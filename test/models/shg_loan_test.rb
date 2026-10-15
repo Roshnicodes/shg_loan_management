@@ -28,6 +28,22 @@ class ShgLoanTest < ActiveSupport::TestCase
     assert_equal Date.new(2026, 11, 20), loan.reload.shg_loan_emis.order(:installment_no).first.due_date
   end
 
+  test "moves old saved due dates onto the linkage cycle and keeps payments" do
+    shg = shgs(:one)
+    shg.update_columns(linkage_date: Date.new(2026, 9, 5), active: true, approval_status: "pending_dc")
+    loan = persisted_schedule_loan(shg)
+    first_emi = loan.shg_loan_emis.order(:installment_no).first
+    first_emi.update_columns(due_date: Date.new(2026, 10, 11), paid_amount: 100, paid_on: Date.new(2026, 10, 1))
+
+    loan.reload.ensure_emi_schedule!
+    assert_equal 0, loan.reload.refresh_collection_due_dates!
+
+    first_emi = loan.shg_loan_emis.order(:installment_no).first
+    assert_equal Date.new(2026, 10, 5), first_emi.due_date
+    assert_equal 100, first_emi.paid_amount
+    assert_equal Date.new(2026, 10, 1), first_emi.paid_on
+  end
+
   test "uses selected member shg as source of truth" do
     shg = shgs(:one)
     shg.update_columns(active: true, approval_status: "pending_dc")

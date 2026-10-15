@@ -53,6 +53,59 @@ class IndexFiltersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "a selected crp or shg narrows the location options above it" do
+    crp = User.create!(
+      name: "Filter CRP",
+      email: "filter-crp@example.com",
+      login_id: "252",
+      mobile: "9876543252",
+      user_type: UserType.create!(name: "Filter CRP Type", code: "CRP", level: "village"),
+      state: @state,
+      district: @district,
+      password: "secret123",
+      active: true
+    )
+    @other_shg.update_columns(created_by_id: crp.id)
+    login_as(@admin)
+
+    get location_options_filters_path, params: { crp_id: [ crp.id ] }
+    data = JSON.parse(response.body)
+    assert_equal [ @other_block.id ], data["blocks"].map { |block| block["id"] }
+    assert_equal [ @other_village.id ], data["villages"].map { |village| village["id"] }
+    assert_equal [ @other_shg.id ], data["shgs"].map { |shg| shg["id"] }
+    assert_equal [ @state.id ], data["states"].map { |state| state["id"] }
+
+    get location_options_filters_path, params: { shg_id: [ @shg.id ] }
+    data = JSON.parse(response.body)
+    assert_equal [ @block.id ], data["blocks"].map { |block| block["id"] }
+    assert_includes data["shgs"].map { |shg| shg["id"] }, @other_shg.id
+  end
+
+  test "filter dropdowns have a type to search box" do
+    login_as(@admin)
+
+    get shg_loans_path
+    assert_select ".multi-select-menu input.multi-select-search[data-multi-filter-target='search']:not([name])"
+  end
+
+  test "excel exports show disabled records" do
+    @shg.update_columns(active: false)
+    login_as(@admin)
+
+    get export_shgs_path
+    rows = CSV.parse(response.body, headers: true)
+    assert_equal "Disabled", rows.find { |row| row["SHG"] == @shg.name }["Record Status"]
+    assert_equal "Active", rows.find { |row| row["SHG"] == @other_shg.name }["Record Status"]
+  end
+
+  test "emi schedule excel lists each installment with its collection date" do
+    login_as(@admin)
+
+    get emi_schedule_export_shg_loans_path
+    assert_response :success
+    assert_includes response.body.lines.first, "Collection Due Date"
+  end
+
   private
 
   def build_shg(name, code, block, village)
