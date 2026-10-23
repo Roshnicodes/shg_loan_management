@@ -3126,3 +3126,8 @@ select[data-user-mapping-target="village"] {
   .login-benefits { padding: 14px 18px; margin-top: 0; }
   .login-benefits small { display: none; }
 }
+.status + small.muted-cell {
+  display: block;
+  margin-top: 4px;
+  max-width: 220px;
+}

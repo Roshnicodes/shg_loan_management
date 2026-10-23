@@ -159,4 +159,53 @@ class ShgTest < ActiveSupport::TestCase
     assert_match(/\AASAWO26-\d{2,}\z/, active_member.reload.loan_no)
     assert_nil inactive_member.reload.loan_no
   end
+
+  test "a draft stuck without meeting files goes for approval once they are uploaded" do
+    shg = shgs(:one)
+    shg.update_columns(approval_status: "draft", active: true)
+    shg.meeting_photo.purge
+    shg.meeting_register.purge
+    member = ShgMember.create!(
+      shg: shg,
+      occupation: occupations(:one),
+      activity: activities(:one),
+      name: "Stuck Draft Member",
+      spouse_father_name: "Stuck Draft Guardian",
+      gender: "Female",
+      dob: Date.new(1990, 1, 1),
+      mobile: "9876543281",
+      monthly_income: 10_000,
+      aadhaar_no: "123456789081"
+    )
+    ShgLoan.create!(
+      shg: shg,
+      shg_member: member,
+      product: products(:one),
+      activity: activities(:one),
+      loan_status: loan_statuses(:one),
+      created_by: users(:one),
+      distribution_date: Date.current,
+      geography_type: "Rural",
+      loan_term_type: "Monthly",
+      loan_term: 12,
+      principal_amount: 10_000,
+      interest_percent: 1.0
+    )
+
+    shg.reload
+    assert_equal "draft", shg.approval_status
+    assert_includes shg.draft_reason, "Meeting photo must be uploaded"
+
+    attach_required_shg_files(shg)
+    shg.save!
+
+    assert_equal "pending_dc", shg.reload.approval_status
+  end
+
+  test "a draft without a member loan explains why it waits" do
+    shg = shgs(:one)
+    shg.update_columns(approval_status: "draft")
+
+    assert_equal "Add at least one active member loan to send for approval", shg.reload.draft_reason
+  end
 end

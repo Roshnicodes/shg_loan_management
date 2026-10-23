@@ -16,7 +16,7 @@ class ShgLoan < ApplicationRecord
   before_validation :set_defaults
   before_save :calculate_totals
   after_commit :rebuild_emi_schedule, on: %i[create update], unless: :manual_total_loan?
-  after_commit :submit_shg_for_approval, on: :create
+  after_commit :submit_shg_for_approval, on: %i[create update]
   after_update :clear_previous_member_loan_number_if_orphaned, if: :saved_change_to_shg_member_id?
   after_destroy :clear_current_member_loan_number_if_orphaned
 
@@ -274,6 +274,6 @@ class ShgLoan < ApplicationRecord
   end
 
   def submit_shg_for_approval
-    shg.submit_for_approval!(created_by) if shg&.draft?
+    shg.submit_for_approval_if_ready!(created_by) if shg&.draft?
   end
 end

@@ -22,6 +22,9 @@ class Shg < ApplicationRecord
   before_validation :sync_location_from_village
   after_update :sync_visit_village_references, if: :saved_change_to_village_id?
   after_update_commit :refresh_loan_emi_schedules, if: :saved_change_to_linkage_date?
+  # A draft that became ready later (e.g. meeting files uploaded after the loans
+  # were added) goes for approval when it is saved.
+  after_update_commit :submit_draft_if_ready, if: :draft?
 
   validates :state, :district, :block, :village, :name, :shg_code, :linkage_date, presence: true
   validates :name, uniqueness: { case_sensitive: false }
@@ -41,6 +44,15 @@ class Shg < ApplicationRecord
   def pending_assistant? = approval_status == "pending_assistant"
   def approved? = approval_status == "approved"
   def approval_label = approval_status.to_s.titleize
+
+  # Why a draft has not gone for approval yet, shown under its status.
+  def draft_reason
+    return unless draft?
+    return "Add at least one active member loan to send for approval" unless ready_for_approval?
+    return "Fix before approval: #{errors.full_messages.to_sentence}" unless valid?
+
+    "Ready - save the SHG to send for approval"
+  end
 
   def ready_for_approval?
     active_shg_members.exists? && active_member_loans.exists?
@@ -202,6 +214,10 @@ class Shg < ApplicationRecord
 
   def sync_visit_village_references
     visit_records.where.not(village_id: village_id).update_all(village_id: village_id, updated_at: Time.current)
+  end
+
+  def submit_draft_if_ready
+    submit_for_approval_if_ready!
   end
 
   def refresh_loan_emi_schedules

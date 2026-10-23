@@ -93,6 +93,7 @@ class ShgMembersController < ApplicationController
     end
 
     @member.update_columns(active: true, updated_at: Time.current)
+    @member.shg.submit_for_approval_if_ready! if @member.shg&.draft?
     redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG member activated successfully."
   end
 
@@ -110,6 +111,8 @@ class ShgMembersController < ApplicationController
 
   def bulk_activate
     result = activate_records(visible_shg_members, params[:ids])
+    Shg.where(id: visible_shg_members.where(id: params[:ids]).select(:shg_id), approval_status: "draft")
+      .find_each(&:submit_for_approval_if_ready!)
     redirect_to results_redirect_path(:shg_members_path, MEMBER_INDEX_PARAMS), notice: "SHG members activated: #{result[:activated]}, skipped: #{result[:skipped]}."
   end
 

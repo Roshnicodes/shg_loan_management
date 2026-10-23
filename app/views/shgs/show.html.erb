@@ -25,6 +25,7 @@
     <div class="show-status-block">
       <span>Approval</span>
       <strong><span class="status <%= @shg.approval_status %>"><%= @shg.approval_label %></span></strong>
+      <% if @shg.draft? %><small class="muted-cell"><%= @shg.draft_reason %></small><% end %>
     </div>
   </div>
 

@@ -89,7 +89,7 @@
             <td><%= shg.borrower_short_address.presence || "-" %></td>
             <td><%= shg.linkage_date %></td>
             <td><span class="status <%= shg.active? ? "approved" : "rejected" %>"><%= shg.active? ? "Active" : "Inactive" %></span></td>
-            <td><span class="status <%= shg.approval_status %>"><%= shg.approval_label %></span></td>
+            <td><span class="status <%= shg.approval_status %>"><%= shg.approval_label %></span><% if shg.draft? %><small class="muted-cell"><%= shg.draft_reason %></small><% end %></td>
             <td>
               <div class="attachment-list">
                 <div class="attachment-item">
