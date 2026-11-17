@@ -10,6 +10,8 @@ class ShgLoan < ApplicationRecord
   has_many :shg_loan_emis, dependent: :destroy
 
   TERM_TYPES = [ "Monthly", "Quarterly", "Half Yearly", "Yearly" ].freeze
+  # The programme's loans start in August 2026; earlier dates are typing mistakes.
+  MIN_DISBURSEMENT_DATE = Date.new(2026, 8, 1)
   GEOGRAPHY_TYPES = [ "Rural", "Urban" ].freeze
 
   before_validation :sync_shg_from_member
@@ -25,6 +27,9 @@ class ShgLoan < ApplicationRecord
   validates :loan_term_type, inclusion: { in: TERM_TYPES }
   validates :principal_amount, numericality: { greater_than: 0 }
   validates :interest_percent, numericality: { greater_than_or_equal_to: 0, allow_blank: true }
+  # Only checked when the date is entered or changed, so older loans (e.g. the
+  # 2024 import) can still be edited without touching their date.
+  validate :distribution_date_not_before_minimum, if: :will_save_change_to_distribution_date?
 
   def emi_interval_months
     case loan_term_type
@@ -275,5 +280,11 @@ class ShgLoan < ApplicationRecord
 
   def submit_shg_for_approval
     shg.submit_for_approval_if_ready!(created_by) if shg&.draft?
+  end
+
+  def distribution_date_not_before_minimum
+    return if distribution_date.blank? || distribution_date >= MIN_DISBURSEMENT_DATE
+
+    errors.add(:distribution_date, "cannot be before #{MIN_DISBURSEMENT_DATE.strftime('%d/%m/%Y')}")
   end
 end

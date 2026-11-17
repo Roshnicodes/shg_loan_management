@@ -44,6 +44,30 @@ class ShgLoanTest < ActiveSupport::TestCase
     assert_equal Date.new(2026, 10, 1), first_emi.paid_on
   end
 
+  test "disbursement date cannot be before 1 August 2026" do
+    shg = shgs(:one)
+    shg.update_columns(active: true, approval_status: "pending_dc")
+    loan = persisted_schedule_loan(shg)
+
+    loan.distribution_date = Date.new(2026, 7, 31)
+    assert_not loan.valid?
+    assert_includes loan.errors[:distribution_date], "cannot be before 01/08/2026"
+
+    loan.distribution_date = ShgLoan::MIN_DISBURSEMENT_DATE
+    assert loan.valid?
+  end
+
+  test "older loans can still be edited without touching their date" do
+    shg = shgs(:one)
+    shg.update_columns(active: true, approval_status: "pending_dc")
+    loan = persisted_schedule_loan(shg)
+    loan.update_columns(distribution_date: Date.new(2024, 5, 10))
+
+    loan.reload.principal_amount = 11_000
+    assert loan.save, loan.errors.full_messages.to_sentence
+    assert_equal Date.new(2024, 5, 10), loan.reload.distribution_date
+  end
+
   test "uses selected member shg as source of truth" do
     shg = shgs(:one)
     shg.update_columns(active: true, approval_status: "pending_dc")

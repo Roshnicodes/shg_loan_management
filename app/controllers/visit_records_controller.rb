@@ -22,7 +22,7 @@ class VisitRecordsController < ApplicationController
   end
 
   def export
-    stream_visits_csv(filtered_visit_records(include_attachments: false).order(visit_date: :desc, created_at: :desc))
+    stream_visits_csv(filtered_visit_records(include_attachments: false).includes(shg_member: :activity).order(visit_date: :desc, created_at: :desc))
   end
 
   def show; end
@@ -221,7 +221,7 @@ class VisitRecordsController < ApplicationController
     stream_csv("visit-records-#{Date.current}.csv") do |stream|
       stream << CSV.generate_line([
         "Visit Date", "Visit No.", "State", "District", "Block", "Village", "SHG", "Member", "Loan No",
-        "Mobile", "Office Location", "Borrower Short Address", "Product", "Purpose", "Observations", "Approval",
+        "Work/Activity", "Mobile", "Office Location", "Borrower Short Address", "Product", "Purpose", "Observations", "Approval",
         "Created By", "DC Approval", "Assistant Approval", "Remarks"
       ])
 
@@ -236,6 +236,7 @@ class VisitRecordsController < ApplicationController
           visit.shg.name,
           visit.shg_member.name,
           visit.shg_member.loan_no,
+          visit.shg_member.work_activity_name,
           visit.shg_member.mobile,
           visit.shg.office_location,
           visit.shg.borrower_short_address,

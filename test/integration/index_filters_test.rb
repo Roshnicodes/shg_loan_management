@@ -123,6 +123,27 @@ class IndexFiltersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "visit excel shows the member work" do
+    login_as(@admin)
+
+    get export_visit_records_path
+    assert_response :success
+    assert_includes response.body.lines.first, "Loan No,Work/Activity,Mobile"
+  end
+
+  test "loan form does not allow a disbursement date before 1 August 2026" do
+    dc = User.create!(
+      name: "Filter DC", email: "filter-dc@example.com", login_id: "254", mobile: "9876543254",
+      user_type: UserType.create!(name: "Filter DC Type", code: "DIST_COORDINATOR", level: "district"),
+      state: @state, district: @district, password: "secret123", active: true
+    )
+    login_as(dc)
+
+    get new_shg_loan_path
+    assert_response :success
+    assert_select "input[name='shg_loan[distribution_date]'][min='2026-08-01']"
+  end
+
   test "emi schedule excel lists each installment with its collection date" do
     login_as(@admin)
 
